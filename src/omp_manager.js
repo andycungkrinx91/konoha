@@ -19,7 +19,7 @@ const {
   OMP_SKILLS,
   FILE_TOOLS_LAUNCHER_JS,
   SERVER_PATH
-} = require('../bin/lib/paths');
+} = require('./config_access').loadBinLib('paths');
 
 const {
   fileExists,
@@ -28,11 +28,23 @@ const {
   fileExistsCached
 } = require('./platform_utils');
 
-const { SEMBLE_PACKAGE, AISLOP_PACKAGE, resolveUvxExecutablePath } = require('./semble_manager');
-const { buildMainAgentContract, buildManagedContract } = require('./agent_contract');
+const { AISLOP_PACKAGE } = require('./uvx_runtime');
+const { buildMainAgentContract, buildManagedContract, buildSubagentContract } = require('./agent_contract');
 const { KONOHA_CANONICAL_TOOLS } = require('./deploy_utils');
+const { assertNoWildcardGrants, SUBAGENT_SAFE_MCP_GRANTS } = require('./mcp_clients/common');
+const {
+  AGENT_OWNERSHIP_MARKER,
+  isReadOnlyAgent,
+  isRouterAgent,
+  getRoleDescription,
+  writeAgentFileSafe,
+  writeManagedFileSafe
+} = require('./agent_file_safety');
+const { getDeployableAgents, getDeployableAgentNames } = require('./canonical_agents');
+const { loadAgents } = require('./agent_storage');
+const { GENIN_BLOCKED_TOOLS } = require('./mcp/genin_guard');
 
-const KONOHA_SERVER_KEYS = ['konoha', 'semble', 'aislop'];
+const KONOHA_SERVER_KEYS = ['konoha', 'aislop'];
 const CONTRACT_START_MARKER = '<!-- KONOHA-CONTRACT-START -->';
 const CONTRACT_END_MARKER = '<!-- KONOHA-CONTRACT-END -->';
 const OMP_MANDATE_HEADING = '## Konoha Workflow Mandate (OMP) — MANDATORY';
@@ -79,7 +91,7 @@ function buildOmpWorkflowAddendum() {
   return `
 ## Konoha Workflow Mandate (OMP) — MANDATORY
 
-- **OMP Auto-Enable & Auto-Use Mandate**: On every new or resumed session, OMP automatically enables and uses the Konoha MCP server tools (\`konoha.find_skill\`, \`konoha.get_skill\`, \`semble.search\`) as primary execution tools.
+- **OMP Auto-Enable & Auto-Use Mandate**: On every new or resumed session, OMP automatically enables and uses the Konoha MCP server tools (\`konoha.find_skill\`, \`konoha.get_skill\`, \`konoha.code_search\`) as primary execution tools.
 - **Advisor Preservation**: OMP's built-in advisor review (\`reviewMode: agent-end\`) must always run after all Konoha multi-agent workflows, subagent delegations, and Kage review gates finish cleanly. Never abort the turn early or bypass advisor post-review.
 - **Route through the village, never free-run**: for any non-trivial task, start from the \`konoha\` MCP tool \`sannin\` (task triage + \`get_resolved_task_dir\`) and follow the structured phases — explore with \`genin\`, plan with \`kage\`, execute with \`jonin\`/\`anbu\`/\`chunin\`, document with \`tokubetsu-jonin\`, review with \`kage\`. Do NOT decompose and execute multi-step engineering work yourself.
 - **Step 0: Classify request — ALWAYS FIRST (Branch A vs Branch B)**:
@@ -96,7 +108,7 @@ function buildOmpWorkflowAddendum() {
   - **Mandatory package.json Scripts Invariant**: Across all 4 supported frameworks (Next.js, SvelteKit, Nuxt, Angular), every generated or scaffolded project's \`package.json\` MUST always define working scripts for \`"lint"\` (\`pnpm run lint\`), \`"build"\` (\`pnpm run build\`), and \`"start"\` (\`pnpm run start\`) (plus \`"check"\` for SvelteKit). All three commands must execute cleanly without missing script errors.
   - **Zero Errors & Zero Warnings**: Do not claim completion until every configured framework validation command (\`pnpm run build\`, \`pnpm run lint\`, \`pnpm run check\` for SvelteKit) passes cleanly with 0 errors and 0 warnings.
 - **Skills via Konoha MCP first**: use \`konoha.find_skill\` / \`konoha.get_skill\` instead of the native \`/skill:\` mirrors. The project \`.agents/skills/\` entries are pre-seeded mirrors of the same skills; duplicate-skill warnings are automatically filtered by konoha-blocker; prefer the Konoha MCP path.
-- **Code search via Semble**: use \`semble.search\` / \`semble.find_related\` with the absolute repository path — never native grep/glob/find for codebase discovery.
+- **Code search via \`code_search\`**: index the repository once with \`code_index\`, then use \`code_search\` / \`code_symbol\` / \`code_impact\` — never native grep/glob/find for codebase discovery.
 - **Bounded file tools**: use \`konoha.read_file_head\`, \`read_file_range\`, \`file_info\`, \`get_file_structure\`, \`find_files_clean\`, \`token_efficient_grep\` instead of native read/grep when scanning the repository.
 - **Workflow artifacts** (\`plan.md\`, \`findings.md\`, \`final_docs.md\`, \`kage_review.json\`) live in the task directory returned by \`konoha.get_resolved_task_dir\` — never in the workspace root.
 - **Delivery gate**: never claim completion without validation evidence (\`0 errors and 0 warnings\`). Kage review (\`confidence >= 98\`, \`ai_slop_findings = 0\`, \`ai_slop_clean = true\`) is mandatory before final delivery.
@@ -119,7 +131,6 @@ function buildOmpMcpServers(options = {}) {
     launcherPath = fileExists(FILE_TOOLS_LAUNCHER_JS) ? FILE_TOOLS_LAUNCHER_JS : SERVER_PATH;
   }
   const npxCmd = isWin ? 'npx.cmd' : 'npx';
-  const resolvedUvx = resolveUvxExecutablePath ? (resolveUvxExecutablePath(options.uvxCmd) || options.uvxCmd || (isWin ? 'uvx.exe' : 'uvx')) : (options.uvxCmd || (isWin ? 'uvx.exe' : 'uvx'));
 
   const home = options.home || HOME;
   const localBin = path.join(home, '.local', 'bin');
@@ -139,22 +150,6 @@ function buildOmpMcpServers(options = {}) {
         PATH: clientPathEnv
       },
       autoApprove: KONOHA_CANONICAL_TOOLS ? [...KONOHA_CANONICAL_TOOLS] : [],
-      auto_approve: true
-    },
-    semble: {
-      type: 'stdio',
-      command: resolvedUvx,
-      args: [
-        '--from',
-        SEMBLE_PACKAGE,
-        'semble',
-        '--content',
-        'all'
-      ],
-      env: {
-        PATH: clientPathEnv
-      },
-      autoApprove: ['search', 'find_related'],
       auto_approve: true
     },
     aislop: {
@@ -264,25 +259,98 @@ function deployOmpRtkRule(options = {}) {
   const targetFile = path.join(targetDir, 'rtk.md');
 
   try {
-    ensureDir(targetDir);
-    if (fileExists(targetFile)) {
-      const backupMgr = require('./config_backup_manager');
-      backupMgr.ensureBackupBeforeModify(targetFile, { client: 'omp', scope: 'global', ...options });
-    }
     const sourceRtk = path.join(__dirname, 'templates', 'rules', 'rtk.md');
-    if (fileExists(sourceRtk)) {
-      fs.copyFileSync(sourceRtk, targetFile);
-    } else {
-      const content = '# RTK Mandatory Rule\n\nALWAYS prefix command execution with `rtk`.\n';
-      fs.writeFileSync(targetFile, content, 'utf-8');
-    }
-    if (!silent) process.stderr.write(`✓ RTK rule deployed to OMP: ${targetFile}\n`);
-    return { ok: true, targetFile };
+    const content = fileExists(sourceRtk)
+      ? fs.readFileSync(sourceRtk, 'utf8')
+      : '# RTK Mandatory Rule\n\nALWAYS prefix command execution with `rtk`.\n';
+    const writeRes = writeManagedFileSafe(targetFile, content, {
+      silent,
+      onBeforeOverwrite: (p) => {
+        const backupMgr = require('./config_backup_manager');
+        backupMgr.ensureBackupBeforeModify(p, { client: 'omp', scope: 'global', ...options });
+      }
+    });
+    if (writeRes.status !== 'conflict' && !silent) process.stderr.write(`✓ RTK rule deployed to OMP: ${targetFile}\n`);
+    return { ok: true, targetFile, status: writeRes.status };
   } catch (err) {
     if (err && /backup/i.test(err.message)) throw err;
     if (!silent) console.warn(`⚠ OMP RTK rule deployment failed: ${err.message}`);
     return { ok: false, reason: 'omp-rtk-deploy-failed', error: err.message };
   }
+}
+
+const OMP_READONLY_TOOLS = Object.freeze(['read', 'grep', 'find', 'ls', 'fetch', 'web_search']);
+const OMP_WRITE_TOOLS = Object.freeze(['write', 'edit', 'bash']);
+
+function buildOmpSubagentTools(agent) {
+  const readOnly = isReadOnlyAgent(agent);
+  const router = isRouterAgent(agent);
+  const blocked = new Set(GENIN_BLOCKED_TOOLS);
+  const builtins = readOnly
+    ? [...OMP_READONLY_TOOLS]
+    : [...OMP_READONLY_TOOLS, ...OMP_WRITE_TOOLS, ...(router ? ['task'] : [])];
+  const konoha = (KONOHA_CANONICAL_TOOLS || [])
+    .filter((t) => !readOnly || !blocked.has(t))
+    .map((t) => `mcp__konoha__${t}`);
+  const aislopSource = readOnly ? ['aislop_scan', 'aislop_why'] : SUBAGENT_SAFE_MCP_GRANTS.aislop;
+  const aislop = aislopSource.map((t) => `mcp__aislop__${t}`);
+  const tools = [...builtins, ...konoha, ...aislop];
+  assertNoWildcardGrants(tools, `omp subagent ${agent?.name || 'unknown'} tools`);
+  return tools;
+}
+
+function generateOmpSubagentMd(agent) {
+  const rawDesc = getRoleDescription(agent);
+  const description = `${rawDesc}. Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
+  const tools = buildOmpSubagentTools(agent);
+  const readOnly = isReadOnlyAgent(agent);
+  const router = isRouterAgent(agent);
+  const body = String(agent.instructions || '').trim() || `Operate strictly as @${agent.name} (${rawDesc}).`;
+  const lines = [
+    '---',
+    `name: ${agent.name}`,
+    `description: "${description.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+    AGENT_OWNERSHIP_MARKER,
+    `spawns: ${router ? '"*"' : 'none'}`,
+    'tools:',
+    ...tools.map((t) => `  - ${t}`),
+    '---',
+    '',
+    body,
+    '',
+    ...(readOnly ? ['Strict read-only exploration mode: never modify files or execute mutating shell commands.'] : []),
+    buildSubagentContract('omp'),
+    ''
+  ];
+  return lines.join('\n');
+}
+
+function deployOmpAgents(options = {}) {
+  const silent = options.silent !== false;
+  const targetAgentDir = options.agentDir || (options.home ? path.join(options.home, '.omp', 'agent') : OMP_AGENT_DIR);
+  const targetAgentsDir = options.agentsDir || path.join(targetAgentDir, 'agents');
+  const rawAgents = Array.isArray(options.agents) && options.agents.length > 0 ? options.agents : loadAgents();
+  const agents = getDeployableAgents(rawAgents);
+  const official = new Set(getDeployableAgentNames());
+  const deployed = [];
+  const conflicts = [];
+
+  for (const agent of agents) {
+    if (!agent || !agent.name || !official.has(agent.name)) continue;
+    const content = generateOmpSubagentMd(agent);
+    const globalResult = writeAgentFileSafe(path.join(targetAgentsDir, `${agent.name}.md`), content, agent.name, { silent });
+    deployed.push(globalResult.path);
+    if (globalResult.status === 'conflict') conflicts.push(globalResult);
+
+    if (options.projectRoot && (options.deployProject || options.appendProject)) {
+      const projAgentPath = path.join(options.projectRoot, '.omp', 'agents', `${agent.name}.md`);
+      const projResult = writeAgentFileSafe(projAgentPath, content, agent.name, { silent });
+      deployed.push(projResult.path);
+      if (projResult.status === 'conflict') conflicts.push(projResult);
+    }
+  }
+
+  return { ok: true, targetDir: targetAgentsDir, deployed, conflicts };
 }
 
 function ensureOmpSetup(options = {}) {
@@ -306,6 +374,7 @@ function ensureOmpSetup(options = {}) {
   const mcpResult = registerOmpMcp({ ...options, silent });
   const contractResult = deployOmpContract({ ...options, silent });
   const rtkResult = deployOmpRtkRule({ ...options, silent });
+  const agentsResult = deployOmpAgents({ ...options, targetAgentDir, silent });
 
   const projectRoot = options.projectRoot || (fileExists(path.join(process.cwd(), '.omp', 'mcp.json')) ? process.cwd() : null);
   const projMcp = projectRoot ? path.join(projectRoot, '.omp', 'mcp.json') : null;
@@ -317,7 +386,8 @@ function ensureOmpSetup(options = {}) {
     ok: mcpResult.ok && contractResult.ok,
     mcp: mcpResult,
     contract: contractResult,
-    rtk: rtkResult
+    rtk: rtkResult,
+    agents: agentsResult
   };
 }
 
@@ -372,14 +442,16 @@ function getOmpStatus() {
   const installed = isOmpInstalled();
   const configPath = getOmpConfigPath();
   let mcpKonoha = false;
-  let mcpSemble = false;
   let mcpAislop = false;
   let contractDeployed = false;
   let rtkRuleDeployed = false;
   let advisorConfigured = true;
   const advisorConfig = {
     enabled: true,
-    reviewMode: 'turn',
+    startedFromBeginning: true,
+    reviewScope: 'all_agents',
+    reviewMode: 'realtime-idle',
+    directSteer: true,
     evictStaleResults: true,
     syncBacklog: 'off',
     continueSeverity: 'nit',
@@ -391,7 +463,6 @@ function getOmpStatus() {
     const config = readJsonSafe(configPath);
     if (config && config.mcpServers) {
       mcpKonoha = !!config.mcpServers['konoha'];
-      mcpSemble = !!config.mcpServers['semble'];
       mcpAislop = !!config.mcpServers['aislop'];
     }
   }
@@ -413,7 +484,6 @@ function getOmpStatus() {
     configured: mcpKonoha,
     configExists: fileExists(configPath),
     mcpKonoha,
-    mcpSemble,
     mcpAislop,
     contractDeployed,
     rtkRuleDeployed,
@@ -438,6 +508,9 @@ module.exports = {
   registerOmpMcp,
   deployOmpContract,
   deployOmpRtkRule,
+  buildOmpSubagentTools,
+  generateOmpSubagentMd,
+  deployOmpAgents,
   ensureOmpSetup,
   removeOmpConfig,
   removeOmpContract,

@@ -1,7 +1,7 @@
 # Konoha Canonical CLI Specification
 
-**Document Version:** 1.5.0 (Konoha v2.2.19)  
-**Date:** 2026-11-08  
+**Document Version:** 1.7.0 (Konoha v2.2.22)  
+**Date:** 2026-11-16  
 **Status:** Authoritative CLI Command Reference
 
 ---
@@ -23,24 +23,27 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha agent` | `<subcommand> [args]` | Configure 9 official Ninja subagents (list, create, toggle skills, models config, delete, status) |
 | `konoha akatsuki` | `<subcommand> [options]` | Manage Akatsuki red-team security controls, lab sandbox, and tool isolation |
 | `konoha auth` | `reset` | Reset local Web console administrative password to default (`konohagakure`) |
-| `konoha bridge` | `<subcommand> [options]` | Manage Konoha Bridge Router (status, list, create, delete, enable, disable) |
+| `konoha bridge` | `<subcommand> [options]` | Manage Konoha Bridge Router (status, list, create, delete, enable, disable, start, stop, restart, models) |
+| `konoha browser` | `<start\|status\|logs\|stop\|cleanup\|qa> [options]` | Manage isolated live headed Docker browser workspaces and QA execution |
 | `konoha clean` | `[--no-vacuum]` | Clean stale runtime artifacts, dead PIDs, old backups, and reclaim disk space in `~/.konoha/` |
-| `konoha config` | `<list|get|set|unset> [key] [val] [--json]` | Manage global Konoha system configuration in `~/.konoha/config.json`. `get` prints `value<TAB>[default\|user]`; `--json` returns `{key, value, source}` |
-| `konoha data` | `<subcommand> [options]` | Manage SQLite active session history, persona memories, and database size |
+| `konoha config` | `<list\|get\|set\|unset\|backup\|backups\|restore> [args]` | Manage global config in `~/.konoha/config.json` and client configuration backups/restores |
+| `konoha data` | `<subcommand> [options]` | Manage SQLite session history, Schema v8 knowledge brain (correct, withdraw, history, graph, maintain, revert), backup, and FTS5 |
+| `konoha db` | `<check\|restore> [path] [options]` | Verify SQLite database integrity and recover from verified backups or table salvage |
 | `konoha detect-ai` | `<target> [--json]` | Scan website URL or project files for AI fingerprints (Human-Built Index) |
 | `konoha detect-docs` | `<target> [--json]` | Scan prose documents or text for AI generation markers (ZeroGPT defense) |
 | `konoha doctor` | - | Run self-healing diagnostics on environment and configurations |
 | `konoha embed` | `[options]` | Rebuild vector embeddings for all skills (calls `migrate` with implied `--rebuild-embeddings`) |
 | `konoha help` | `[-h] [--help]` | Show interactive educational help menu |
-| `konoha init` | `[-y\|--yes] [--force] [--client=<name>] [--project] [--no-project] [--with-red-team] [--no-embed]` | Initialize MCP servers, database tables, and configure detected coding clients; re-running it also runs the migration pass (which purges the legacy opt-in cyber pack) and restarts a UI daemon already holding the port |
+| `konoha init` | `[-y\|--yes] [--force] [--client=<name>] [--project] [--no-project] [--with-red-team] [--no-embed]` | Initialize MCP servers, database tables, and configure detected coding clients; re-running it also runs the migration pass (which purges the legacy opt-in cyber pack) and, with `--force`, stops a UI listener it owns |
 | `konoha migrate` | `[--clean] [--rebuild-embeddings] [--skip-embeddings] [--skills-dir <path>] [--force]` | Ingest and index agent skills into SQLite FTS5 (strictly non-destructive: preserves existing user skills; `--clean` is an explicit opt-in) |
 | `konoha mode` | `[hitl|safe|yolo|autonomous] [options]` | Switch HITL gate mode vs YOLO intent per project workspace |
 | `konoha project` | `<subcommand> [options]` | Manage persistent project workspaces, detected stacks, and invariants (including `hitl_mode`) |
 | `konoha queue` | `<subcommand> [args]` | Background task prompt queue and execution worker |
 | `konoha reinstall` | `[options]` | Shorthand for `konoha init --force` (clean reinstallation of MCP servers and configurations) |
+| `konoha run-agent` | `<agent> [options]` | Run a specialist subagent out of process with Kage review (`--parallel --agents a,b`) |
 | `konoha savings` | - | Display token savings metrics and visual reduction percentages |
 | `konoha search` | `<query> [--num=<n>] [--depth=<d>] [--json]` | Zero-API-key multi-source web search (SearXNG, DuckDuckGo, Wikipedia) |
-| `konoha service` | `<install\|uninstall\|start\|stop\|restart\|status>` | Manage background system daemon service (systemd / launchd) for Web UI |
+| `konoha service` | `<install\|uninstall\|start\|stop\|restart\|status>` | Manage the boot-time OS service (systemd / launchd) that runs `konoha ui start` |
 | `konoha skill` | `<subcommand> [args]` | Manage skills (list installed, search public registry, add/remove, embed/unembed) |
 | `konoha soul` | `[--json]` | Display Ninja's Soul doctrine, tenets, and archetype spirits |
 | `konoha status` | - | Display system health, client configurations, and database stats |
@@ -48,29 +51,20 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha telegram` | `<subcommand> [options]` | Manage Telegram bot task reporting and two-way remote prompting |
 | `konoha test` | - | Run integration diagnostics against the MCP server |
 | `konoha tui` | - | Launch interactive terminal UI for subagent and system management (`konoha agent list --tui`) |
-| `konoha ui` | `<subcommand> [options]` | Manage local Web Configuration UI (start, stop, restart, status; port 1404) |
+| `konoha ui` | `<start|build> [options]` | Run the local Web Configuration UI in the foreground (`start`, blocking) or rebuild its bundle (`build`); port 1404 |
 | `konoha uninstall` | - | Safely remove Konoha MCP server (leaves custom skill files intact) |
 | `konoha upgrade` | `[--yes\|-y] [--force]` | Upgrade the global Konoha installation in place via the detected package manager. Exits 1 when no package manager can install the target (`Upgrade aborted: no package manager could install konoha-mcp@<v>.`) and when the installed version cannot be verified (`Upgrade verification failed: ...`). Never reports success without an observed version |
-| `konoha update` | `[--yes\|-y] [--force]` | Documented synonym of `konoha upgrade` (same handler in `bin/cli.js`) |
 | `konoha version` | `[-v] [--version]` | Display installed CLI version and check npm registry for updates |
-| `konoha web` | `[options]` | Foreground shorthand alias for `konoha ui start --foreground` |
 | `konoha webhook` | `<subcommand> [options]` | Manage outbound SDLC event webhooks (list, add, test, enable, disable, delete) |
 
 ---
 
 ## 2. Command Sub-Namespaces
 
-### 2.1 Web UI (`konoha ui` / `konoha web`)
-- `konoha ui start [--port <port>] [--foreground] [--no-open]` — Launch administrative UI daemon (default port 1404) with cross-platform resilience.
-- `konoha ui stop [--port <port>]` — Terminate running background UI daemon process tree.
-- `konoha ui restart [--port <port>]` — Cleanly restart running UI daemon.
-- `konoha ui status [--port <port>]` — Check whether the UI server is running, healthy, and report PID and port.
-- `konoha ui daemon` — Internal detached background daemon runner with port-scoped PID management.
-- `konoha ui build` — Build SvelteKit UI with Vite and Node adapter.
-- `konoha ui preview` — Run preview server for the built frontend.
-- `konoha ui open` — Open default system browser to the active Web UI URL.
-- `konoha ui service <install|uninstall|start|stop|restart|status>` — Manage OS-level background user services (`systemd` on Linux, `launchd` on macOS).
-- `konoha web` — Foreground shorthand alias for `konoha ui start --foreground`.
+### 2.1 Web UI (`konoha ui`)
+- `konoha ui start [--port <port>] [--host <host>] [--no-open]` — Run the administrative UI in the foreground on port 1404; the terminal blocks until `Ctrl+C`. A second `start` on a port that is already listening exits 1 instead of running a duplicate.
+- `konoha ui build` — Build the SvelteKit UI with Vite and the Node adapter.
+- `konoha service <install|uninstall|start|stop|restart|status>` — Manage the OS-level background user service (`systemd` on Linux, `launchd` on macOS).
 
 ### 2.2 Bridge Router (`konoha bridge`)
 - `konoha bridge list` — List all configured bridges, models, and provider endpoints.
@@ -127,17 +121,26 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 - `konoha project delete-memory <id>` — Remove a single episodic learning item by ID.
 - `konoha project prune [path]` — Prune all episodic learnings for a project workspace.
 
-### 2.8 Database & Persona Data (`konoha data`)
+### 2.8 Database & Knowledge Brain (`konoha data`, `konoha db`)
 - `konoha data view` — Display disk size, loaded skills, and persona memory statistics.
 - `konoha data memory [agent]` — List saved persona rules, preferences, and episodic memories per agent.
 - `konoha data add <agent> <txt>` — Save a persistent rule or preference for an agent persona.
 - `konoha data search <query>` — Search saved knowledge and memories across agents.
 - `konoha data delete <id>` — Remove a saved memory item by ID.
+- `konoha data correct <id> <text>` — Correct/supersede a memory while preserving audit history.
+- `konoha data withdraw <id>` — Withdraw or invalidate a memory without losing audit history.
+- `konoha data history <id>` — View provenance, audit timeline, and supersession chain.
+- `konoha data graph <id>` — Traverse deterministic knowledge relations and evidence.
+- `konoha data maintain [--apply]` — Run conservative memory maintenance (dry-run by default).
+- `konoha data revert <id>` — Revert a reversible audit event or maintenance run.
 - `konoha data export` — Export indexed skills and database knowledge to a Markdown report.
 - `konoha data backup [path]` — Non-blocking online SQLite database snapshot via `VACUUM INTO`.
 - `konoha data rebuild-fts` — Rebuild all FTS5 full-text search indexes (`skills_fts`, `persona_memories_fts`).
 - `konoha data prune [--retention <days>]` — Clean old sessions and prune `tool_calls` older than retention period (default 90 days) while preserving memories. Note: `konoha data prune` deletes immediately, with no confirmation and no automatic backup (take `konoha data backup` first). The cumulative "alltime" count in `getAgentStats()` counts only data recorded since the last prune.
 - `konoha data vacuum` — Defragment and compress SQLite database file.
+- `konoha data check` / `konoha data restore [path]` — Integrity verification and recovery aliases delegating to `src/db_recovery.js`.
+- `konoha db check [path]` — Run `PRAGMA integrity_check` and quick check on target DB.
+- `konoha db restore [path] [--from <backup>] [--force]` — Restore database from verified backup or salvage damaged tables.
 
 ### 2.9 Web Search (`konoha search`)
 - `konoha search <query> [--num=<n>] [--depth=standard|deep] [--json]` — Multi-source web search via SearXNG, DuckDuckGo, and Wikipedia.
@@ -167,8 +170,18 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 - `konoha webhook delete <id>` — Remove a webhook integration.
 - `konoha webhook enable <id>` / `disable <id>` — Toggle webhook delivery.
 
-### 2.14 Web Console Authentication (`konoha auth`)
-- `konoha auth reset` — Reset Web console administrative password to default (`konohagakure`).
+### 2.15 Live Headed Browser Workspace (`konoha browser`)
+- `konoha browser start [--url <url>] [--project <dir>] [--playwright-ui] [--build-image] [--no-reuse]` — Start or reuse an isolated headed Chromium workspace container bound to `127.0.0.1` (`noVNC` viewer).
+- `konoha browser status` — Show Docker availability and active/stopped browser workspace sessions.
+- `konoha browser logs <session_id> [--tail <n>]` — Print container browser workspace logs.
+- `konoha browser stop <session_id>` — Stop and remove a browser workspace session.
+- `konoha browser cleanup` — Reap expired or orphaned managed browser workspace containers.
+- `konoha browser qa [--project <dir>] [--grep <pattern>] [--headed] [--playwright-ui]` — Run bounded Playwright QA with optional headed/live workspace integration.
+
+### 2.16 Client Configuration Backup & Restore (`konoha config`)
+- `konoha config backup --client=<name|all> [--scope=<global|project|all>]` — Back up client configurations under `~/.konoha/backups/configs/`.
+- `konoha config backups [--client=<name|all>]` — List recorded configuration snapshots.
+- `konoha config restore --client=<name|all> [--scope=<global|project|all>] [--from <snap> --to <target>]` — Restore client configuration from backup.
 
 ---
 
@@ -179,7 +192,7 @@ Three install modes, never blurred:
 | Mode | Invocation | Effect |
 |---|---|---|
 | Persistent global install | `npm install -g konoha-mcp@latest`, or `npm install -g ./konoha-mcp-<version>.tgz` for a packed tarball | Installs the CLI. The package ships no install-time lifecycle script, so no install hook executes and no script-permission prompt can block the install. Runtime setup happens on the next `konoha init --yes` (or `konoha upgrade` on an existing tree). |
-| In-place upgrade | `konoha upgrade` / `konoha update` | Detects the package manager, installs the target version globally, re-syncs runtime and client configs, then verifies the version. |
+| In-place upgrade | `konoha upgrade` | Detects the package manager, installs the target version globally, re-syncs runtime and client configs, then verifies the version. |
 | Ephemeral run | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | Runs the CLI without installing it. Never claims to have performed a global install. |
 
 `konoha upgrade` failure contract:
@@ -195,8 +208,8 @@ Three install modes, never blurred:
 
 | Platform | Status |
 |---|---|
-| Linux x64 | **VERIFIED** — install, `init`, upgrade failure paths, and runtime module load executed on this host |
-| Windows 10/11 | **NOT RUN** — documented paths are derived from source, including the `EBUSY` upgrade marker |
-| macOS arm64 / x64 | **NOT RUN** |
+| Linux x64 | **PARTIAL (PR #16)** — `ubuntu-latest shard 5/8` passes at `61e73b7f`; `ubuntu-latest shard 7/8` failed on missing `browser` help row until the `bin/commands/help.js` fix lands |
+| Windows 11 x64 | **UNVERIFIED (PR #16)** — `windows-latest` (16 shards) remained `IN_PROGRESS` / unverified at audit time |
+| macOS arm64 / x64 | **UNVERIFIED (PR #16)** — `macos-latest` (5 shards) remained `IN_PROGRESS` / unverified at audit time (no native Apple hardware run locally) |
 
-Do not mark a platform verified from static tests. Verification requires a real install and upgrade run on that platform.
+PR #16 status at audit time: `reviewDecision: ""` (zero approvals), `Socket Security: Pull Request Alerts` failing on pre-existing transitive dependencies of `@huggingface/transformers@4.3.2`, and Issues `#11`, `#12`, and `#13` still `OPEN`. Do not mark the cross-platform matrix green while any shard is queued, running, or failing; see `docs/CI.md` for live matrix details.

@@ -25,6 +25,10 @@ REM gyan.dev build; same upstream here, minus the Chocolatey dependency). ---
 curl.exe -4 -fsSL --retry 3 --retry-delay 5 --retry-all-errors -o C:\OEM\ffmpeg.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip >> "%LOG%" 2>&1
 powershell -NoProfile -Command "Expand-Archive -Force C:\OEM\ffmpeg.zip C:\ffmpeg-extract; $d=(Get-ChildItem C:\ffmpeg-extract -Directory | Select-Object -First 1).FullName; if (Test-Path C:\ffmpeg) { Remove-Item -Recurse -Force C:\ffmpeg }; Move-Item $d C:\ffmpeg" >> "%LOG%" 2>&1
 
+REM --- Microsoft Visual C++ 2015-2022 Redistributable (x64) for onnxruntime-node ---
+curl.exe -4 -fsSL --retry 3 --retry-delay 5 --retry-all-errors -o C:\OEM\vc_redist.x64.exe https://aka.ms/vs/17/release/vc_redist.x64.exe >> "%LOG%" 2>&1
+start /wait "" C:\OEM\vc_redist.x64.exe /install /quiet /norestart >> "%LOG%" 2>&1
+
 REM --- pnpm 12.16.1 (pnpm/action-setup@v6.1.1). Installed to a fixed prefix so the
 REM shim path is known without guessing the installing user's %APPDATA%. ---
 call "C:\Program Files\nodejs\npm.cmd" install -g --prefix C:\npm pnpm@12.16.1 >> "%LOG%" 2>&1
@@ -39,6 +43,8 @@ if not exist "C:\Program Files\nodejs\node.exe" set FAILED=1
 if not exist "C:\npm\pnpm.cmd" set FAILED=1
 if not exist "C:\Program Files\Git\cmd\git.exe" set FAILED=1
 if not exist "C:\ffmpeg\bin\ffmpeg.exe" set FAILED=1
+if not exist "%SystemRoot%\System32\vcruntime140_1.dll" set FAILED=1
+if not exist "%SystemRoot%\System32\msvcp140_atomic_wait.dll" set FAILED=1
 if defined FAILED (
   echo ==== provisioning INCOMPLETE %DATE% %TIME% ==== >> "%LOG%"
   echo MISSING TOOLS - see C:\OEM\provision.log

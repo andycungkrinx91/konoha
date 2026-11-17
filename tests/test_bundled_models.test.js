@@ -1,83 +1,101 @@
-#!/usr/bin/env node
 'use strict';
 
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const assert = require('node:assert');
 
-async function testBundledModelsPresenceAndSize() {
-  const repoRoot = path.resolve(__dirname, '..');
-  const modelDir = path.join(repoRoot, 'assets', 'models', 'onnx-community', 'granite-embedding-97m-multilingual-r2-ONNX');
-
-  assert.ok(fs.existsSync(modelDir), 'assets/models/onnx-community/granite-embedding-97m-multilingual-r2-ONNX must exist');
-
-  const requiredFiles = [
-    'config.json',
-    'tokenizer.json',
-    'tokenizer_config.json',
-    'onnx/model_quantized.onnx'
-  ];
-
-  for (const rel of requiredFiles) {
-    const fullPath = path.join(modelDir, rel);
-    assert.ok(fs.existsSync(fullPath), `Required bundled model file missing: ${rel}`);
-    const stat = fs.statSync(fullPath);
-    assert.ok(stat.size > 0, `File ${rel} must not be empty`);
-    // Assert strictly under GitHub 100MB file limit
-    const sizeMb = stat.size / (1024 * 1024);
-    assert.ok(sizeMb < 100, `File ${rel} (${sizeMb.toFixed(2)} MB) must be strictly under 100 MB for GitHub push safety`);
-  }
-
-  console.log('✓ Bundled embedding model presence and <100MB size constraints passed');
-}
-
-async function testBundledRerankerPresenceAndSize() {
-  const repoRoot = path.resolve(__dirname, '..');
-  const rerankerDir = path.join(repoRoot, 'assets', 'models', 'Xenova', 'ms-marco-MiniLM-L-6-v2');
-
-  assert.ok(fs.existsSync(rerankerDir), 'assets/models/Xenova/ms-marco-MiniLM-L-6-v2 must exist');
-
-  const requiredFiles = [
-    'config.json',
-    'tokenizer.json',
-    'tokenizer_config.json',
-    'onnx/model_quantized.onnx'
-  ];
-
-  for (const rel of requiredFiles) {
-    const fullPath = path.join(rerankerDir, rel);
-    assert.ok(fs.existsSync(fullPath), `Required bundled reranker file missing: ${rel}`);
-    const stat = fs.statSync(fullPath);
-    assert.ok(stat.size > 0, `File ${rel} must not be empty`);
-    const sizeMb = stat.size / (1024 * 1024);
-    assert.ok(sizeMb < 100, `File ${rel} (${sizeMb.toFixed(2)} MB) must be strictly under 100 MB for GitHub push safety`);
-  }
-
-  console.log('✓ Bundled neural reranker presence and <100MB size constraints passed');
-}
-
-async function testOfflineEmbeddingInference() {
+function testNativeHuggingFaceContract() {
   const vs = require('../src/vector_search');
-  const vec = await vs.embedText('Testing offline embedding inference from bundled models');
+  const vp = require('../src/vector_pipeline');
+  const rootDir = path.resolve(__dirname, '..');
+  const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
+  const deps = {
+    ...(pkg.dependencies || {}),
+    ...(pkg.devDependencies || {}),
+    ...(pkg.optionalDependencies || {}),
+  };
+
+  assert.ok(
+    typeof (pkg.dependencies && pkg.dependencies['@huggingface/transformers']) === 'string',
+    '@huggingface/transformers must be declared in package.json dependencies'
+  );
+  assert.strictEqual(
+    Object.prototype.hasOwnProperty.call(deps, 'onnxruntime-web'),
+    false,
+    'Obsolete direct dependency onnxruntime-web must be removed'
+  );
+  assert.strictEqual(
+    fs.existsSync(path.join(rootDir, 'src', 'onnx_tokenizer.js')),
+    false,
+    'Obsolete src/onnx_tokenizer.js must not exist'
+  );
+  for (const mod of [vs, vp]) {
+    assert.strictEqual(typeof mod.getBundledModelsDir, 'undefined', 'getBundledModelsDir must be removed');
+    assert.strictEqual(typeof mod.predownloadAllModels, 'undefined', 'predownloadAllModels must be removed');
+  }
+
+  const status = vp.getRuntimeStatus();
+  assert.strictEqual(status.backend, '@huggingface/transformers');
+  console.log('✓ Native @huggingface/transformers contract and obsolete custom cache removal verified');
+}
+
+function testEmbedThreadCap() {
+  const vp = require('../src/vector_pipeline');
+  const threads = require('../src/embed_threads');
+  const logical = threads.logicalCpuCount();
+  const actual = vp.embedThreadCount();
+
+  assert.strictEqual(actual, threads.embedThreadCount(), 'the pipeline must use the shared rule');
+  assert.ok(actual >= 1 && actual <= logical, `embed threads (${actual}) must fit in ${logical} CPUs`);
+
+  // One thread per physical core where the OS reports the SMT ratio, else the
+  // ceiling -- which is the measured optimum on 16 logical CPUs and cannot
+  // freeze the desktop.
+  const topology = threads.readSmtTopology();
+  const expected = topology
+    ? Math.max(1, Math.round((logical * topology.cores) / topology.siblings))
+    : Math.max(1, Math.min(threads.THREAD_CEILING, logical));
+  assert.strictEqual(actual, expected, `embed threads must be ${expected} on ${logical} logical CPUs`);
+  assert.ok(actual < logical || logical <= threads.THREAD_CEILING,
+    'embed threads must stay below the logical count so the desktop stays usable');
+  console.log(`✓ ONNX embedding threads track physical cores (${actual} on ${logical} logical CPUs)`);
+}
+
+async function testEmbeddingInferenceAndOrdering() {
+  const vs = require('../src/vector_search');
+  const vec = await vs.embedText('SQLite database schema migration and ALTER TABLE');
 
   assert.ok(vec instanceof Float32Array, 'embedText should return Float32Array');
   assert.strictEqual(vec.length, 384, 'IBM Granite embedding vector dimension must be 384');
 
-  // Verify L2 normalized: sum of squares ≈ 1.0
   let sumSq = 0;
   for (let i = 0; i < vec.length; i++) sumSq += vec[i] * vec[i];
   assert.ok(Math.abs(sumSq - 1.0) < 1e-4, 'Embedding vector must be L2 normalized');
 
-  console.log('✓ Offline embedding inference from bundled models passed (384-dim, normalized)');
+  const vecs = await vs.embedBatch([
+    'SQLite database schema migration and ALTER TABLE',
+    'SQLite database migration script adding columns',
+    'Chocolate chip cookie baking recipe with butter',
+  ]);
+  assert.strictEqual(vecs.length, 3);
+  const relatedSim = vs.cosineSimilarity(vecs[0], vecs[1]);
+  const unrelatedSim = vs.cosineSimilarity(vecs[0], vecs[2]);
+  assert.ok(
+    relatedSim > unrelatedSim,
+    `Expected related similarity (${relatedSim.toFixed(5)}) > unrelated (${unrelatedSim.toFixed(5)})`
+  );
+
+  console.log('✓ Native Granite 97M embedding inference passed (384-dim, normalized, monotonic cosine)');
 }
 
-async function testOfflineRerankerInference() {
+async function testRerankerInference() {
   const vs = require('../src/vector_search');
-  const query = "Deploying Helm charts on Kubernetes";
+  const query = 'Deploying Helm charts on Kubernetes';
   const passages = [
-    "Helm is the official package manager for Kubernetes applications.",
-    "The recipe for sourdough bread requires fermentation.",
-    "Kubernetes kubectl CLI interacts with cluster control plane."
+    'Helm is the official package manager for Kubernetes applications.',
+    'The recipe for sourdough bread requires fermentation.',
+    'Kubernetes kubectl CLI interacts with cluster control plane.',
   ];
 
   const reranked = await vs.rerank(query, passages);
@@ -85,14 +103,19 @@ async function testOfflineRerankerInference() {
   assert.strictEqual(reranked.length, 3, 'rerank should return all evaluated passages');
   assert.strictEqual(reranked[0].rank, 1, 'Top item has rank 1');
   assert.ok(typeof reranked[0].rerank_score === 'number', 'rerank_score must be a number');
-  // First item must be the Helm passage
-  assert.ok(reranked[0].text.includes('Helm is the official package manager'), 'Reranker must rank most relevant passage highest');
-  assert.ok(reranked[0].rerank_score > reranked[1].rerank_score, 'Top passage must score higher than lower passages');
+  assert.ok(
+    reranked[0].text.includes('Helm is the official package manager'),
+    'Reranker must rank most relevant passage highest'
+  );
+  assert.ok(
+    reranked[0].rerank_score > reranked[1].rerank_score,
+    'Top passage must score higher than lower passages'
+  );
 
-  console.log('✓ Offline neural cross-encoder reranking passed (MS MARCO MiniLM)');
+  console.log('✓ Native cross-encoder reranking passed (MS MARCO MiniLM)');
 }
 
-async function testRrfRerankingArchitecture() {
+function testRrfRerankingArchitecture() {
   const vs = require('../src/vector_search');
   const ranks1 = ['skill-a', 'skill-b', 'skill-c'];
   const ranks2 = ['skill-b', 'skill-a', 'skill-d'];
@@ -109,32 +132,188 @@ async function testRagChunkRetrieval() {
   const { DB_PATH } = require('../src/db');
   const vs = require('../src/vector_search');
 
-  if (fs.existsSync(DB_PATH)) {
-    const conn = new Database(DB_PATH, { readonly: true });
-    try {
-      const ragResults = await vs.searchChunksRAG(conn, "Docker multi-stage container build", { topK: 2, candidateK: 10 });
-      assert.ok(Array.isArray(ragResults), 'searchChunksRAG should return array');
-      if (ragResults.length > 0) {
-        assert.ok(ragResults[0].skill_name, 'RAG result must have skill_name');
-        assert.ok(ragResults[0].chunk_text, 'RAG result must have chunk_text');
-        assert.ok(typeof ragResults[0].rerank_score === 'number', 'RAG result must have numeric rerank_score');
-      }
-      console.log('✓ RAG chunk retrieval & neural reranking against database passed');
-    } finally {
-      conn.close();
+  if (!fs.existsSync(DB_PATH)) return;
+  const conn = new Database(DB_PATH, { readonly: true });
+  try {
+    const ragResults = await vs.searchChunksRAG(conn, 'Docker multi-stage container build', {
+      topK: 2,
+      candidateK: 10,
+    });
+    assert.ok(Array.isArray(ragResults), 'searchChunksRAG should return array');
+    if (ragResults.length > 0) {
+      assert.ok(ragResults[0].skill_name, 'RAG result must have skill_name');
+      assert.ok(ragResults[0].chunk_text, 'RAG result must have chunk_text');
+      assert.ok(typeof ragResults[0].rerank_score === 'number', 'RAG result must have numeric rerank_score');
     }
+    console.log('✓ RAG chunk retrieval & neural reranking against database passed');
+  } finally {
+    conn.close();
+  }
+}
+
+function _snapshotEnv(keys) {
+  const saved = {};
+  for (const k of keys) saved[k] = process.env[k];
+  return saved;
+}
+
+function _restoreEnv(saved) {
+  for (const [k, v] of Object.entries(saved)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+}
+
+async function testHfCacheReuseAndLoudFailure() {
+  const vs = require('../src/vector_search');
+  const vp = require('../src/vector_pipeline');
+  const envKeys = [
+    'HF_HOME',
+    'HF_HUB_CACHE',
+    'HUGGINGFACE_HUB_CACHE',
+    'HF_HUB_OFFLINE',
+    'TRANSFORMERS_OFFLINE',
+    'KONOHA_SEMANTIC_SEARCH',
+  ];
+  const savedEnv = _snapshotEnv(envKeys);
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_hf_test_'));
+  const populatedHfHome = path.join(tmpRoot, 'populated_hf');
+  const emptyHfHome = path.join(tmpRoot, 'empty_hf');
+  fs.mkdirSync(emptyHfHome, { recursive: true });
+
+  try {
+    const baseEmbedPipe = await vp.getEmbedPipeline();
+    const baseRerankPipe = await vp.getRerankPipeline();
+    assert.ok(baseEmbedPipe && baseEmbedPipe.cacheDir, 'Base embed pipeline should resolve native HF cacheDir');
+    assert.ok(baseRerankPipe && baseRerankPipe.cacheDir, 'Base rerank pipeline should resolve native HF cacheDir');
+
+    const hubDir = path.join(populatedHfHome, 'hub');
+    for (const repo of [vs.EMBED_MODEL_REPO, vs.RERANK_MODEL_REPO]) {
+      const srcRepoDir = path.join(baseEmbedPipe.cacheDir, ...repo.split('/'));
+      const dstRepoDir = path.join(hubDir, ...repo.split('/'));
+      assert.ok(fs.existsSync(srcRepoDir), `Native HF cache directory must exist for ${repo}`);
+      fs.mkdirSync(path.dirname(dstRepoDir), { recursive: true });
+      fs.cpSync(srcRepoDir, dstRepoDir, { recursive: true });
+    }
+
+    delete process.env.HF_HUB_CACHE;
+    delete process.env.HUGGINGFACE_HUB_CACHE;
+    process.env.HF_HOME = populatedHfHome;
+    process.env.HF_HUB_OFFLINE = '1';
+    await vs.resetPipelinesForTest();
+    vs._EMBED_CACHE.clear();
+
+    const hfEmbedPipe = await vp.getEmbedPipeline();
+    assert.strictEqual(hfEmbedPipe.cacheDir, hubDir, 'HF_HOME must configure native Transformers.js hub cache');
+    assert.strictEqual(hfEmbedPipe.offline, true, 'HF_HUB_OFFLINE=1 must enable offline local_files_only mode');
+
+    const batchVecs = await vs.embedBatch(['dedup cache input', 'dedup cache input'], { batchSize: 1 });
+    assert.strictEqual(batchVecs.length, 2);
+    assert.strictEqual(batchVecs[0].length, 384);
+
+    const offlineReranked = await vs.rerank('Kubernetes Helm', [
+      'Helm manages Kubernetes charts and releases.',
+      'Banana smoothie recipe with yogurt.',
+    ]);
+    assert.ok(offlineReranked[0].text.includes('Helm manages Kubernetes'));
+
+    // Python huggingface_hub snapshot cache layout: models--<org>--<repo>/snapshots/<rev>
+    const pyHubCache = path.join(tmpRoot, 'py_hub_cache');
+    const rev = '0123456789abcdef';
+    for (const repo of [vs.EMBED_MODEL_REPO, vs.RERANK_MODEL_REPO]) {
+      const srcRepoDir = path.join(baseEmbedPipe.cacheDir, ...repo.split('/'));
+      const modelRoot = path.join(pyHubCache, `models--${repo.replace('/', '--')}`);
+      const snapDir = path.join(modelRoot, 'snapshots', rev);
+      const refsDir = path.join(modelRoot, 'refs');
+      fs.mkdirSync(refsDir, { recursive: true });
+      fs.writeFileSync(path.join(refsDir, 'main'), `${rev}\n`, 'utf8');
+      fs.cpSync(srcRepoDir, snapDir, { recursive: true });
+    }
+    delete process.env.HF_HOME;
+    process.env.HF_HUB_CACHE = pyHubCache;
+    process.env.HF_HUB_OFFLINE = '1';
+    await vs.resetPipelinesForTest();
+    vs._EMBED_CACHE.clear();
+
+    const pyHubStatus = vp.getRuntimeStatus();
+    assert.strictEqual(pyHubStatus.available, true, 'models--*/snapshots/<rev> cache must report available: true');
+    assert.strictEqual(pyHubStatus.embedModel.cacheLayout, 'hf_hub_snapshot');
+    assert.strictEqual(pyHubStatus.rerankModel.cacheLayout, 'hf_hub_snapshot');
+
+    const pySnapPipe = await vp.getEmbedPipeline();
+    assert.strictEqual(pySnapPipe.cacheLayout, 'hf_hub_snapshot');
+    const snapVec = await vs.embedText('python huggingface_hub snapshot layout');
+    assert.strictEqual(snapVec.length, 384);
+    const snapRerank = await vs.rerank('Kubernetes Helm', [
+      'Helm manages Kubernetes charts.',
+      'Strawberry jam toast.',
+    ]);
+    assert.ok(snapRerank[0].text.includes('Helm manages Kubernetes'));
+
+    // Empty models--*/snapshots stub must NOT report cached/available offline
+    const stubHubCache = path.join(tmpRoot, 'stub_hub_cache');
+    fs.mkdirSync(
+      path.join(stubHubCache, `models--${vs.EMBED_MODEL_REPO.replace('/', '--')}`, 'snapshots'),
+      { recursive: true }
+    );
+    process.env.HF_HUB_CACHE = stubHubCache;
+    await vs.resetPipelinesForTest();
+    const stubStatus = vp.getRuntimeStatus();
+    assert.strictEqual(stubStatus.available, false, 'Empty HF Hub snapshot stub must report available: false');
+
+    delete process.env.HF_HUB_CACHE;
+    process.env.HF_HOME = emptyHfHome;
+    process.env.HF_HUB_OFFLINE = '1';
+    await vs.resetPipelinesForTest();
+    vs._EMBED_CACHE.clear();
+
+    await assert.rejects(
+      () => vs.embedText('uncached missing model probe'),
+      (err) => err && err.code === 'EMBEDDING_RUNTIME_UNAVAILABLE',
+      'Missing offline HF cache must throw EmbeddingRuntimeUnavailableError'
+    );
+    await assert.rejects(
+      () => vs.rerank('query', ['candidate passage']),
+      (err) => err && err.code === 'EMBEDDING_RUNTIME_UNAVAILABLE',
+      'Missing offline HF reranker cache must throw EmbeddingRuntimeUnavailableError'
+    );
+
+    _restoreEnv(savedEnv);
+    process.env.KONOHA_SEMANTIC_SEARCH = '0';
+    await vs.resetPipelinesForTest();
+    const disabledStatus = vp.getRuntimeStatus();
+    assert.strictEqual(disabledStatus.enabled, false);
+    assert.strictEqual(disabledStatus.available, false);
+
+    await assert.rejects(
+      () => vs.embedBatch(['disabled mode check']),
+      (err) => err && err.code === 'EMBEDDING_RUNTIME_UNAVAILABLE',
+      'embedBatch with KONOHA_SEMANTIC_SEARCH=0 must throw EmbeddingRuntimeUnavailableError'
+    );
+    await assert.rejects(
+      () => vs.rerank('query', ['candidate passage']),
+      (err) => err && err.code === 'EMBEDDING_RUNTIME_UNAVAILABLE',
+      'rerank with KONOHA_SEMANTIC_SEARCH=0 must throw EmbeddingRuntimeUnavailableError'
+    );
+
+    console.log('✓ HF_HOME cache reuse, offline mode, and loud EmbeddingRuntimeUnavailableError verified');
+  } finally {
+    _restoreEnv(savedEnv);
+    await vs.resetPipelinesForTest();
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
   }
 }
 
 (async () => {
   try {
     console.log('Running test_bundled_models.test.js...');
-    await testBundledModelsPresenceAndSize();
-    await testBundledRerankerPresenceAndSize();
-    await testOfflineEmbeddingInference();
-    await testOfflineRerankerInference();
-    await testRrfRerankingArchitecture();
+    testNativeHuggingFaceContract();
+    testEmbedThreadCap();
+    await testEmbeddingInferenceAndOrdering();
+    await testRerankerInference();
+    testRrfRerankingArchitecture();
     await testRagChunkRetrieval();
+    await testHfCacheReuseAndLoudFailure();
     console.log('test_bundled_models.test.js passed cleanly.');
   } catch (err) {
     console.error('Test failed:', err);

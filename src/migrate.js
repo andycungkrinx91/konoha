@@ -42,9 +42,20 @@ let SKILLS_DIR = path.normalize(path.join(os.homedir(), '.agents', 'skills'));
 const { CANONICAL_SKILL_NAMES } = require('./canonical_skills');
 const CUSTOM_SKILLS = Array.from(CANONICAL_SKILL_NAMES);
 
+// `konoha init`/`migrate`/`doctor --fix` paint one progress bar; a line per
+// reference file would scroll it away. A caller that owns the bar installs a
+// sink and decides what survives. Without one the historical behaviour holds.
+let _logSink = null;
+
+function _formatLogArgs(args) {
+  return args.map(a => (typeof a === "object" && a !== null) ? JSON.stringify(a) : String(a)).join(" ");
+}
+
 function log(...args) {
+  if (_logSink) return _logSink(_formatLogArgs(args));
+  const msg = _formatLogArgs(args);
   if (process.env.ACTIVE_CLIENT || process.env.KONOHA_CLIENT || require.main !== module) {
-    process.stderr.write(args.map(a => (typeof a === "object" && a !== null) ? JSON.stringify(a) : String(a)).join(" ") + "\n");
+    process.stderr.write(msg + "\n");
   } else {
     console.log(...args);
   }
@@ -371,6 +382,17 @@ function _cleanDeletedSkills(conn, options) {
   }
 }
 
+/**
+ * Announces which stage the migration entered. A reporter uses this to tick the
+ * phase list under its bar; a broken reporter must never abort the migration.
+ */
+function _emitPhase(options, phase) {
+  if (typeof options.onProgress !== 'function') return;
+  try {
+    options.onProgress({ phase });
+  } catch (_) { /* progress is advisory */ }
+}
+
 function _verifyFtsQueries(conn) {
   log("\n🔍 Verifying FTS index...");
   try {
@@ -405,22 +427,29 @@ async function _syncVectorEmbeddings(conn, options, timeBudget) {
   } catch (_) { /* ignore */ }
 
   const shouldEmbed = !options.skipEmbeddings && (semanticEnabled || options.rebuildEmbeddings);
-  if (!shouldEmbed) return;
+  if (!shouldEmbed) return { ok: true, skipped: true };
 
+  const vectorSearch = require('./vector_search');
+  if (typeof vectorSearch.backfillAllEmbeddings !== 'function') {
+    return { ok: true, skipped: true };
+  }
+  const forceRebuild = !!options.rebuildEmbeddings;
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+  _emitPhase(options, 'embeddings');
   try {
-    const vectorSearch = require('./vector_search');
-    if (typeof vectorSearch.backfillAllEmbeddings === 'function') {
-      log("\n⚡ Pre-caching neural models across platforms (IBM Granite + GTE Reranker)...");
-      if (typeof vectorSearch.predownloadAllModels === 'function') {
-        await vectorSearch.predownloadAllModels(false);
-      }
-      log("⚡ Synchronizing vector embeddings (IBM Granite Multilingual)...");
-      const forceRebuild = !!options.rebuildEmbeddings;
-      const chunksIndexed = await vectorSearch.backfillAllEmbeddings(conn, forceRebuild, timeBudget || 180.0);
-      log(`   Vector index synchronized: ${chunksIndexed} chunks processed.`);
-    }
-  } catch (e) {
-    log(`   ⚠ Vector embedding generation deferred/skipped: ${e.message}`);
+    const chunksIndexed = await vectorSearch.backfillAllEmbeddings(
+      conn,
+      forceRebuild,
+      timeBudget || 180.0,
+      onProgress
+    );
+    return { ok: true, chunksIndexed };
+  } catch (err) {
+    // Embedding is an enhancement, not a precondition: a failed model download
+    // must not throw away the skills that were just indexed. Report it as data
+    // so the CLI can print the diagnosis and still exit successfully.
+    const { classifyEmbedFailure } = require('./embed_diagnostics');
+    return { ok: false, failure: classifyEmbedFailure(err) };
   }
 }
 
@@ -453,11 +482,14 @@ function _purgeExistingSkills(conn, options) {
 
 async function runMigration(options = {}) {
   const prevDbPath = DB_PATH;
+  const prevSink = _logSink;
+  _logSink = typeof options.logSink === 'function' ? options.logSink : null;
   try {
     return await _runMigration(options);
   } finally {
-    // Module-level path state must not leak between in-process calls.
+    // Module-level state must not leak between in-process calls.
     DB_PATH = prevDbPath;
+    _logSink = prevSink;
   }
 }
 
@@ -540,8 +572,9 @@ async function _runMigration(options = {}) {
 
   _purgeExistingSkills(conn, options);
 
+  _emitPhase(options, 'migrate skills');
   let total = 0;
-  total += _migrateDocumentation(conn, options.skillsOnly);
+  total += _migrateDocumentation(conn, options.skillsOnly, { log });
   for (const item of skillsToMigrate) {
     if (!requiredSet.has(item.name) && timeBudget > 0 && ((Date.now() - startTime) / 1000) > timeBudget) {
       deferredSkills += 1;
@@ -577,13 +610,16 @@ async function _runMigration(options = {}) {
   } catch (_) { /* ignore */ }
 
   _verifyFtsQueries(conn);
-  await _syncVectorEmbeddings(conn, options, timeBudget);
+  const embed = await _syncVectorEmbeddings(conn, options, timeBudget);
 
-  printSummary(conn);
-  conn.pragma('foreign_keys = ON');
-  conn.close();
+  try {
+    printSummary(conn);
+    conn.pragma('foreign_keys = ON');
+  } finally {
+    conn.close();
+  }
   log(`\n✅ Migration complete! ${total} entries indexed.`);
-  return { ok: true, indexed: total, deferredSkills, dbPath: DB_PATH };
+  return { ok: true, indexed: total, deferredSkills, dbPath: DB_PATH, embed };
 }
 
 

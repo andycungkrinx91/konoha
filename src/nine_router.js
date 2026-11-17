@@ -15,7 +15,7 @@ let lastFetchTime = 0;
 
 /**
  * Detects whether 9router is installed on the local system.
- * Follows same non-destructive detector conventions as Semble and RTK.
+ * Follows the same non-destructive detector conventions as RTK.
  */
 function is9RouterInstalled() {
   try {

@@ -42,7 +42,7 @@ assert.ok(parsed.mcp_servers.konoha, 'Should parse konoha server');
 assert.strictEqual(parsed.mcp_servers.konoha.command, 'python3');
 assert.deepStrictEqual(parsed.mcp_servers.konoha.args, ['/home/user/.konoha/server.py']);
 
-assert.ok(parsed.mcp_servers.semble, 'Should parse semble server');
+assert.ok(parsed.mcp_servers.semble, 'Legacy TOML with a semble section must still parse');
 assert.strictEqual(parsed.mcp_servers.semble.command, 'uvx');
 assert.deepStrictEqual(parsed.mcp_servers.semble.args, ['--from', 'semble[mcp]@latest', 'semble', '--content', 'all']);
 
@@ -55,14 +55,14 @@ const updatedToml = updateCodexTomlMcp(
 );
 
 assert.match(updatedToml, /\[mcp_servers\.konoha\]/);
-assert.match(updatedToml, /\[mcp_servers\.semble\]/);
+assert.ok(!/\[mcp_servers\.semble\]/.test(updatedToml), 'Legacy semble section must be stripped');
 assert.match(updatedToml, /model = "o3-mini"/);
 assert.match(updatedToml, /name = "Ninja"/);
 
 const reParsed = parseCodexToml(updatedToml);
 assert.strictEqual(reParsed.mcp_servers.konoha.command, 'python3');
 assert.deepStrictEqual(reParsed.mcp_servers.konoha.args, ['/custom/path/server.py']);
-assert.strictEqual(reParsed.mcp_servers.semble.command, 'uvx');
+assert.strictEqual(reParsed.mcp_servers.semble, undefined, 'Legacy semble section must not survive a rewrite');
 
 // Test 4: Idempotent replacement of existing MCP servers
 const replacedToml = updateCodexTomlMcp(
@@ -82,7 +82,6 @@ const status = getCodexStatus();
 assert.strictEqual(typeof status.installed, 'boolean');
 assert.strictEqual(typeof status.configExists, 'boolean');
 assert.strictEqual(typeof status.mcpKonoha, 'boolean');
-assert.strictEqual(typeof status.mcpSemble, 'boolean');
 assert.strictEqual(typeof status.rtkRuleDeployed, 'boolean');
 
 console.log('✓ All Codex Manager tests passed successfully!');

@@ -1,8 +1,8 @@
 # Konoha Architecture Capability Map
 
-**Document Version:** 2.2.21  
-**Date:** 2026-11-04  
-**Status:** Canonical Reference (v2.2.21 Complete)  
+**Document Version:** 2.2.22  
+**Date:** 2026-11-16  
+**Status:** Canonical Reference (v2.2.22 Branch Audit)  
 
 ---
 
@@ -44,14 +44,14 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 ### 2.1 Skill Discovery & Neural Retrieval
 
 * **Purpose:** Resolve, search, rank, and load relevant skills and reference SOPs for agent execution.
-* **Canonical Implementation:** `src/mcp/skills.js`, `src/vector_search.js`, `src/db.js`.
+* **Canonical Implementation:** `src/mcp/skills.js`, `src/mcp/skills_common.js`, `src/mcp/skills_search.js`, `src/vector_search.js`, `src/db.js`.
 * **Entry Points:**
   - MCP Tools: `find_skill(keyword, limit?)`, `list_skills(limit?)`, `get_skill(name)`, `optimize_report(query)`.
   - CLI: `konoha migrate`, `konoha embed`, `konoha skill list`.
 * **Consumers:** Sannin router, all 9 specialist subagents, external MCP clients.
-* **Storage:** SQLite FTS5 (`skills` table in `~/.konoha/konoha.db`), ONNX embeddings in `assets/models/`.
+* **Storage:** Two sources, merged on every lookup. (1) The project's own tree — `.agents/skills` plus sixteen sibling locations from `PROJECT_SKILL_SUBDIRS`, resolved by `getProjectSkillRoots()`; (2) SQLite FTS5 (`skills` table in `~/.konoha/konoha.db`) with ONNX embeddings cached natively by `@huggingface/transformers` (`HF_HOME` / Hugging Face `FileCache`, honoring `HF_HUB_CACHE` / `HUGGINGFACE_HUB_CACHE`). The database is an accelerator, not a prerequisite: an unmigrated project skill still resolves through `find_skill`, `get_skill`, and `list_skills`, and `migrate_skills` adds ranked search and reranking rather than access.
 * **Configuration:** `~/.konoha/mcp_config.json`, embedding model config in `src/vector_search.js`.
-* **Tests:** `tests/test_skill_resolution.js`, `tests/test_vector_search.js`, `tests/test_fts5_sanitization.js`.
+* **Tests:** `tests/test_skill_resolution.js`, `tests/test_project_skills_dual_source.js`, `tests/test_skill_uri_resolution.js`, `tests/test_no_filesystem_mirrors.js`, `tests/test_vector_search.js`, `tests/test_fts5_sanitization.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `docs/ADDING-SKILLS.md`.
 * **Dependencies:** `node:sqlite`, `@huggingface/transformers`, `tar`.
 * **Token Optimization (ADR-0004):** Snippet-first search responses (~150 chars clean text vs 500 chars raw markdown, -32.3% payload reduction), intra-session search deduplication (`[LOADED]` badge on repeats, -38.4% reduction), and token-budgeted/section-targeted retrieval in `get_skill` (-87.1% reduction). See `docs/architecture/TOKEN-BASELINE.md`.
@@ -94,18 +94,18 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 ---
 
-### 2.4 Multi-Archetype UI & Website Builder
+### 2.4 Dynamic UI & Website Builder
 
-* **Purpose:** Generate canonical UI structural specifications and layout contracts from text descriptions or design images.
-* **Canonical Implementation:** `src/mcp/skills.js` (`handleBuildFromSource`, `handleBuildFromText`), `src/mcp/tool_dispatch.js`.
+* **Purpose:** Generate brief-driven UI design specifications and layout contracts from text descriptions or design images across modern web frameworks.
+* **Canonical Implementation:** `src/mcp/build_spec.js`, `src/mcp/build_spec_source.js`, `src/mcp/build_spec_common.js`, `src/mcp/skills.js`, `src/mcp/tool_dispatch.js`.
 * **Entry Points:** MCP Tools `build_from_source`, `build_from_text`.
 * **Consumers:** Jonin frontend builder subagent.
-* **Storage:** Ephemeral JSON specification payload.
-* **Configuration:** Taste-Skill dials, supported frameworks (Next.js, SvelteKit, Nuxt, Angular).
-* **Tests:** `tests/test_build_workflows.js`, `tests/test_taste_skill_jonin.js`.
+* **Storage:** Ephemeral JSON specification payload + optional generated `<project_path>/.agents/skills/<slug>-frontend-maintenance/SKILL.md`.
+* **Configuration:** Brief-derived design directions and Taste-Skill dials across Next.js, SvelteKit, Nuxt, Angular.
+* **Tests:** `tests/test_build_workflows.js`, `tests/test_taste_skill_jonin.js`, `tests/test_jonin_dynamic_design_and_watermark.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `README.md`.
 * **Dependencies:** Node.js native `fs`, `path`.
-* **Known Legacy Paths:** `build_with_image_design` (legacy alias for `build_from_source`).
+* **Known Legacy Paths:** `build_with_image_design` (hidden deprecated alias for `build_from_source`).
 * **Known Duplication:** Duplicate manifest entry `build_with_image_design`.
 
 ---
@@ -113,35 +113,37 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 ### 2.5 Project Memory & Persistent Context
 
 * **Purpose:** Persist verified architectural learnings, tech stack facts, and episodic memory across agent turns and sessions.
-* **Canonical Implementation:** `src/project_memory.js`, `src/db.js`.
+* **Canonical Implementation:** `src/persona_memory.js`, `src/persona_memory_projects.js`, `src/mcp/memory_project_context.js`, `src/memory_brain.js`, `src/db.js`.
 * **Entry Points:**
   - MCP Tools: `get_project_context`, `save_project_context`, `query_project_memory`.
   - Web API: `GET /api/v1/context`, `POST /api/v1/context`.
+  - CLI: `konoha project {context|list|memory|add|set|delete|delete-memory|prune}`.
 * **Consumers:** Main orchestrator, Sannin, Kage, Jonin, Anbu, Web UI.
-* **Storage:** SQLite `project_memory` and `project_context` tables in `~/.konoha/konoha.db`.
-* **Configuration:** Project root path mapping.
-* **Tests:** `tests/test_project_memory_persistence.js`, `tests/test_memory_context_prune_and_web.js`.
-* **Documentation:** `docs/ARCHITECTURE.md`.
+* **Storage:** SQLite `projects`, `persona_memories`, `memory_audit_events`, and `memory_relations` tables in `~/.konoha/konoha.db`.
+* **Configuration:** Project root path mapping (`project_hash`).
+* **Tests:** `tests/test_project_memory_persistence.js`, `tests/test_memory_context_prune_and_web.js`, `tests/test_memory_brain_migration_and_api.js`.
+* **Documentation:** `docs/ARCHITECTURE.md`, `docs/DATABASE-ERD.md`.
 * **Dependencies:** `node:sqlite`.
 * **Known Legacy Paths:** None.
 * **Known Duplication:** None.
 
 ---
 
-### 2.6 Persona Memory
+### 2.6 Provenance-Aware Native Knowledge Brain & Persona Memory (Schema v8)
 
-* **Purpose:** Store, query, and manage user and agent persona preferences and traits.
-* **Canonical Implementation:** `src/persona_memory.js`, `src/db.js`.
+* **Purpose:** Store, query, correct, supersede, withdraw, audit, and link durable knowledge across `persona`, `project`, `episodic`, `session`, and `knowledge` domains.
+* **Canonical Implementation:** `src/memory_brain.js`, `src/memory_brain_ddl.js`, `src/memory_brain_lifecycle.js`, `src/memory_brain_graph.js`, `src/memory_brain_maintenance.js`, `src/memory_provider_adapter.js`, `src/persona_memory.js`, `src/persona_memory_items.js`, `src/db.js`.
 * **Entry Points:**
-  - MCP Tools: `save_persona_memory`, `query_persona_memory`, `list_persona_memories`, `delete_persona_memory`.
-  - Web API: `/api/v1/persona`.
-* **Consumers:** Subagents, Web UI.
-* **Storage:** SQLite `persona_memories` table.
-* **Configuration:** Schema in `src/db.js`.
-* **Tests:** `tests/test_persona_memory.js`.
-* **Documentation:** `docs/ARCHITECTURE.md`.
+  - MCP Tools: `save_persona_memory`, `query_persona_memory`, `list_persona_memories`, `delete_persona_memory`, plus `report_from_agent`.
+  - CLI: `konoha data {memory|add|search|delete|correct|withdraw|history|graph|maintain|revert|export}`.
+  - Web API: Existing `/api/v1/persona` routes (extended for provenance/correction compatibility; zero new REST endpoints).
+* **Consumers:** Subagents, Chunin knowledge capture, Web UI, CLI operators.
+* **Storage:** SQLite `persona_memories`, `persona_memories_fts`, `memory_audit_events`, and `memory_relations` tables (`CURRENT_SCHEMA_VERSION = 9`).
+* **Configuration:** Lexical FTS5/LIKE retrieval today (`src/memory_brain.js` omits `embedding` on `INSERT INTO persona_memories` and `src/vector_backfill.js` only backfills `skill_chunks`, so `_fuseVectorScores` selects zero rows and `recallAsync` reports `semantic_applied: false`); `KONOHA_SEMANTIC_SEARCH=0` reports `semantic_status: 'disabled'` and unavailable cache reports `semantic_status: 'degraded'`; optional external sync via `GBrainMemoryAdapter`.
+* **Tests:** `tests/test_persona_memory.js`, `tests/test_memory_brain_migration_and_api.js`, `tests/test_memory_brain_lifecycle_and_graph.js`, `tests/test_memory_brain_retrieval_and_maintenance.js`.
+* **Documentation:** `docs/ARCHITECTURE.md`, `docs/DATABASE-ERD.md`, `docs/QA-TEST-CHECKLIST.md`.
 * **Dependencies:** `node:sqlite`.
-* **Known Legacy Paths:** None.
+* **Known Legacy Paths:** Legacy `persona_memory*` calls route through `memory_brain` while filtering `lifecycle_status = 'active'` by default.
 * **Known Duplication:** None.
 
 ---
@@ -149,13 +151,13 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 ### 2.7 SDLC Governance & Quality Gates
 
 * **Purpose:** Enforce Definition of Ready (DoR), dual-model independent code review, Zero-AI-Slop gating, remediation loops, and audit trails.
-* **Canonical Implementation:** `src/sdlc_tasks.js`, `src/workflow/kage-reviewer/sdlc_manager.js`, `src/workflow/jonin-builder/ai_detector.js`, `src/workflow/kage-reviewer/docs_ai_detector.js`, `src/mcp/workflow.js`.
+* **Canonical Implementation:** `src/workflow/kage-reviewer/sdlc_manager.js`, `src/workflow/jonin-builder/ai_detector.js`, `src/workflow/kage-reviewer/docs_ai_detector.js`, `src/mcp/workflow.js`.
 * **Entry Points:**
   - MCP Tools: `check_readiness`, `get_task_evidence`, `get_slop_findings`, `website_ai_detector`, `docs_ai_detector`.
   - CLI: `konoha task`, `konoha detect-ai <path-file-or-url>`, `konoha detect-docs <path-or-url>`.
   - Web API: `/api/v1/sdlc`, plus the HITL gate picker (`GET /api/v1/hitl/picker?task_dir=…&sig=…`, `POST /api/v1/hitl/verdict`), which renders each gate's options as a form, authenticates the link with a per-gate HMAC capability signature, and resumes through `sannin`.
 * **Consumers:** Sannin router, Kage reviewer, Anbu builder, Web UI.
-* **Storage:** SQLite `sdlc_tasks`, `sdlc_task_events`, `sdlc_task_evidence` tables.
+* **Storage:** SQLite `sdlc_tasks` table (`dor_result`, `evidence`, `slop_result` JSON columns).
 * **Configuration:** Confidence threshold (`MINIMUM_CONFIDENCE = 98`), `.aislopignore`, placeholder comment regex boundary (`\/\/\s*placeholder\s*(?:$|[.:!\-\n])` under G-07).
 * **Tests:** `tests/test_sdlc_dor.js`, `tests/test_sdlc_tasks.js`, `tests/test_anti_slop_gate.js`, `tests/test_ai_detector.js`, `tests/test_docs_ai_detector.js`.
 * **Documentation:** `docs/ARCHITECTURE.md`, `docs/README.md`, `docs/SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md`.
@@ -186,7 +188,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 ### 2.9 Zero-API-Key Web Search
 
 * **Purpose:** Query search engines via local or public SearXNG instances without tracking or API keys.
-* **Canonical Implementation:** `src/searxng.js`.
+* **Canonical Implementation:** `src/mcp/web_search.js`, `src/search_policy.js`.
 * **Entry Points:**
   - MCP Tool: `web_search(query, category?)`.
   - CLI: `konoha search <query>`.
@@ -203,7 +205,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 ### 2.10 Token Savings Telemetry
 
-* **Purpose:** Quantify token reduction and cost savings from bounded tool operations and Semble search.
+* **Purpose:** Quantify token reduction and cost savings from bounded tool operations and native code search.
 * **Canonical Implementation:** `src/db_savings.js`, `src/tools_savings_logger.js`.
 * **Entry Points:**
   - CLI: `konoha savings`.
@@ -243,13 +245,13 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Purpose:** Visual administration of agents, skills, SDLC tasks, bridges, clients, savings, and diagnostics with cross-platform lifecycle management.
 * **Canonical Implementation:** `src/web_server.js`, `apps/web/`, `bin/lib/ui_commands.js`.
 * **Entry Points:**
-  - CLI: `konoha ui [start|stop|restart|status|daemon|service|build|preview|open]`, `konoha web`.
+  - CLI: `konoha ui [start|build]`, `konoha service [install|uninstall|start|stop|restart|status]`.
   - HTTP Server: `http://127.0.0.1:1404`.
 * **Consumers:** Developers, administrators.
-* **Storage:** Ephemeral session tokens, CSRF tokens, port-scoped daemon PID files (`~/.konoha/ui/`).
+* **Storage:** Ephemeral session tokens and CSRF tokens. No PID file is written any more; `cmdUiStop` still reads a legacy port-scoped PID file (`~/.konoha/ui.pid`, `~/.konoha/ui-<port>.pid`) so an install upgraded from an older release can reap a detached daemon.
 * **Configuration:** `src/web_server.js` port 1404 (configurable via `--port`).
-* **Cross-Platform Resilience:** Detached daemon execution with `windowsHide: true` on Windows, 30-attempt port polling, socket teardown, process tree cleanup via `taskkill /F /T /PID`, PowerShell `-Unique` ownership kill, `netstat -ano` fallback, and Windows `SIGBREAK` support.
-* **Tests:** `tests/test_web_ui.js`, `tests/test_ui_cross_platform_lifecycle.js`, `tests/test_ui_autostart.js`.
+* **Cross-Platform Resilience:** Foreground-only execution with `windowsHide: true` on Windows, a pre-bind single-instance port probe on every platform, process tree cleanup via `taskkill /F /T /PID`, PowerShell `-Unique` ownership kill, `netstat -ano` fallback, and Windows `SIGBREAK` support.
+* **Tests:** `tests/test_web_ui.js`, `tests/test_ui_cross_platform_lifecycle.js`, `tests/test_ui_manual_only.js`.
 * **Documentation:** `docs/SETUP-WEB-UI.md`, `docs/SETUP-CLI.md`.
 * **Dependencies:** SvelteKit 3, Vite, Tailwind CSS v4, `@sveltejs/adapter-node`.
 * **Known Legacy Paths:** None.
@@ -262,9 +264,9 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Purpose:** Atomic database snapshots, FTS5 search index optimization, historical tool audit log pruning, and schema foreign-key integrity enforcement.
 * **Canonical Implementation:** `src/db.js`, `bin/commands/data.js`.
 * **Entry Points:**
-  - CLI: `konoha data backup [path]`, `konoha data rebuild-fts`, `konoha data prune --retention <days>`.
+  - CLI: `konoha data {view|memory|add|search|delete|correct|withdraw|history|graph|maintain|revert|export|prune|vacuum|backup|rebuild-fts|check|restore}`.
 * **Consumers:** Administrators, CI maintenance scripts, local workstation lifecycle.
-* **Storage:** `~/.konoha/konoha.db` (SQLite WAL mode), native `VACUUM INTO` snapshots in `~/.konoha/backup/`.
+* **Storage:** `~/.konoha/konoha.db` (SQLite WAL mode), native `VACUUM INTO` snapshots in `~/.konoha/backups/`.
 * **Features:**
   - Atomic online backup using native SQLite `VACUUM INTO` without locking live readers.
   - Rebuilding `skills_fts` and `persona_memories_fts` index structures via `INSERT INTO ...('rebuild')`.
@@ -338,15 +340,15 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Canonical Implementation:** `src/workflow/akatsuki/config.js`, `src/workflow/akatsuki/lab.js`, `src/workflow/akatsuki/workflows.js`, `bin/commands/akatsuki.js`.
 * **Entry Points:**
   - MCP Tool: `akatsuki`.
-  - CLI: `konoha akatsuki {status|mode|env|redteam|blueteam}`.
+  - CLI: `konoha akatsuki {status|mode|env|init|tools|redteam|cyber-pack}`.
 * **Consumers:** Security operators, red-team penetration testers, Kage pre-delivery security gate.
-* **Storage:** `~/.konoha/akatsuki_config.json`, test artifacts in `/tmp/akatsuki_*`.
+* **Storage:** `~/.konoha/akatsuki_config.json`, isolated lab database `~/.konoha/akatsuki-lab/lab.db` (`lab_runs`, `lab_tool_invocations`, `kali_tools`, `red_skill_audit`), test artifacts in `/tmp/akatsuki_*`.
 * **Security Controls:**
   - Blue mode: Direct host SAST and secrets audit; immediately stops and removes any active `akatsuki-lab` containers (fail-closed safety invariant).
   - Red mode: Strict written RoE authorization check; automated provisioning of unprivileged Docker (`--cap-drop=ALL`, `internal=true` bridge, 0 host network, 0 host filesystem mounts) or unprivileged LXC container (`labbr0` bridge, `lab-egress` deny ACL).
   - Persona Firewall: Non-Akatsuki agents (`@genin`, `@anbu`, `@jonin`, `@chunin`, `@kage`) are fail-closed blocked if offensive cyber skills are requested.
-* **Tests:** `tests/test_akatsuki_mode.js`, `tests/test_akatsuki_lab.js`.
-* **Documentation:** `docs/ALL-WORKFLOW-DIAGRAMS.md`, `docs/SECURITY.md`, `.agents/skills/akatsuki-skill/SKILL.md`.
+* **Tests:** `tests/test_akatsuki_mode_and_templates.js`, `tests/test_akatsuki_lab_isolation.js`, `tests/test_akatsuki_skill_authz_db_isolation.js`.
+* **Documentation:** `docs/ALL-WORKFLOW-DIAGRAMS.md`, `docs/SECURITY.md`, `src/templates/skills/akatsuki-skill/SKILL.md`.
 * **Dependencies:** Docker or LXC (system), Node.js native `child_process`.
 
 ---
@@ -357,7 +359,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 * **Canonical Implementation:** `socket.yml`, `patches/playwright-core@1.64.1.patch`, `patches/cfb@1.2.2.patch`, `patches/docx@9.14.0.patch`, `package.json` (`overrides`, `resolutions`).
 * **Governance Invariants:**
   - Excision of Windows Edge reinstall PowerShell scripts (`bin/reinstall_msedge_*_win.ps1`).
-  - Neutralization of SheetJS `\u0001Sh33tJ5` synthetic seed artifact and runtime byte validation in `src/tools/doc_engine_spreadsheet.js`.
+  - Neutralization of SheetJS `\u0001Sh33tJ5` synthetic seed artifact and runtime byte validation in `src/workflow/tokubetsu-scribe/doc_engine_spreadsheet.js`.
   - Complete eradication of unmaintained `hash-js@1.1.7` in favor of Cure53-audited `@noble/hashes@^2.4.0` and native `node:crypto`.
   - Socket.dev policy configuration (`urlStrings: false`, `gptSecurity: false`, `gptAnomaly: false`).
 * **Tests:** `tests/test_document_tools.js`, `tests/test_manifest_invariants.js`.
@@ -369,7 +371,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 * **Purpose:** Production state-machine orchestrator mapping Konoha's canonical workflow into a LangGraph.js `StateGraph` model with two authoritative HITL gates, thread identity isolation, hard token budget governor, and circuit breaker loop cap.
 * **Canonical Specification:** `docs/ARCHITECTURE.md` (Section: *LangGraph.js Workflow Orchestration Engine*).
-* **Runtime Status:** **Active Production Orchestration Engine in v2.2.21** (`src/mcp/langgraph/`). Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, with custom `node:sqlite` checkpointer (`KonohaCheckpointSaver`) and backward-compatible facade preservation via `src/mcp/workflow.js`.
+* **Runtime Status:** **Active Production Orchestration Engine in v2.2.22** (`src/mcp/langgraph/`). Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, with custom `node:sqlite` checkpointer (`KonohaCheckpointSaver`) and backward-compatible facade preservation via `src/mcp/workflow.js`.
 * **Mapping Invariants:**
   - One-to-one node preservation for the 8 canonical phases (`route`, `explore`, `plan`, `research`, `execute`, `document`, `review`, `synthesize`) plus Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`).
   - Thread identity and state channels partitioned per client, project hash, and session ID; zero cross-session or cross-client checkpoint leakage.
@@ -378,28 +380,29 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 ---
 
-### 2.20 Generative 3D & GPU Telemetry (`src/mcp/three_asset/`, `src/workflow/yamanaka/`)
+### 2.20 Generative 3D & GPU Telemetry (`src/mcp/three_asset/`, `src/workflow/yamanaka/`) — *Planned Post-`2.2` / UI-Hidden in `2.2.*`*
 
 * **Purpose:** Text-to-3D and Image-to-3D asset synthesis — procedural Three.js/Manifold geometry with PBR materials, optionally refined inside a live Blender session, exported as glTF binary.
+* **Release Status (`v2.2.*`):** Backend APIs and Graph modules ship in-tree, while Web UI navigation is gated hidden (`SHOW_3D_STUDIO_MENU = false`) and automated Yamanaka test suites (`tests/test_yamanaka_*.js`, `tests/e2e/yamanaka_3d_studio.spec.js`) skip automatically across `2.2.*` releases (`docs/QA-TEST-CHECKLIST.md` Section 41).
 * **Canonical Implementation:** `src/workflow/yamanaka/{graph,workflows}.js`, `src/mcp/three_asset/{spec_schema,style_profile,compute_selector,blender_installer,blender_refiner,storage_manager,db_3d_schema}.js`, `src/web/controllers/model_3d_controller.js`, `src/doctor_3d.js`, `src/gpu_telemetry.js`.
 * **Entry Points:**
   - MCP Tool: `yamanaka` (`source_mode`, `image_path`, `target_polycount`, `texture_resolution`, `compute`).
-  - Web UI: `/3d/maker` (preview, generative parameters, recent assets, token & cost counter, Blender pipeline graph).
+  - Web UI: `/3d/maker` & `/3d/setup` (routes intact; sidebar menu hidden via `SHOW_3D_STUDIO_MENU = false` during `2.2.*`).
   - HTTP: `POST /api/v1/3d/upload-image` (12 MB cap, magic-byte sniff), `POST /api/v1/3d/generate`, `GET /api/v1/3d/generate/:jobId/stream` (SSE), `GET /api/v1/3d/staging/:jobId/live.glb`, `GET /api/v1/3d/staging/:jobId/live.png`, `GET /api/v1/3d/{jobs,jobs/:id,assets,telemetry}` (all lists accept `limit` / `offset` and return `total`; the Recent 3D Assets card pages 6 at a time), `GET /api/v1/3d/setup/{status,models}` (its `catalogs` block publishes `quality_levels` alongside `archetypes`, `profiles`, `compute_modes`), `POST /api/v1/3d/setup/{install,blender/launch,blender/close}`.
 * **Consumers:** Web UI, CLI TUI, `yamanaka` MCP delegates.
-* **Storage:** `assets`, `model_assets_fts`, `generation_jobs`, `llm_requests_3d` tables; delivered glTF binaries land in `~/.konoha/3d-output/` (overridable via `KONOHA_3D_OUTPUT_DIR`).
+* **Storage:** `assets`, `asset_files`, `validation_results`, `generation_jobs`, `llm_requests_3d`, and `schema_migrations` tables; delivered glTF binaries land in `~/.konoha/3d-output/` (overridable via `KONOHA_3D_OUTPUT_DIR`).
 * **Pipeline:** prompt/image intake (Text-to-3D, Image-to-3D) → manifold watertight geometry synthesis (Three.js + Manifold-3D) → PBR shading → live Blender LTS refinement (`dcc-mcp-blender`) → 11-row `scoreSpec` evaluation gate → GLB export; `compute_selector` reports the effective compute mode (GPU when Blender is available, otherwise CPU).
 * **GPU Telemetry:** `src/gpu_telemetry.js` samples the host GPU with a 10 s TTL and 2500 ms timeout, and is surfaced as `system.gpu` on `GET /api/v1/system`; a host without a readable GPU reports `available: false` rather than a placeholder value.
 * **Diagnostics:** `src/doctor_3d.js` probes the Blender LTS install, `dcc-mcp-blender` host support, Three.js, and Manifold-3D, and is rendered on both `/doctor` surfaces.
-* **Tests:** `tests/test_three_asset_engine.js`, `tests/test_three_asset_single_image.js`, `tests/test_three_asset_production_pbr.js`, `tests/test_three_asset_style_profile.js`, `tests/test_three_asset_storage_manager.js`, `tests/test_doctor_client_coverage.js`.
-* **Documentation:** `docs/SETUP-WEB-UI.md`, `docs/ARCHITECTURE.md`, `.agents/skills/yamanaka-skill/SKILL.md`.
+* **Tests:** `tests/test_three_asset_engine.js`, `tests/test_three_asset_single_image.js`, `tests/test_three_asset_production_pbr.js`, `tests/test_three_asset_style_profile.js`, `tests/test_three_asset_storage_manager.js`, `tests/test_doctor_client_coverage.js` (note: `tests/test_yamanaka_*.js` skip under `/^2\.2\./`).
+* **Documentation:** `docs/SETUP-WEB-UI.md`, `docs/ARCHITECTURE.md`, `src/templates/skills/yamanaka-skill/SKILL.md`.
 * **Dependencies:** Blender LTS + `dcc-mcp-blender` (optional, for refinement), Three.js, Manifold-3D.
 
 ### 2.21 Cross-Platform Install & Upgrade Integrity (`bin/`, `package.json`)
 
 * **Purpose:** Every fresh install and in-place upgrade works on Windows 10/11, Linux, and macOS, and every failure is reported instead of masked.
-* **Canonical Implementation:** `bin/commands/doctor_runtime.js` (`purgeInvalidRuntimeMirrors`), `bin/commands/upgrade.js` (`readInstalledVersion`, upgrade-pending marker), `bin/lib/runtime_install.js` (`resolveWebBuildSource`, `readBuildVersion`), `bin/lib/extension.js` (`installAgentBrowserDetailed`, `provisionAgentBrowser`), `bin/cli.js` (Node 24 guard, interrupted-upgrade warning, uninitialized-runtime message), `src/deploy_utils.js` (`mirrorReferenceEntrypoints`, `removeNestedSkillDir`), `src/file_tools_mcp.js` (`parseToolArguments`), `src/mcp/skills_common.js` (`validateSkillPath`, `resolveSkillPathWithinRoot`).
-* **Package contract:** `engines.node >= 24.0.0` is required (`node:sqlite`); `packageManager` pinned to `pnpm@12.16.1`; `files` exclusions are extension-scoped so `src/mcp/langgraph/nodes/plan.js` ships (an unscoped `!**/PLAN*` glob dropped it on case-insensitive filesystems); the package declares no install-time lifecycle script, so installs perform no network access, no package installation, and no runtime setup (explicit `konoha init --yes`); `overrides.image-size >= 2.0.3` plus `bundleDependencies: ["pptxgenjs"]` ship the CVE-patched `image-size` subtree, and the tarball is produced with `pnpm pack`.
+* **Canonical Implementation:** `bin/commands/doctor_runtime.js` (`purgeInvalidRuntimeMirrors`), `bin/commands/upgrade.js` (`readInstalledVersion`, upgrade-pending marker), `bin/lib/runtime_install.js` (`resolveWebBuildSource`, `readBuildVersion`), `bin/cli.js` (Node 24 guard, interrupted-upgrade warning, uninitialized-runtime message), `src/deploy_utils.js` (`mirrorReferenceEntrypoints`, `removeNestedSkillDir`), `src/file_tools_mcp.js` (`parseToolArguments`), `src/mcp/skills_common.js` (`validateSkillPath`, `resolveSkillPathWithinRoot`).
+* **Package contract:** `engines.node >= 24.0.0` is required (`node:sqlite`); `packageManager` pinned to `pnpm@12.16.1`; `files` exclusions are extension-scoped so `src/mcp/langgraph/nodes/plan.js` ships (an unscoped `!**/PLAN*` glob dropped it on case-insensitive filesystems); the package declares no install-time lifecycle script, so installs perform no network access, no package installation, and no runtime setup (explicit `konoha init --yes`); `overrides.image-size >= 2.0.3` plus `bundleDependencies: ["cfb", "pptxgenjs", "xlsx-populate"]` ship the CVE-patched `image-size` and `cfb`/`xlsx-populate` subtrees, and the tarball is produced with `pnpm pack`.
 * **Failure transparency:** an upgrade whose package install fails exits 1 before the post-upgrade lifecycle; version verification never substitutes the requested version for the installed one; a missing Playwright reports `{ error: 'qa_blocked' }` from `qa_codify`.
 * **Tests:** `tests/test_install_layout_integrity.js`, `tests/test_mcp_argument_parsing.js`, `tests/test_skill_uri_resolution.js`, `tests/test_pnpm_config_migration.js`, `tests/test_upgrade_failure_reporting.js`.
 
@@ -416,3 +419,27 @@ Do not mark a platform verified from static tests; update this table only after 
 **Formerly-listed failures, now closed:** an earlier revision of this page listed three suites as pre-existing failures. All three pass in the current tree — `tests/test_canonical_skills_and_embedded_refs.js` (asserts the 17 names in `src/canonical_skills.js`), `tests/test_fresh_install_cross_platform_sync.js` (resolves `.agents/skills` after `HOME` is cleared), and `tests/test_runtime_mirror_parity.js` (skips under an isolated `HOME` and re-converges after `konoha doctor`/`init`). The sandbox suite run records all three as PASS.
 
 ---
+
+### 2.22 Native Code Intelligence Engine (`src/code_intel/`)
+
+* **Purpose:** Replace external `semble` indexing with an in-process AST + FTS5 + Granite/MiniLM code intelligence engine inside `~/.konoha/konoha.db` (`code_*` tables) supporting 16 programming languages (Java, C#, and Lua excluded) plus optional stdio JSON-RPC LSP enrichment on queries.
+* **Canonical Implementation:** `src/code_intel/{indexer,indexer_async,parser,chunker,query,graph_resolver,vector_cache,lsp_client,lsp_manager,capabilities,ddl,store,tools}.js`.
+* **Entry Points:**
+  - MCP Tools: `code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_related`, `code_status`, `code_remove`.
+  - Web API: `GET /api/v1/code/status`, `POST /api/v1/code/search`.
+* **Storage:** `code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_edges`, `code_chunks`, `code_chunks_fts`.
+* **Tests:** `tests/test_code_intel_parser.js`, `tests/test_code_intel_search.js`, `tests/test_code_intel_graph.js`, `tests/test_code_intel_hardening.js`, `tests/test_code_intel_async_and_provenance.js`, `tests/test_code_intel_isolation.js`.
+* **Documentation:** `docs/ARCHITECTURE.md`, `docs/architecture/CANONICAL-API.md`, `docs/BENCHMARK.md`, `docs/DATABASE-ERD.md`.
+
+---
+
+### 2.23 Live Headed Docker Browser Workspace & QA Automation (`src/workflow/qa-automation/`)
+
+* **Purpose:** Provide an interactive headed Chromium workspace container (`docker/browser-workspace.Dockerfile`) with loopback `noVNC` live viewing while preserving headless Playwright CI execution and Anbu/Jonin QA workflows.
+* **Canonical Implementation:** `src/workflow/qa-automation/{browser_session_manager,browser_container_agent,browser_workspace_security,qa_tools,qa_runner}.js`, `src/workflow/jonin-builder/live_browser_monitor.js`, `bin/commands/browser.js`.
+* **Entry Points:**
+  - MCP Tools: `qa_codify`, `qa_e2e_run` (`headed`, `live`, `session_id`, `playwright_ui`, `timeout_ms`).
+  - CLI: `konoha browser {start|status|logs|stop|cleanup|qa}`.
+  - Web API: Surfaces `browser_sessions` on existing `GET /api/v1/activity/live` (`zero new REST endpoints`).
+* **Tests:** `tests/test_browser_workspace_lifecycle.js`, `tests/test_browser_workspace_security_and_qa.js`, `tests/test_qa_codify.js`, `tests/test_qa_e2e_run.js`.
+* **Documentation:** `docs/QA-AUTOMATION.md`, `docs/QA-TEST-CHECKLIST.md`, `src/templates/skills/anbu-skill/references/qa-automation.md`.

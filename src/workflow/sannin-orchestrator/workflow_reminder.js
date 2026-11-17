@@ -22,8 +22,9 @@ const REMINDER = [
   'For `/konoha <prompt>`: execute Konoha Main Orchestrator -> Sannin -> Kage -> applicable LangGraph workflow -> agent delegation -> governance & verification -> Final Gate -> delivery.',
   'For `/<subagent-name> <prompt>`: execute ONLY the requested subagent directly according to its specialization (do NOT route through Sannin or full SDLC workflow), followed by mandatory Kage review before delivery.',
   'For normal messages without `/konoha` or `/<subagent-name>`: preserve the AI client native behavior without Konoha interception.',
-  'Within Konoha workflows: call konoha.find_skill first; code search via semble search/find_related; bounded file tools via konoha.read_file_head/range/file_info/get_file_structure/token_efficient_grep/find_files_clean;',
-  'completion requires kage review (confidence >= 98%, ai_slop_findings = 0, aislop score 100/100) and @advisor approval review before final delivery sign-off.'
+  'Within Konoha workflows: call konoha.find_skill first; code search via konoha code_search/code_symbol/code_impact; bounded file tools via konoha.read_file_head/range/file_info/get_file_structure/token_efficient_grep/find_files_clean;',
+  '[TODO SYNC] Keep client native TODOs and walkthrough synchronized on every transition using client_todo_directive (TodoWrite/todowrite/update_plan/todo_write/task.md); on 100k input-token quota LangGraph compaction, resume directly from LATEST CONDITION CHECKPOINT;',
+  'completion requires kage review (confidence >= 98%, ai_slop_findings = 0, aislop score 100/100) and @advisor approval review before final delivery sign-off. Keep @advisor idle from turn 0 (<= 8,192 tok/turn) to watch plan/TODO/goal compliance and directly steer drifted agents.'
 ].join(' ');
 
 // Check if stdin provides a UserPromptSubmit payload without `/konoha` or `/<subagent-name>`
@@ -57,7 +58,7 @@ const _activeClient = (() => {
   if (process.env.PI_SESSION || process.env.PI_DEV) return 'pi';
   if (process.env.CODEX_SESSION || process.env.CODEX_SANDBOX) return 'codex';
   if (process.env.OMP_SESSION || process.env.OMP_CLIENT || process.env.ACTIVE_CLIENT === 'omp') return 'omp';
-  if (process.env.CLAUDE_CODE_HOOK || process.env.CLAUDE_CODE_SESSION) return 'claude';
+  if (process.env.CLAUDE_CODE_HOOK || process.env.CLAUDE_CODE_SESSION) return 'claudecode';
   return 'generic';
 })();
 

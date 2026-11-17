@@ -16,14 +16,14 @@ config:
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
     primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -50,17 +50,17 @@ flowchart TB
     Antigravity --> Cascade["Sidecar protocol cascade<br/>(proto -> raw -> gRPC)"]
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style BridgesLayer fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+    style BridgesLayer fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
 
-    classDef clientNode fill:#ffffff,stroke:#3b82f6,color:#0f172a,stroke-width:2px;
-    classDef gatewayNode fill:#ffffff,stroke:#f59e0b,color:#0f172a,stroke-width:2px;
-    classDef bridgeNode fill:#ffffff,stroke:#8b5cf6,color:#0f172a,stroke-width:2px;
-    classDef storageNode fill:#ffffff,stroke:#10b981,color:#0f172a,stroke-width:2px;
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
 
-    class Client clientNode;
-    class Gateway gatewayNode;
-    class OpenAI,Compatible,Antigravity,OpenAIAPI,Local,Cascade,Discovery bridgeNode;
-    class Bridges storageNode;
+    class Client blueShape;
+    class Gateway,OpenAI,Compatible,Antigravity,Discovery orangeShape;
+    class Bridges,OpenAIAPI,Local greenShape;
+    class Cascade redShape;
 ```
 
 ## Supported Providers
@@ -340,18 +340,11 @@ The external `konoha-bridge` repository is an Antigravity/VS Code extension. It 
 | **Extension setting namespace** | `agLocalBridge` |
 | **Extension API** | `http://127.0.0.1:1313` |
 | **Konoha aggregate gateway** | `http://127.0.0.1:19999` |
-| **Primary install location** | `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` |
+| **Retired legacy path** | `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` (removed in `v2.2.1`) |
 
-Konoha automatically clones `https://github.com/andycungkrinx91/konoha-bridge` on fresh installation (`konoha init`), packages or downloads the extension into `konoha-bridge-1.7.0.vsix`, and installs the extension **only into Antigravity IDE** — it is never installed into any other IDE (VS Code, Cursor, etc.):
+Automated cloning of `https://github.com/andycungkrinx91/konoha-bridge`, VSIX installation, and directory syncing into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` were retired in `v2.2.1`. During `konoha init` and `konoha upgrade`, Konoha only prunes stale legacy Antigravity extension registry entries (`syncAntigravityExtensionRegistry`) and never installs extensions into any IDE (VS Code, Cursor, etc.) or executes an external extension as a standalone Node process.
 
-```bash
-# Antigravity IDE CLI (the ONLY supported VSIX install target)
-antigravity --install-extension assets/konoha-bridge-1.7.0.vsix
-```
-
-Additionally, if Antigravity IDE is present, Konoha performs an atomic directory sync directly into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` and updates the extension registry. `konoha init --force` and `konoha upgrade` refresh this checkout. Konoha never executes the extension as a standalone Node process.
-
-Installation does **not** create or enable an external bridge row. To use the extension through Konoha’s aggregate gateway, explicitly create/select an `antigravity-extension` bridge and enable it:
+Installation does **not** create or enable an external bridge row. If you manually run a compatible external extension on `127.0.0.1:1313` and want to route through Konoha’s aggregate gateway (`127.0.0.1:19999`), explicitly create/select an `antigravity-extension` bridge and enable it:
 
 ```bash
 konoha bridge create

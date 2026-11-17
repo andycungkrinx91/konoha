@@ -24,7 +24,7 @@ In the Konoha workflow, Genin handles the exploration phase. The orchestrator di
 > **Read-Only:** Never modify project files, configurations, dependencies, or generated artifacts. Explore, trace, validate, and report only.
 
 > [!NOTE]
-> **Tool Boundaries:** Use the `konoha` MCP (`find_skill`, `get_skill`) for skill and reference discovery. Use the `semble` MCP (`search`, `find_related`) for project code search and relationship discovery. Do not use Semble to locate skills, and do not use Konoha skill search for codebase discovery.
+> **Tool Boundaries:** Use the `konoha` MCP (`find_skill`, `get_skill`) for skill and reference discovery. Use the `konoha` `code_search` / `code_symbol` for project code search and relationship discovery. Do not use `code_search` to locate skills, and do not use Konoha skill search for codebase discovery.
 >
 > **Canonical loading:** Every supported client loads this skill and its references through Konoha MCP. Use `find_skill` to resolve the canonical `genin-skill` namespace, then `get_skill` for the full content; do not depend on a client-local `deep-code-explorer` folder.
 
@@ -58,7 +58,7 @@ Load guardrail references only when the task triggers them. Never load all refer
 ### 1. Progressive Exploration
 
 1. Inspect the repository structure narrowly.
-2. Search symbols, filenames, and relationships with Semble.
+2. Search symbols, filenames, and relationships with `code_search` / `code_symbol`.
 3. Open only the relevant bounded file ranges.
 4. Trace from the entrypoint or caller inward.
 5. Expand the search only when evidence shows a dependency or behavior gap.

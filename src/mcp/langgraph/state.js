@@ -28,6 +28,8 @@ const KonohaWorkflowState = Annotation.Root({
     },
     default: () => [],
   }),
+  walkthrough_steps: Annotation({ default: () => [] }),
+  client_todo_directive: Annotation({ default: () => null }),
 
   slices: Annotation({
     reducer: (curr, update) => {
@@ -80,6 +82,14 @@ const KonohaWorkflowState = Annotation.Root({
   circuitState: Annotation({ default: () => 'CLOSED' }),
 
   status: Annotation({ default: () => null }),
+  compaction: Annotation({ default: () => null }),
+  agentSnapshots: Annotation({
+    reducer: (curr, update) => {
+      if (!update || typeof update !== 'object') return curr;
+      return { ...curr, ...update };
+    },
+    default: () => ({}),
+  }),
   report: Annotation({ default: () => '' }),
   confidence: Annotation({ default: () => 100 }),
   gateVerdict: Annotation({ default: () => '' }),

@@ -11,7 +11,7 @@ function getDbStats(dbPath = null) {
   const targetPath = dbPath || db.DB_PATH;
   const conn = db.getConnection(targetPath, false);
   try {
-    db.setupSchema(conn);
+    (db.ensureSchema || db.setupSchema)(conn);
     const totalRow = conn.prepare("SELECT COUNT(*) as cnt FROM skills").get();
     const skillsRow = conn.prepare("SELECT COUNT(*) as cnt FROM skills WHERE type='skill'").get();
     const refsRow = conn.prepare("SELECT COUNT(*) as cnt FROM skills WHERE type='reference'").get();

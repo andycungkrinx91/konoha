@@ -51,7 +51,7 @@ function _handleCsrfAndHealth(req, res, pathname, method, ctx) {
       rotated_at: new Date(rotatedAt).toISOString(),
       expires_at: new Date(rotatedAt + ttlMs).toISOString(),
       ttl_ms: ttlMs,
-      version: String(ctx.SERVER_VERSION || '2.2.21').replace(/^v+/, ''),
+      version: String(ctx.SERVER_VERSION || '2.2.22').replace(/^v+/, ''),
       port: ctx.PORT,
       uptime: Math.round(process.uptime())
     });
@@ -61,7 +61,7 @@ function _handleCsrfAndHealth(req, res, pathname, method, ctx) {
     if (!isAuth) {
       return sendJson(res, 200, {
         status: 'healthy',
-        version: String(ctx.SERVER_VERSION || '2.2.21').replace(/^v+/, ''),
+        version: String(ctx.SERVER_VERSION || '2.2.22').replace(/^v+/, ''),
         uptime: Math.round(process.uptime()),
         node: process.version,
         platform: process.platform
@@ -77,7 +77,7 @@ function _handleCsrfAndHealth(req, res, pathname, method, ctx) {
     } catch (_) { /* intentional best-effort fallback */ }
     return sendJson(res, 200, {
       status: 'healthy',
-      version: String(ctx.SERVER_VERSION || '2.2.21').replace(/^v+/, ''),
+      version: String(ctx.SERVER_VERSION || '2.2.22').replace(/^v+/, ''),
       uptime: Math.round(process.uptime()),
       port: ctx.PORT,
       db_path: db.DB_PATH,
@@ -199,7 +199,7 @@ function _collectSdlcAndClientFeatures(features) {
 
   const clientDefs = [
     { id: 'antigravity', name: 'Antigravity' }, { id: 'cursor', name: 'Cursor' },
-    { id: 'claude', name: 'Claude Code' }, { id: 'opencode', name: 'OpenCode' },
+    { id: 'claudecode', name: 'Claude Code' }, { id: 'opencode', name: 'OpenCode' },
     { id: 'commandcode', name: 'CommandCode' }, { id: 'codex', name: 'Codex' },
     { id: 'pi', name: 'Pi' }, { id: 'omp', name: 'OMP' }
   ];

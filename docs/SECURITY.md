@@ -1,4 +1,4 @@
-# Konoha MCP Security Architecture & Ingress Controls (v2.2.21)
+# Konoha MCP Security Architecture & Ingress Controls (v2.2.22)
 
 ## 1. Overview & Threat Model
 
@@ -91,7 +91,7 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 
 ## 9. Runtime Security & Node.js CVE Mitigation
 
-- **October 2026 Node.js Security Advisory Compliance**: Shipped environments target Node.js LTS `v22.23.4+` (mitigating high-severity Brotli remote code execution and TLS/DNS security advisories).
+- **Node.js Runtime Baseline (`>=24.0.0`)**: Shipped environments require Node.js `>=24.0.0` (verified on `v24.22.2`), providing built-in `node:sqlite` with FTS5 and mitigating upstream high-severity Brotli/TLS/DNS security advisories.
 - **Zero Known Vulnerabilities**: Verified through continuous automated auditing (`pnpm audit` reporting zero vulnerabilities across root and `apps/web` manifests).
 - **Package Manager Mandate**: Scaffolding and installs strictly utilize `pnpm` with token-safe non-interactive flags; standalone unconstrained `npx` or `npm` fallbacks are permanently decommissioned.
 
@@ -128,7 +128,7 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 
 ---
 
-## 11. Bridge Payload Budget & 3D Reference-Image Ingress (v2.2.21)
+## 11. Bridge Payload Budget & 3D Reference-Image Ingress (v2.2.22)
 
 ### 11.1 Bridge Request Budget
 - **Hard Ceilings**: `src/bridge/request_budget.js` enforces `MAX_BODY_BYTES = 32 MiB`, `MAX_INPUT_TOKENS = 200000` (estimated at ~3.5 chars/token), and `MAX_MESSAGES = 2000` per bridge request.

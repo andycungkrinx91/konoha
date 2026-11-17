@@ -207,10 +207,10 @@ function copyRuntimeAssets(assetsSrc, copyTree) {
         ensureDir(path.join(SKILLS_DB_DIR, 'assets'));
         copyFile(path.join(assetsSrc, entry.name), destFile);
       }
-    } else if (entry.isDirectory() && entry.name === 'models') {
-      const modelsSrc = path.join(assetsSrc, 'models');
-      const modelsDest = path.join(SKILLS_DB_DIR, 'assets', 'models');
-      if (path.resolve(modelsSrc) !== path.resolve(modelsDest)) copyTree(modelsSrc, modelsDest);
+    } else if (entry.isDirectory() && entry.name === 'grammars') {
+      const grammarsSrc = path.join(assetsSrc, 'grammars');
+      const grammarsDest = path.join(SKILLS_DB_DIR, 'assets', 'grammars');
+      if (path.resolve(grammarsSrc) !== path.resolve(grammarsDest)) copyTree(grammarsSrc, grammarsDest);
     }
   }
 }
@@ -590,6 +590,7 @@ function reconcileGlobalCommand() {
 module.exports = {
   assessSourceRootFreshness,
   copyIfDifferent,
+  copyRuntimeAssets,
   copyRuntimeFiles,
   resolveEffectiveSourceRoot,
   copyRecursive,

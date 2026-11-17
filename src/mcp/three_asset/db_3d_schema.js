@@ -118,6 +118,22 @@ function ensureAdditiveColumns(conn) {
   return added;
 }
 
+function _resolveCanonicalMigrationPath(migrationId) {
+  const filename = `${migrationId}.sql`;
+  const candidates = [
+    path.join(__dirname, '..', '..', '..', 'migrations', filename),
+    path.join(__dirname, '..', '..', 'migrations', filename)
+  ];
+  try {
+    const { PROJECT_ROOT } = require('../../config_access').loadBinLib('paths');
+    if (PROJECT_ROOT) candidates.push(path.join(PROJECT_ROOT, 'migrations', filename));
+  } catch (_) { /* optional config fallback */ }
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return candidates[0];
+}
+
 /**
  * Gate 2 & Gate 3: Check-Before-Apply Canonical Schema Migration
  */
@@ -128,7 +144,7 @@ function verifyAndApplyCanonicalSchema(conn, migrationId = MIGRATION_ID, canonic
 
   let ddlSql = canonicalDdlSql;
   if (!ddlSql) {
-    const migrationPath = path.join(__dirname, '..', '..', '..', 'migrations', `${migrationId}.sql`);
+    const migrationPath = _resolveCanonicalMigrationPath(migrationId);
     if (!fs.existsSync(migrationPath)) {
       throw new Error(`Canonical migration SQL file not found at ${migrationPath}`);
     }
@@ -427,7 +443,7 @@ function recordValidationResult(conn, val) {
     val.asset_id || null,
     val.validation_stage,
     val.validator_name || 'yamanaka_spec_scorer',
-    val.validator_version || '2.2.21',
+    val.validator_version || '2.2.22',
     val.attempt_number || 1,
     val.passed ? 1 : 0,
     val.overall_score || 0.0,

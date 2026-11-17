@@ -16,28 +16,54 @@ const {
 } = require('../lib/paths');
 const { updateGeminiMd, detectSkillsDirs, detectCustomSkills, syncTemplateSkills } = require('../lib/runtime_lifecycle');
 const { registerHooks, registerMcp } = require('../lib/runtime_mcp');
-const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('../../src/semble_manager');
+const { AISLOP_PACKAGE } = require('../../src/uvx_runtime');
 const { confirmPrompt } = require('../lib/prompt');
+const { createEmbedProgress, MIGRATION_PHASES } = require('../lib/embed_progress');
 const { checkPortActive, getServiceStatus } = require('../lib/ui_commands');
 
 async function executeMigrationRun(skillsDirs) {
   const migrate = require('../../src/migrate');
+  const progress = createEmbedProgress('Doctor embeddings', MIGRATION_PHASES);
   const attempt = async (opts) => {
     try {
-      const result = await migrate.runMigration(opts);
-      return Boolean(result && result.ok !== false);
-    } catch {
-      return false;
+      return await migrate.runMigration({ ...opts, onProgress: progress.onProgress, logSink: progress.detail });
+    } catch (err) {
+      return { ok: false, reason: err.message || 'migration failed' };
     }
   };
 
+  let result = null;
   for (const s of skillsDirs) {
     const skills = detectCustomSkills(s.path);
     if (skills.length === 0) continue;
-    if (await attempt({ skillsDir: s.path, skills, rebuildEmbeddings: true })) return true;
+    result = await attempt({ skillsDir: s.path, skills, rebuildEmbeddings: true });
+    if (result && result.ok !== false) break;
+  }
+  if (!result || result.ok === false) {
+    result = await attempt({ rebuildEmbeddings: true });
   }
 
-  return attempt({ rebuildEmbeddings: true });
+  // Settle once, after every attempt: settling inside the loop would print a
+  // diagnosis for a directory whose failure a later attempt recovered from.
+  if (!result || result.ok === false) {
+    // Not an embedding failure, so no embed diagnosis: the caller records FAILED
+    // on the database row and the reason belongs there.
+    progress.abort((result && result.reason) || 'migration failed');
+    return false;
+  }
+  // The caller only asks "was the database created?". Embedding is an
+  // enhancement on top of it: an offline machine with no cached model still has
+  // a working FTS5 database, so a failed embed fails the bar and is reported by
+  // `checkEmbeddingHealth`, but must not turn this into a FAILED database.
+  const embed = result.embed;
+  if (embed && embed.ok === false && embed.failure) {
+    progress.fail(embed.failure);
+  } else if (embed && embed.ok && !embed.skipped) {
+    progress.succeed(`${embed.chunksIndexed || 0} chunks embedded`);
+  } else {
+    progress.succeed('migration complete');
+  }
+  return true;
 }
 
 function readSchemaVersion() {
@@ -86,17 +112,15 @@ async function checkDatabaseAndMigrations(context) {
 }
 
 function verifyMcpConfigContent(config, nodeCmd) {
-  const expectedSembleArgs = ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'];
   const expectedAislopArgs = ['-y', '-p', AISLOP_PACKAGE, 'aislop-mcp'];
   const servers = config.mcpServers || {};
-  const sembleOk = servers['semble'] && JSON.stringify(servers['semble'].args || []) === JSON.stringify(expectedSembleArgs);
   const aislopOk = servers['aislop'] && JSON.stringify(servers['aislop'].args || []) === JSON.stringify(expectedAislopArgs);
   const konohaServer = servers['konoha'];
   const konohaOk = konohaServer &&
     konohaServer.args &&
     (konohaServer.args[0] === FILE_TOOLS_MCP_PATH || konohaServer.args[0] === path.join(HOME, '.konoha', 'file_tools_launcher.js')) &&
     (konohaServer.command === nodeCmd || konohaServer.command === 'node');
-  return Boolean(sembleOk && konohaOk && aislopOk);
+  return Boolean(konohaOk && aislopOk);
 }
 
 function checkMcpConfiguration(context) {
@@ -109,13 +133,13 @@ function checkMcpConfiguration(context) {
   }
 
   if (mcpHealthy) {
-    context.record('MCP Config (mcp_config.json)', 'HEALTHY', 'konoha, semble, and aislop are active');
+    context.record('MCP Config (mcp_config.json)', 'HEALTHY', 'konoha and aislop are active');
     return;
   }
 
   try {
     registerMcp();
-    context.record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha, semble, and aislop in config');
+    context.record('MCP Config (mcp_config.json)', 'REPAIRED', 'Registered konoha and aislop in config');
     context.incrementRepairs();
   } catch (e) {
     context.record('MCP Config (mcp_config.json)', 'FAILED', `Error: ${e.message}`);
@@ -310,13 +334,70 @@ async function checkWebUiDaemon(context) {
     if (uiActive) {
       context.record(`Konoha Web UI (http://127.0.0.1:${UI_PORT}/)`, 'HEALTHY', `Daemon is active${svc.installed ? ` (${svc.type} service ${svc.active ? 'active' : 'inactive'})` : ''}`);
     } else {
-      context.record(`Konoha Web UI (http://127.0.0.1:${UI_PORT}/)`, 'WARNING', 'UI daemon not running (run: konoha ui start or konoha ui service install)');
+      context.record(`Konoha Web UI (http://127.0.0.1:${UI_PORT}/)`, 'WARNING', 'Web UI not running (run: konoha ui start or konoha service install)');
     }
   } catch (_) { /* intentional fallback */ }
 }
 
+/**
+ * Embedding health: is semantic search usable, and how much of the corpus has
+ * vectors? Reports the same cause/remedy schema as `konoha init` when it is not.
+ *
+ * A vector-less install still works (FTS5), so this is WARNING, not FAILED.
+ */
+function checkEmbeddingHealth(context) {
+  const { isSemanticSearchEnabled, SEMANTIC_SEARCH_ENV } = require('../../src/hf_cache_resolver');
+  const { formatEmbedFailure, classifyEmbedFailure } = require('../../src/embed_diagnostics');
+
+  if (!isSemanticSearchEnabled()) {
+    const failure = classifyEmbedFailure({ message: `semantic embedding requested while ${SEMANTIC_SEARCH_ENV} disabled` });
+    context.record(
+      'Vector Embeddings (semantic search)',
+      'WARNING',
+      `disabled via ${SEMANTIC_SEARCH_ENV}. Fix: ${failure.fixes[0]}`
+    );
+    return;
+  }
+
+  let conn;
+  try {
+    const Database = require('../../src/sqlite_driver');
+    conn = new Database(DB_PATH, { readOnly: true });
+    const total = conn.prepare(
+      "SELECT COUNT(*) n FROM skills s WHERE length(coalesce(s.content,'')) > 0"
+    ).get().n;
+    // A skill with a chunk row but a NULL vector is not embedded. Counting
+    // chunk existence reported a half-embedded corpus as HEALTHY.
+    const missing = conn.prepare(
+      `SELECT COUNT(*) n FROM skills s WHERE length(coalesce(s.content,'')) > 0
+         AND NOT EXISTS (SELECT 1 FROM skill_chunks k
+                          WHERE k.skill_name = s.name AND k.embedding IS NOT NULL)`
+    ).get().n;
+    const vectors = conn.prepare('SELECT COUNT(*) n FROM skill_chunks WHERE embedding IS NOT NULL').get().n;
+
+    if (total === 0) {
+      context.record('Vector Embeddings (semantic search)', 'INFO', 'no skill content to embed yet');
+    } else if (missing === 0) {
+      context.record('Vector Embeddings (semantic search)', 'HEALTHY', `${vectors} chunk vectors, ${total} skills covered`);
+    } else {
+      context.record(
+        'Vector Embeddings (semantic search)',
+        'WARNING',
+        `${missing}/${total} skills unembedded. Fix: konoha migrate --rebuild-embeddings`
+      );
+    }
+  } catch (err) {
+    // Unreadable database or missing vector table: explain, do not crash.
+    const lines = formatEmbedFailure(classifyEmbedFailure(err));
+    context.record('Vector Embeddings (semantic search)', 'WARNING', lines.join(' ').slice(0, 240));
+  } finally {
+    try { if (conn) conn.close(); } catch (_) { /* ignore */ }
+  }
+}
+
 async function checkGovernanceAndServices(context) {
   checkDatabaseGovernance(context);
+  checkEmbeddingHealth(context);
   await checkWebUiDaemon(context);
 }
 
@@ -401,6 +482,7 @@ async function checkVpsPreflight(context) {
 
 module.exports = {
   checkDatabaseAndMigrations,
+  checkEmbeddingHealth,
   checkGeminiAndAgentsConfig,
   checkPromptHookConfig,
   checkGovernanceAndServices,

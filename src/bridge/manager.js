@@ -51,7 +51,7 @@ function setEnabled(name, enabled) {
 
 const PORT_BASE = 11435;
 const _bridgeProcesses = new Map(); // name -> { ctx, server, config }
-const GATEWAY_PORT = require('../../bin/lib/paths').GATEWAY_PORT;
+const GATEWAY_PORT = require('../config_access').loadBinLib('paths').GATEWAY_PORT;
 
 function _isPortFree(port) {
   return new Promise(resolve => {

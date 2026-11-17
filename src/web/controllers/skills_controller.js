@@ -334,10 +334,34 @@ async function _handlePersonaRoutes(req, res, route, broadcastEvent) {
   if (method === 'POST' && pathname === '/api/v1/persona') {
     try {
       const body = await parseBody(req);
+      if (body.action === 'correct' && body.targetId && body.newContent) {
+        const resCorrect = personaMemory.correctMemory({
+          id: body.targetId,
+          newContent: body.newContent,
+          title: body.title,
+          reason: body.reason || '',
+          actor: body.actor || body.agentName || 'web',
+          evidenceRef: body.evidenceRef || body.sourceRef || ''
+        });
+        broadcastEvent('persona_updated', { action: 'correct', id: resCorrect.new_id });
+        return sendJson(res, 200, resCorrect);
+      }
       if (!body.agentName || !body.content) return sendJson(res, 400, { error: 'Missing required fields: agentName, content' });
-      const id = personaMemory.saveMemory({ agentName: body.agentName, content: body.content, title: body.title || '', memoryType: body.memoryType || 'rule', tags: body.tags || '', importance: parseInt(body.importance || 1, 10), projectPath: body.projectPath || null });
-      broadcastEvent('persona_updated', { action: 'create', id, agent: body.agentName });
-      return sendJson(res, 201, { id, ok: true });
+      const saved = personaMemory.remember({
+        agentName: body.agentName,
+        content: body.content,
+        title: body.title || '',
+        memoryType: body.memoryType || 'rule',
+        tags: body.tags || '',
+        importance: parseInt(body.importance || 1, 10),
+        domain: body.domain,
+        sourceType: body.sourceType || 'agent',
+        sourceRef: body.sourceRef || '',
+        verificationStatus: body.verificationStatus,
+        projectPath: body.projectPath || null
+      });
+      broadcastEvent('persona_updated', { action: 'create', id: saved.id, agent: body.agentName });
+      return sendJson(res, 201, { id: saved.id, ok: true, provenance: saved.provenance });
     } catch (err) { return sendJson(res, 500, { error: err.message }); }
   }
   if (method === 'DELETE' && pathname.startsWith('/api/v1/persona/')) {
@@ -359,7 +383,7 @@ async function _handlePersonaRoutes(req, res, route, broadcastEvent) {
   return false;
 }
 
-function _processWorkspaceRow(r, workspaceMap, personaMemory) {
+function _processWorkspaceRow(r, workspaceMap, personaMemory, conn = null) {
   let pRoot = r.workspace_root;
   if (!pRoot || typeof pRoot !== 'string') return;
   try { pRoot = path.resolve(path.normalize(pRoot)); } catch (_) { /* ignore */ }
@@ -367,10 +391,10 @@ function _processWorkspaceRow(r, workspaceMap, personaMemory) {
   const clientName = (r.client || 'generic').toLowerCase();
 
   if (!workspaceMap.has(normKey)) {
-    let prof = personaMemory.getProjectProfile(pRoot);
+    let prof = personaMemory.getProjectProfile(pRoot, conn);
     if (!prof && fs.existsSync(pRoot)) {
-      const pHash = personaMemory.saveOrUpdateProject(pRoot, '', null);
-      prof = personaMemory.getProjectProfile(pHash);
+      const pHash = personaMemory.saveOrUpdateProject(pRoot, '', null, conn);
+      prof = personaMemory.getProjectProfile(pHash, conn);
     }
     workspaceMap.set(normKey, {
       workspace_root: pRoot,
@@ -396,7 +420,7 @@ function _processWorkspaceRow(r, workspaceMap, personaMemory) {
 function _collectActiveWorkspaces(personaMemory) {
   const activeWorkspaces = [];
   try {
-    const conn = db.getConnection();
+    const conn = db.getConnection(null, false);
     try {
       const rows = conn.prepare(`
         SELECT client, workspace_root, MAX(last_active_at) AS last_active_at
@@ -407,7 +431,7 @@ function _collectActiveWorkspaces(personaMemory) {
         LIMIT 25
       `).all();
       const workspaceMap = new Map();
-      for (const r of rows) _processWorkspaceRow(r, workspaceMap, personaMemory);
+      for (const r of rows) _processWorkspaceRow(r, workspaceMap, personaMemory, conn);
       activeWorkspaces.push(...workspaceMap.values());
     } finally {
       conn.close();

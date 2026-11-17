@@ -6,7 +6,6 @@ const {
   header,
   log,
   info,
-  error,
   drawTable,
   drawBox,
   computeTableWidths,
@@ -19,9 +18,7 @@ const {
   FIRE_THEME
 } = require('../lib/format');
 const { startSpinner, checkPython } = require('../lib/prompt');
-const { getUvxCommand } = require('../lib/extension');
 const { SERVER_PATH } = require('../lib/paths');
-const { cmdTest } = require('./test');
 const { checkAndRepairRuntimeFiles, cleanCyberPack, restoreAnbu } = require('./doctor_runtime');
 const { checkAndRepairClientConfigs } = require('./doctor_clients');
 const {
@@ -104,13 +101,7 @@ async function renderDoctorSummary(hasErrors, repairsDone) {
   log('');
 
   if (repairsDone > 0) {
-    info('Running self-test to verify repairs...');
-    try {
-      await cmdTest();
-    } catch (testErr) {
-      error(`Self-test failed after repairs: ${testErr.message}`);
-      process.exitCode = 1;
-    }
+    info('Run "konoha test" for full MCP and regression verification.');
   }
 }
 
@@ -152,7 +143,6 @@ async function cmdDoctor(args = []) {
   const clientRepairOptions = {
     pythonCmd: checkPython() || 'python3',
     serverPath: SERVER_PATH,
-    uvxCmd: getUvxCommand(),
     agents: agentManager.loadAgents(),
     projectRoot: path.resolve(process.cwd()),
     deployProject: false,

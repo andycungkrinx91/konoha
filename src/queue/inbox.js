@@ -10,6 +10,21 @@ const path = require('path');
 const os = require('os');
 const dbModule = require('../db');
 
+// Seven call sites below open a connection and none of them close it, so every
+// enqueue/claim/ack leaked a live SQLite handle and, on Windows, kept the
+// database directory locked past the process. Reuse one handle per database
+// path instead; DB_PATH is compared so a test that switches paths still gets
+// a connection to the database it asked for.
+let _conn = null;
+let _connPath = null;
+
+function _db() {
+  if (_conn && _connPath === dbModule.DB_PATH) return _conn;
+  _conn = dbModule.getConnection();
+  _connPath = dbModule.DB_PATH;
+  return _conn;
+}
+
 function getInboxDir() {
   const dir = path.join(os.homedir(), '.konoha', 'inbox');
   if (!fs.existsSync(dir)) {
@@ -32,7 +47,7 @@ function enqueuePrompt({ prompt, source = 'web_ui', sender_info = '', session_id
     throw new Error('Prompt cannot be empty');
   }
 
-  const conn = dbModule.getConnection();
+  const conn = _db();
   const id = generateTaskId();
   const now = new Date().toISOString();
   const cleanPrompt = prompt.trim();
@@ -81,7 +96,7 @@ function enqueuePrompt({ prompt, source = 'web_ui', sender_info = '', session_id
  * Get next pending prompt from queue.
  */
 function getNextPendingPrompt(session_id = null) {
-  const conn = dbModule.getConnection();
+  const conn = _db();
   if (session_id) {
     return conn.prepare(`
       SELECT * FROM prompt_queue
@@ -103,7 +118,7 @@ function getNextPendingPrompt(session_id = null) {
  * (e.g. 2 Antigravity sessions or 1 Antigravity + 1 Claude Code).
  */
 function claimNextPendingPrompt({ client = 'default', session_id = null } = {}) {
-  const conn = dbModule.getConnection();
+  const conn = _db();
   const now = new Date().toISOString();
   let claimed = null;
 
@@ -142,7 +157,7 @@ function claimNextPendingPrompt({ client = 'default', session_id = null } = {}) 
  * Mark prompt as processing.
  */
 function markPromptProcessing(id) {
-  const conn = dbModule.getConnection();
+  const conn = _db();
   const now = new Date().toISOString();
   conn.prepare(`
     UPDATE prompt_queue
@@ -160,7 +175,7 @@ function completePrompt(id, {
   kage_confidence_score = 0,
   status = 'completed'
 } = {}) {
-  const conn = dbModule.getConnection();
+  const conn = _db();
   const now = new Date().toISOString();
   const cleanStatus = ['completed', 'failed', 'cancelled'].includes(status) ? status : 'completed';
 
@@ -206,7 +221,7 @@ function completePrompt(id, {
  * List recent prompts for API/dashboard.
  */
 function listPrompts({ limit = 20, status = null } = {}) {
-  const conn = dbModule.getConnection();
+  const conn = _db();
   const max = Math.max(1, Math.min(100, Number(limit) || 20));
 
   if (status) {
@@ -227,7 +242,7 @@ function listPrompts({ limit = 20, status = null } = {}) {
  * Retrieve single prompt by ID.
  */
 function getPromptById(id) {
-  const conn = dbModule.getConnection();
+  const conn = _db();
   return conn.prepare('SELECT * FROM prompt_queue WHERE id = ?').get(id) || null;
 }
 

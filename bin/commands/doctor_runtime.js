@@ -12,7 +12,8 @@ const {
   FILE_TOOLS_LAUNCHER_PATH
 } = require('../lib/paths');
 const deployUtils = require('../../src/deploy_utils');
-const { installFileTools } = require('../../src/deploy_installer');
+const { installFileTools, syncRuntimeSubdirectories } = require('../../src/deploy_installer');
+const { copyRuntimeAssets, copyRecursive } = require('../lib/runtime_install');
 const { smokeTestKonohaFilesMcp } = require('../lib/runtime_mcp');
 const { checkPython } = require('../lib/runtime_lifecycle');
 
@@ -80,6 +81,20 @@ function repairCoreModules(context) {
   }
 }
 
+function hasRuntimeGrammars(pkgGrammarsDir, grammarsDest) {
+  if (!fileExists(pkgGrammarsDir)) return false;
+  return fs.readdirSync(pkgGrammarsDir).every((entry) => {
+    const srcFile = path.join(pkgGrammarsDir, entry);
+    const destFile = path.join(grammarsDest, entry);
+    if (!fileExists(destFile)) return false;
+    try {
+      return fs.readFileSync(srcFile).equals(fs.readFileSync(destFile));
+    } catch {
+      return false;
+    }
+  });
+}
+
 function repairFileToolsSubsystem(context) {
   checkAndRepairFile('file_tools_mcp.js', FILE_TOOLS_MCP_PATH, 'File Tools MCP (file_tools_mcp.js)', context);
   checkAndRepairFile('file_tools_router.js', FILE_TOOLS_ROUTER_PATH, 'File Tools Router (file_tools_router.js)', context);
@@ -95,6 +110,32 @@ function repairFileToolsSubsystem(context) {
 
   deployUtils.writeNodeExecPathRecord();
   deployUtils.writePythonCmdRecord(checkPython());
+
+  const pkgAssetsDir = path.join(path.resolve(SRC_DIR, '..'), 'assets');
+  const pkgGrammarsDir = path.join(pkgAssetsDir, 'grammars');
+  const grammarsDest = path.join(SKILLS_DB_DIR, 'assets', 'grammars');
+  // Measure grammar presence before syncRuntimeSubdirectories() copies assets/grammars.
+  const hadGrammars = hasRuntimeGrammars(pkgGrammarsDir, grammarsDest);
+
+  const syncedSubdirs = syncRuntimeSubdirectories(SRC_DIR, SKILLS_DB_DIR);
+  if (syncedSubdirs > 0) {
+    context.record('Runtime Subdirectories', 'REPAIRED', `Synced ${syncedSubdirs} outdated or missing file(s)`);
+    context.incrementRepairs();
+  } else {
+    context.record('Runtime Subdirectories', 'HEALTHY', 'All runtime subdirectories verified');
+  }
+
+  if (fileExists(pkgAssetsDir)) {
+    copyRuntimeAssets(pkgAssetsDir, copyRecursive);
+    context.record(
+      'Runtime Grammars (assets/grammars)',
+      hadGrammars ? 'HEALTHY' : 'REPAIRED',
+      hadGrammars
+        ? 'Runtime assets and grammars verified'
+        : 'Restored runtime assets and grammars from package'
+    );
+    if (!hadGrammars) context.incrementRepairs();
+  }
 
   purgeInvalidRuntimeMirrors(context);
 }
@@ -185,6 +226,18 @@ function testAndRepairFileToolsSmoke(context) {
     return;
   }
 
+  if (installFileTools(true)) {
+    const repairedSmoke = smokeTestKonohaFilesMcp(true);
+    if (repairedSmoke.ok) {
+      context.record('konoha MCP smoke test', 'REPAIRED', 'Synced runtime subdirectories and verified MCP smoke test');
+      context.incrementRepairs();
+      return;
+    }
+    context.record('konoha MCP smoke test', 'FAILED', repairedSmoke.error || directSmoke.error || fileToolsSmoke.error);
+    context.markError();
+    return;
+  }
+
   context.record('konoha MCP smoke test', 'FAILED', directSmoke.error || fileToolsSmoke.error);
   context.markError();
 }
@@ -254,6 +307,7 @@ function restoreAnbu(context) {
 module.exports = {
   checkAndRepairFile,
   checkAndRepairRuntimeFiles,
+  repairFileToolsSubsystem,
   purgeInvalidRuntimeMirrors,
   cleanCyberPack,
   restoreAnbu

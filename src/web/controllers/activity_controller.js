@@ -9,6 +9,7 @@
 
 const db = require('../../db');
 const agentManager = require('../../agent_manager');
+const { defaultBrowserSessionManager } = require('../../workflow/qa-automation/browser_session_manager');
 const { sendJson, isClientConfigured } = require('./common');
 
 let _activitySeq = 0;
@@ -16,7 +17,7 @@ let _activitySeq = 0;
 const CLIENT_DEFINITIONS = [
   { id: 'antigravity', name: 'Antigravity', category: 'IDE / CLI' },
   { id: 'cursor', name: 'Cursor', category: 'IDE' },
-  { id: 'claude', name: 'Claude Code', category: 'CLI' },
+  { id: 'claudecode', name: 'Claude Code', category: 'CLI' },
   { id: 'opencode', name: 'OpenCode', category: 'CLI' },
   { id: 'commandcode', name: 'CommandCode', category: 'CLI' },
   { id: 'codex', name: 'Codex', category: 'CLI / App' },
@@ -56,7 +57,7 @@ function normalizeClientId(raw) {
   if (!s || s === 'unknown' || s === 'default') return 'antigravity';
   if (s.includes('antigravity') || s.includes('gemini')) return 'antigravity';
   if (s.includes('cursor')) return 'cursor';
-  if (s.includes('claude')) return 'claude';
+  if (s.includes('claude')) return 'claudecode';
   if (s.includes('opencode')) return 'opencode';
   if (s.includes('command')) return 'commandcode';
   if (s.includes('codex')) return 'codex';
@@ -355,7 +356,7 @@ function populateTasksAndTools(graph, rawData) {
     const isToolActive = lastMs >= activeCutoffMs;
     graph.upsertNode({
       id: `tool:${toolName}`, key: toolName, type: 'tool', label: toolName,
-      category: toolName.startsWith('semble') ? 'Semble Code Search' : 'Konoha MCP Tool',
+      category: 'Konoha MCP Tool',
       status: lastMs >= liveBurstCutoffMs ? 'executing' : (isToolActive ? 'warm' : 'idle'),
       active: isToolActive, call_count: Number(item.call_count || 0),
       tokens_saved: Number(item.total_tokens_saved || 0),
@@ -493,7 +494,12 @@ function getLiveActivitySnapshot(options = {}) {
   const limit = Number(options.limit) || 60;
   const canonicalAgents = loadCanonicalAgents();
   const rawData = queryDatabaseActivity(windowMinutes, limit);
-  return buildExecutionGraph(rawData, canonicalAgents);
+  const graphSnapshot = buildExecutionGraph(rawData, canonicalAgents);
+  const mgr = options.browserSessionManager || defaultBrowserSessionManager;
+  return {
+    ...graphSnapshot,
+    browser_sessions: mgr.listSessions({ includeStopped: false })
+  };
 }
 
 async function handleActivityRoutes(req, res, ctx, parsedUrl, ...rest) {

@@ -1,8 +1,8 @@
 'use strict';
 
 const fs = require('fs');
-const { parseYaml } = require('../bin/lib/yaml_utils');
-const { DEFAULT_AGENTS_YAML_PATH } = require('../bin/lib/paths');
+const { parseYaml } = require('./config_access').loadBinLib('yaml_utils');
+const { DEFAULT_AGENTS_YAML_PATH } = require('./config_access').loadBinLib('paths');
 const { loadAgents, saveAgents } = require('./agent_storage');
 const { regenerateAndDeploy } = require('./agent_deployer');
 

@@ -28,7 +28,6 @@ const {
   C,
   header,
   log,
-  info,
   success,
   warn,
   error,
@@ -48,14 +47,12 @@ const {
   copyIfDifferent
 } = require('../lib/runtime_install');
 const { purgePackageCaches } = require('../lib/runtime_mcp');
-const {
-  installUv,
-  refreshSemblePackage
-} = require('../lib/extension');
-const { checkPortActive, ensureUiDaemonAutoStart, cmdUiRestart } = require('../lib/ui_commands');
+const { installUv } = require('../lib/extension');
+const { checkPortActive } = require('../lib/ui_commands');
 const { cmdBridgeStart } = require('./bridge');
 const { parseRequestedClients, setupClientIntegrations } = require('./init_clients');
 const { executeInitMigration, renderInitSummary, measureEmbeddingCoverage } = require('./init_migration');
+const { createEmbedProgress, INIT_PHASES } = require('../lib/embed_progress');
 const {
   executePreInstallBackup,
   runTransactionalDatabaseMigration
@@ -72,7 +69,7 @@ function cmdInitHelp() {
   3. Copies runtime and migration files.
   4. Discovers skills directories (~/.agents/skills).
   5. Seeds canonical subagent skills and builds their vector embeddings (~/.konoha/konoha.db).
-  6. Registers Konoha & Semble MCP tools with your AI coding assistants.
+  6. Registers Konoha & Aislop MCP tools with your AI coding assistants.
   7. Configures multi-agent team rules (Antigravity, Cursor, Claude Code, OpenCode, Codex, Pi, OMP).
 
   Options:
@@ -97,7 +94,7 @@ function recordAutoSetupState() {
   } catch { /* best-effort */ }
 }
 
-function checkNodeAndToolchains(options, args) {
+function checkNodeAndToolchains(options) {
   if (options.onProgress) options.onProgress(1, 'Dependencies', 'Checking Node.js environment...');
   const spinner1 = startSpinner('Checking Node.js environment...');
   const nodeVersion = process.version;
@@ -117,49 +114,12 @@ function checkNodeAndToolchains(options, args) {
       uvInstalled = true;
       spinner1b.success('uv is available on PATH.');
     } catch (err) {
-      spinner1b.warn(`uv not found (${err.message || 'not on PATH'}) — semble MCP will install lazily on first use.`);
+      spinner1b.warn(`uv not found (${err.message || 'not on PATH'}) — aislop MCP will install lazily on first use.`);
     }
   } else {
     spinner1b.success('uv installed successfully.');
   }
 
-  if (args.includes('--force')) {
-    const sembleRefresh = refreshSemblePackage(true);
-    if (!sembleRefresh.ok) warn(`Semble refresh skipped: ${sembleRefresh.reason}`);
-  }
-}
-
-async function restartUiDaemonForRefresh(port) {
-  info('Restarting Konoha Web UI daemon to load the refreshed runtime...');
-  try {
-    await cmdUiRestart(['--no-open', `--port=${port}`]);
-  } catch (err) {
-    warn(`Web UI daemon restart failed (${err ? err.message : 'unknown error'}); the running UI may still serve the previous build. Run "konoha ui restart" to refresh it.`);
-  }
-}
-
-async function autoStartUiDaemonIfRequested(options) {
-  if (options && options.skipUiAutoStart) return;
-  try {
-    const port = (options && options.port) || UI_PORT;
-    // A reinstall/refresh replaces the runtime mirror under a running
-    // daemon, but the daemon serves the build it loaded at startup (the
-    // SvelteKit handler is cached in-process), so the old build stays
-    // served until the process restarts. ensureUiDaemonAutoStart() alone
-    // is a no-op when the port is already active, which left the stale
-    // UI served after `npm install -g` + `konoha init --yes`. Restart a
-    // running daemon so it loads the refreshed runtime; otherwise start
-    // it as before. Restarting a running daemon is not auto-starting
-    // one, so the KONOHA_UI_AUTOSTART opt-out does not apply here.
-    if (await checkPortActive(port)) {
-      await restartUiDaemonForRefresh(port);
-      return;
-    }
-    const uiAuto = await ensureUiDaemonAutoStart({ port });
-    if (uiAuto?.started) {
-      info(`${C.bold}Konoha Web UI daemon auto-started:${C.reset} ${C.cyan}http://127.0.0.1:${port}/${C.reset} (set KONOHA_UI_AUTOSTART=0 to disable)`);
-    }
-  } catch { /* intentional fallback */ }
 }
 
 async function refreshExistingInstallation(flags, options) {
@@ -208,7 +168,6 @@ async function refreshExistingInstallation(flags, options) {
 
   success('Integrations refreshed.');
 
-  await autoStartUiDaemonIfRequested(options);
   recordAutoSetupState();
 }
 
@@ -303,26 +262,31 @@ async function handleExistingInstallation(clientFlags, args, options) {
  * can always run `konoha migrate` to finish it.
  */
 async function migrateExistingInstallation(options = {}) {
+  const progress = createEmbedProgress('Migrating existing installation', INIT_PHASES);
+  const runOptions = {
+    skillsDir: options.skillsDir || null,
+    timeBudgetSeconds: options.timeBudgetSeconds,
+    onProgress: progress.onProgress,
+    logSink: progress.detail
+  };
   try {
     const { runMigration } = require('../../src/migrate');
     header('📊 Migrating existing installation');
-    let result = await runMigration({
-      skillsDir: options.skillsDir || null,
-      skipEmbeddings: Boolean(options.skipEmbeddings),
-      timeBudgetSeconds: options.timeBudgetSeconds
-    });
+    let result = await runMigration({ ...runOptions, skipEmbeddings: Boolean(options.skipEmbeddings) });
     if (result && result.ok === false) {
-      result = await runMigration({
-        skillsDir: options.skillsDir || null,
-        skipEmbeddings: true,
-        skillsOnly: true,
-        timeBudgetSeconds: options.timeBudgetSeconds
-      });
+      result = await runMigration({ ...runOptions, skipEmbeddings: true, skillsOnly: true });
     }
     if (result && result.ok === false) {
+      progress.abort(result.reason || (result.missingRequired || []).join(', ') || 'migration did not complete');
       warn(`Migration did not complete (${result.reason || (result.missingRequired || []).join(', ') || 'unknown reason'}). Run "konoha migrate" to finish it.`);
+    } else if (result && result.embed && result.embed.ok === false) {
+      progress.fail(result.embed.failure);
+      warn(`Semantic search is unavailable until embeddings are rebuilt: ${C.cyan}konoha doctor --fix${C.reset}`);
+    } else {
+      progress.succeed(result && result.embed && result.embed.skipped ? 'migration complete (embeddings skipped)' : 'migration complete');
     }
   } catch (err) {
+    progress.abort(err.message || 'migration failed');
     warn(`Migration failed: ${err.message}. Run "konoha migrate" to finish it.`);
   }
 }
@@ -373,7 +337,7 @@ async function cmdInit(args, options = {}) {
     error(`Configuration backup verification failed: ${backupErr.message}`);
     process.exit(1);
   }
-  checkNodeAndToolchains(options, args);
+  checkNodeAndToolchains(options);
   const python = checkPython() || 'node';
   clientFlags.python = python;
 
@@ -395,21 +359,23 @@ async function cmdInit(args, options = {}) {
   installCliRuntime();
 
   header('🌱 Seeding Canonical Subagent Skills');
-  const spinnerMigrate = startSpinner('Seeding canonical skills into ~/.konoha/konoha.db...');
   const skillsDirs = detectSkillsDirs();
   const { CANONICAL_SKILL_NAMES } = require('../../src/canonical_skills');
   const skills = Array.from(CANONICAL_SKILL_NAMES);
   const skipEmbed = args.includes('--no-embed');
   const migrationArgs = buildInitMigrationArgs({ pkgSkillsDir, skills, skipEmbed });
 
-  await executeInitMigration({
+  const progress = createEmbedProgress('Installing Konoha', INIT_PHASES);
+  const initRun = await executeInitMigration({
     skillsDirs,
     skills,
     migrationArgs,
     safeTimeoutMs: INSTALL_BUILD_MIGRATE_TIMEOUT_MS,
     python,
     pkgSkillsDir,
-    spinner: spinnerMigrate
+    // The bar spans the client wiring that runs after the migration, so init
+    // owns the settle and the migration must not close it early.
+    progress
   });
 
   agentManager.loadAgents();
@@ -427,6 +393,7 @@ async function cmdInit(args, options = {}) {
   );
 
   if (hasClientsToSetup) {
+    progress.phase('configuration');
     const setupAgents = agentManager.loadAgents();
     const currentCwd = path.resolve(process.cwd());
     setupClientIntegrations({
@@ -440,13 +407,31 @@ async function cmdInit(args, options = {}) {
     }
   }
 
+  // Settle before the summary block: the bar owns the last few lines on screen,
+  // and the install summary must not print underneath a live bar.
+  if (initRun && initRun.embedFailed) {
+    progress.fail(initRun.embedFailure);
+    warn(`Semantic search is unavailable until embeddings are rebuilt: ${C.cyan}konoha doctor --fix${C.reset}`);
+  } else {
+    const embedded = initRun && initRun.embed;
+    progress.succeed(embedded && embedded.skipped
+      ? 'installation complete (embeddings skipped)'
+      : embedded && Number.isFinite(embedded.chunksIndexed)
+        ? `${embedded.chunksIndexed} chunks embedded`
+        : 'installation complete');
+  }
+
   const embedCoverage = skipEmbed ? null : measureEmbeddingCoverage();
-  renderInitSummary({ ...clientFlags, skipEmbed, embedCoverage });
+  renderInitSummary({
+    ...clientFlags,
+    skipEmbed,
+    embedCoverage,
+    // A hard embed failure already printed its own cause and remedies; the
+    // coverage block's "run konoha migrate again" would contradict them.
+    embedFailed: Boolean(initRun && initRun.embedFailed)
+  });
   if (args.includes('--with-red-team')) {
     await installCyberPackAfterInit();
-  }
-  if (!options.skipUiAutoStart) {
-    await autoStartUiDaemonIfRequested(options);
   }
   recordAutoSetupState();
 }
@@ -492,6 +477,5 @@ module.exports = {
   detectAllClientFlags,
   buildInitMigrationArgs,
   handleExistingInstallation,
-  migrateExistingInstallation,
-  autoStartUiDaemonIfRequested
+  migrateExistingInstallation
 };

@@ -5,9 +5,12 @@ const { loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_commo
 const { globalCircuitRegistry } = require('../../../circuit_breaker');
 const { superviseLifecycleStage, evaluateWorkerTurn } = require('../../../workflow/kage-reviewer/advisor_monitor');
 const { runAkatsukiFinalGate } = require('../../../workflow/akatsuki/workflows');
-const { runMcpAgent } = require('../../memory_subagent_runner');
+const { runMcpAgentAsync } = require('../../memory_subagent_runner');
 const { normalizeAgentName } = require('../../../canonical_agents');
+const { getActiveClient } = require('../../runtime_state');
+const { detectActiveClient, resolveFirstSpawnClient } = require('../../client_detection');
 const { finalizeNodeResult } = require('../budget');
+const { syncTodoAndWalkthrough } = require('../../todo_walkthrough_sync');
 const worktree = require('../../worktree_isolation');
 
 function recordCompletedDispatch(status, dispatchId) {
@@ -28,12 +31,18 @@ async function _executeTaskBranchConcurrently(task, idx, status, state, sliceExe
   } else {
     const projectPath = state.projectPath || status.project_path || process.cwd();
     const taskDir = state.taskDir || status.task_dir || '';
-    const rawMcp = runMcpAgent(targetAgent, {
+    const spawnClient = resolveFirstSpawnClient([
+      state.client,
+      status.client,
+      typeof getActiveClient === 'function' ? getActiveClient() : null,
+      detectActiveClient()
+    ], 'universal');
+    const rawMcp = await runMcpAgentAsync(targetAgent, {
       task: task.task || task.description || `Execute task slice ${task.id}`,
       projectPath,
       taskDir,
       taskId: task.id,
-      client: status.client || state.client || 'antigravity',
+      client: spawnClient,
       worktree: task.worktree_path || null
     });
     let parsedMcp = {};
@@ -198,12 +207,19 @@ async function executeNode(state, config) {
 
   let executionError = null;
 
+  let todoSync = null;
   try {
     const tasks = await completePendingTasks(status, state, config);
     const allCompleted = tasks.every(t => t.status === 'completed');
     advancePostExecutionPhase(status, state, allCompleted, taskDir);
-    superviseLifecycleStage('execute', { status, taskDir });
+    superviseLifecycleStage('execute', {
+      status,
+      taskDir,
+      goal: status.prompt || state.prompt || '',
+      todos: status.tasks || []
+    });
 
+    todoSync = syncTodoAndWalkthrough(status, { client: state.client || status.client || '', taskDir });
     if (taskDir) {
       fs.mkdirSync(taskDir, { recursive: true });
       saveWorkflowStatus(taskDir, status);
@@ -219,13 +235,25 @@ async function executeNode(state, config) {
     status,
     phase: status.phase || 'review',
     report: status.report || state.report || '',
+    todos: todoSync ? todoSync.todos : undefined,
+    walkthrough_steps: todoSync ? todoSync.walkthrough_steps : undefined,
+    client_todo_directive: todoSync ? todoSync.client_todo_directive : undefined,
     circuitOpen,
     circuitState: breakerStatus.state,
     error: executionError,
   };
 
   const nextNode = outputPayload.phase === 'document' ? 'node_dispatch' : 'node_review';
-  return finalizeNodeResult(state, outputPayload, nextNode);
+  return finalizeNodeResult(state, outputPayload, nextNode, {
+    source: {
+      status,
+      phase: outputPayload.phase,
+      report: outputPayload.report,
+      circuitOpen,
+      circuitState: breakerStatus.state,
+      error: executionError,
+    }
+  });
 }
 
 module.exports = { executeNode };

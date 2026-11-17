@@ -10,8 +10,9 @@ Single entry point for every live document. One topic, one source of truth. `doc
 | `architecture/canonical-api` | [architecture/CANONICAL-API.md](architecture/CANONICAL-API.md) | Authoritative exported API and MCP tool signatures |
 | `architecture/canonical-cli` | [architecture/CANONICAL-CLI.md](architecture/CANONICAL-CLI.md) | Authoritative CLI command tree and flags |
 | `architecture/canonical-naming` | [architecture/CANONICAL-NAMING.md](architecture/CANONICAL-NAMING.md) | Approved identifiers; blocks synonyms in code review |
-| `architecture/capabilities` | [architecture/CAPABILITY-MAP.md](architecture/CAPABILITY-MAP.md) | Capability to file to tool mapping for v2.2.21 |
+| `architecture/capabilities` | [architecture/CAPABILITY-MAP.md](architecture/CAPABILITY-MAP.md) | Capability to file to tool mapping for v2.2.22 |
 | `architecture/gaps` | [architecture/ARCHITECTURAL-GAPS.md](architecture/ARCHITECTURAL-GAPS.md) | Open architectural gaps and their remediation order |
+| `architecture/issue-13-native-code-intelligence` | [architecture/ISSUE-13-GATE-1-NATIVE-CODE-INTELLIGENCE.md](architecture/ISSUE-13-GATE-1-NATIVE-CODE-INTELLIGENCE.md) | Gate 1 audit, initial schema v6 design, and native code intelligence (`web-tree-sitter` / 8 `code_*` tools; current DB schema v8) |
 | `architecture/token-baseline` | [architecture/TOKEN-BASELINE.md](architecture/TOKEN-BASELINE.md) | Measured token footprints; Section 11.4 is the evidence for the 83–98% context-saving claim |
 | `workflows/diagrams` | [ALL-WORKFLOW-DIAGRAMS.md](ALL-WORKFLOW-DIAGRAMS.md) | End-to-end Mermaid flows for every workflow |
 
@@ -19,12 +20,12 @@ Single entry point for every live document. One topic, one source of truth. `doc
 
 | Topic key | Document | Answers |
 |---|---|---|
-| `security/architecture` | [SECURITY.md](SECURITY.md) | v2.2.21 ingress, auth, Telegram, and queue controls |
+| `security/architecture` | [SECURITY.md](SECURITY.md) | v2.2.22 ingress, auth, Telegram, and queue controls |
 | `security/database-isolation` | [security/DATABASE-ISOLATION-INVENTORY.md](security/DATABASE-ISOLATION-INVENTORY.md) | Which database every lab and skill may touch |
 | `security/kali-tools-provenance` | [security/DB-KALI-TOOLS-PROVENANCE.md](security/DB-KALI-TOOLS-PROVENANCE.md) | Provenance and disposition of every `kali_tools` row |
 | `security/red-skill-inventory` | [security/RED-SKILL-INVENTORY.md](security/RED-SKILL-INVENTORY.md) | Opt-in red pack contents and authorization model |
 | `security/skill-authz` | [security/SKILL-AUTHZ-AND-LAB-DB-ISOLATION-2026-11-09.md](security/SKILL-AUTHZ-AND-LAB-DB-ISOLATION-2026-11-09.md) | Skill authorization rules and lab DB isolation as enforced |
-| `security/schema-audit` | [security/DATABASE-SCHEMA-AUDIT-2026-11-09.md](security/DATABASE-SCHEMA-AUDIT-2026-11-09.md) | Live-vs-source schema consistency evidence for 2.2.21 |
+| `security/schema-audit` | [security/DATABASE-SCHEMA-AUDIT-2026-11-09.md](security/DATABASE-SCHEMA-AUDIT-2026-11-09.md) | Live-vs-source schema consistency evidence for 2.2.22 |
 | `compliance/current` | [SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md](SecurityCompliance/security_compliance_report_2.2.19_2026-11-09.md) | Newest external compliance audit; older audits are in the archive |
 
 ## Setup per client
@@ -54,7 +55,7 @@ Per-client pages stay separate on purpose — different binaries, paths, and too
 | `metrics/benchmark` | [BENCHMARK.md](BENCHMARK.md) | Generated token-savings report; edit only via `scripts/generate_benchmark.js` |
 | `ops/troubleshooting` | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Symptom to cause to fix |
 | `ops/ci` | [CI.md](CI.md) | Cross-platform workflow, browser provisioning, engine capability split |
-| `manual/operators` | [MANUAL.md](MANUAL.md) and [MANUAL.pdf](MANUAL.pdf) | The whole product for 2.2.21 in reading order: install, first run, CLI, TUI, Web UI, Telegram, harnesses, architecture, agents, token economy, diagnostics, troubleshooting, security, appendix |
+| `manual/operators` | [MANUAL.md](MANUAL.md) and [MANUAL.pdf](MANUAL.pdf) | The whole product for 2.2.22 in reading order: install, first run, CLI, TUI, Web UI, Telegram, harnesses, architecture, agents, token economy, diagnostics, troubleshooting, security, appendix |
 
 ## Assets
 
@@ -68,6 +69,6 @@ Per-client pages stay separate on purpose — different binaries, paths, and too
 ## Conventions
 
 - Live documents only. Dated audit reports, superseded guides, and completed reviews live in `docs/archive/`.
-- 700-line ceiling per file. Recorded exceptions: `ALL-WORKFLOW-DIAGRAMS.md` (1417), `QA-TEST-CHECKLIST.md` (939), `ARCHITECTURE.md` (918), `TROUBLESHOOTING.md` (814), `MANUAL.md` (1655) — catalogs and checklists whose splitting would fragment embeds or break anchors, and a manual whose chapter order is the render order of the PDF.
+- 700-line ceiling per file. Recorded exceptions: `ALL-WORKFLOW-DIAGRAMS.md` (1416), `QA-TEST-CHECKLIST.md` (1062), `ARCHITECTURE.md` (967), `TROUBLESHOOTING.md` (880), `CI.md` (785), `MANUAL.md` (1704) — catalogs, CI records, and checklists whose splitting would fragment embeds or break anchors, and a manual whose chapter order is the render order of the PDF.
 - Every internal link resolves; `tests/test_docs_currency.js` walks `README.md` and `docs/**`, and `tests/test_docs_index.js` asserts this index matches the filesystem.
 - `BENCHMARK.md` is generated. `node scripts/generate_benchmark.js --check` fails on manual edits.

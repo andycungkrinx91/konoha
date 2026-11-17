@@ -28,6 +28,9 @@ const templatePath = path.join(ROOT, 'src', 'templates', 'SOUL.md');
 const homeAgents = path.join(require('os').homedir(), '.agents');
 const homeSoulPath = path.join(homeAgents, 'SOUL.md');
 const projectSoulPath = path.join(ROOT, '.agents', 'SOUL.md');
+if (!fs.existsSync(projectSoulPath) && !fs.existsSync(homeSoulPath)) {
+  syncSoul();
+}
 const agentsSoulPath = fs.existsSync(projectSoulPath) ? projectSoulPath : homeSoulPath;
 
 assert.ok(fs.existsSync(templatePath), 'src/templates/SOUL.md must exist');
@@ -35,7 +38,21 @@ assert.ok(fs.existsSync(agentsSoulPath), 'SOUL.md must exist in canonical .agent
 
 const templateContent = fs.readFileSync(templatePath, 'utf8');
 const agentsContent = fs.readFileSync(agentsSoulPath, 'utf8');
-assert.strictEqual(templateContent, agentsContent, 'src/templates/SOUL.md and .agents/SOUL.md must be identical');
+
+// The template is the unwrapped source; every installed mirror wraps it in the
+// managed block so prose the user wrote outside the markers survives. Compare
+// the managed body, not the raw file, and keep the template unwrapped.
+const KONOHA_START_TAG = '<!-- KONOHA-START -->';
+const KONOHA_END_TAG = '<!-- KONOHA-END -->';
+function soulBody(text) {
+  const start = text.indexOf(KONOHA_START_TAG);
+  const end = text.indexOf(KONOHA_END_TAG);
+  if (start < 0 || end < start) return text.trim();
+  return text.slice(start + KONOHA_START_TAG.length, end).trim();
+}
+
+assert.ok(!templateContent.includes(KONOHA_START_TAG), 'src/templates/SOUL.md must stay unwrapped');
+assert.strictEqual(soulBody(agentsContent), soulBody(templateContent), 'src/templates/SOUL.md and .agents/SOUL.md must carry identical soul content');
 console.log('  ✓ Authoritative SOUL.md files exist and are synchronized.');
 
 // Client mirror tree synchronization
@@ -49,7 +66,7 @@ const clientMirrors = [
 
 for (const mirror of clientMirrors) {
   assert.ok(fs.existsSync(mirror), `Mirror ${mirror} must exist`);
-  assert.strictEqual(fs.readFileSync(mirror, 'utf8'), templateContent, `Mirror ${mirror} must match authoritative template`);
+  assert.strictEqual(soulBody(fs.readFileSync(mirror, 'utf8')), soulBody(templateContent), `Mirror ${mirror} must match authoritative template`);
 }
 console.log('  ✓ SOUL.md synchronized to canonical target (~/.agents/SOUL.md).');
 

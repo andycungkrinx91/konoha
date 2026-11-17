@@ -9,6 +9,7 @@ const repoDir = path.resolve(__dirname, '..');
 const cliPath = path.join(repoDir, 'bin', 'cli.js');
 
 const removedLabels = [
+  'web',
   'embeddings',
   'detect_ai',
   'ai-detector',
@@ -78,7 +79,6 @@ fs.writeFileSync(path.join(dotKonoha, '.auto_setup_state.json'), JSON.stringify(
 
 const baseEnv = {
   ...process.env,
-  KONOHA_UI_AUTOSTART: '0',
   HOME: tmpHome,
   USERPROFILE: tmpHome,
   KONOHA_DB_PATH: path.join(dotKonoha, 'konoha.db'),
@@ -159,7 +159,7 @@ try {
     );
   }
 
-  console.log('✓ All 27 removed aliases cleanly rejected with exit code 1 and Unknown command message.');
+  console.log(`✓ All ${removedLabels.length} removed aliases cleanly rejected with exit code 1 and Unknown command message.`);
   console.log('✓ Canonical commands correctly routed to their handlers.');
   console.log('✓ cmdHelp contract verified (canonical names + queue present, removed aliases absent).');
   console.log('✓ No background daemon leaked into test environment.');

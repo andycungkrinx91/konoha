@@ -53,7 +53,7 @@ All MCP tools served by the `konoha` server follow strict canonical snake_case n
 - `list_skills(limit?)` — Canonical skill listing
 - `get_skill(name, section?)` — Canonical skill loader. Subpath URIs resolve as `<skill>/<file>`, `<skill>/<file>.md`, `<skill>/references/<file>` and `<skill>/references/<file>.md` through one resolver (`_findSubpathInMirror` in `src/mcp/skills_common.js`); no duplicated alias files are written.
 - `optimize_report(keyword?)` — Canonical skill-to-prompt optimizer
-- `migrate_skills(force?, skills_dir?)` — Canonical migration trigger
+- `migrate_skills(force?, skills_dir?)` — Canonical migration trigger. Optional accelerator: skill lookup reads the project tree (`.agents/skills` and sixteen siblings) alongside the database, so an unmigrated skill still resolves.
 
 #### UI & Website Architecture
 - `build_from_source(name, source_dir, framework, taste_dials?)` — Canonical image/source build (replaces `build_with_image_design`)
@@ -174,7 +174,7 @@ All persistent state and databases live strictly in standardized paths:
 - **Global Skills:** `~/.agents/skills/<agent-skill>/`.
 - **Temporary Fallback Tasks:** `~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/`.
 - **Web UI Application:** `apps/web/` (SvelteKit 3).
-- **IDE Extensions:** `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` (Antigravity strictly exclusive).
+- **IDE Extensions (Retired Legacy Path):** `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` (auto-install/sync removed in `v2.2.1`; stale legacy registry entries pruned via `syncAntigravityExtensionRegistry`).
 
 ---
 

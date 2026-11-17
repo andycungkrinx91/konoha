@@ -14,10 +14,15 @@ const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const buildDir = path.join(webRoot, 'build');
 const pkg = JSON.parse(fs.readFileSync(path.join(webRoot, 'package.json'), 'utf8'));
 
+const rawEpoch = process.env.SOURCE_DATE_EPOCH;
+const builtAt = rawEpoch && /^\d+$/.test(rawEpoch.trim())
+  ? new Date(Number(rawEpoch.trim()) * 1000).toISOString()
+  : new Date().toISOString();
+
 fs.mkdirSync(buildDir, { recursive: true });
 fs.writeFileSync(
   path.join(buildDir, 'build-meta.json'),
-  JSON.stringify({ version: pkg.version, builtAt: new Date().toISOString() }, null, 2) + '\n'
+  JSON.stringify({ version: pkg.version, builtAt }, null, 2) + '\n'
 );
 
 process.stdout.write(`build-meta.json: ${pkg.version}\n`);

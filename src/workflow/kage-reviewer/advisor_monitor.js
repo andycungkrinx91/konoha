@@ -3,8 +3,22 @@
 const fs = require('fs');
 const path = require('path');
 const { VALIDATION_EVIDENCE_PATTERN } = require('../../mcp/workflow_common');
+const {
+  slicePreservingHeadMiddleTail,
+  sliceBytesPreservingHeadMiddleTail
+} = require('../../context_budget');
+const {
+  initAdvisorSessionSupervisor,
+  checkPlanTodoGoalDrift,
+  buildClientSteerCall,
+  enqueueAdvisorSteer,
+  peekPendingAdvisorSteers,
+  acknowledgeAdvisorSteers,
+  formatSteerInjectionBlock,
+  consumeAdvisorSteerContext
+} = require('./advisor_steering');
 
-const MAX_ADVISOR_TURN_TOKENS = 1000;
+const MAX_ADVISOR_TURN_TOKENS = 8192;
 const MAX_ADVISOR_TURN_BYTES = MAX_ADVISOR_TURN_TOKENS * 4;
 const ADVISOR_MODES = Object.freeze(['realtime-idle', 'turn-gate', 'off']);
 
@@ -15,11 +29,7 @@ const staleTelemetryStore = new Map();
 
 function clampAdvisorBytes(text, maxBytes = MAX_ADVISOR_TURN_BYTES) {
   if (!text || typeof text !== 'string') return '';
-  if (Buffer.byteLength(text, 'utf8') <= maxBytes) return text;
-  const sliced = Buffer.from(text, 'utf8').subarray(0, Math.max(0, maxBytes - 18)).toString('utf8');
-  const lastNewline = sliced.lastIndexOf('\n');
-  const clean = lastNewline > Math.floor(sliced.length * 0.6) ? sliced.slice(0, lastNewline) : sliced;
-  return `${clean.trimEnd()}\n...[advisor-cap]`;
+  return sliceBytesPreservingHeadMiddleTail(text, maxBytes, { markerLabel: 'advisor-cap' });
 }
 
 function estimateTokens(text = '') {
@@ -41,25 +51,45 @@ function _normalizeRelPath(filePath, baseDir) {
   return rel;
 }
 
+function _isInsideDir(targetPath, baseDir) {
+  const absBase = path.resolve(baseDir);
+  const absTarget = path.resolve(targetPath);
+  const rel = path.relative(absBase, absTarget);
+  if (rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) return false;
+  try {
+    if (fs.existsSync(absTarget)) {
+      if (fs.lstatSync(absTarget).isSymbolicLink()) return false;
+      const realBase = fs.realpathSync(absBase);
+      const realTarget = fs.realpathSync(absTarget);
+      const realRel = path.relative(realBase, realTarget);
+      if (realRel === '..' || realRel.startsWith(`..${path.sep}`) || path.isAbsolute(realRel)) return false;
+    }
+  } catch (_) {
+    return false;
+  }
+  return true;
+}
+
 function _matchesOwnedPattern(rel, pattern, effectiveBase) {
+  if (!rel || rel === '..' || rel.startsWith('../') || path.isAbsolute(rel)) return false;
   const rawPat = String(pattern || '').trim();
   if (!rawPat) return true;
   const normPat = (path.isAbsolute(rawPat) ? _normalizeRelPath(rawPat, effectiveBase) : rawPat)
     .replace(/\\/g, '/')
     .replace(/^\.\//, '');
-  if (!normPat) return true;
+  if (!normPat || normPat === '..' || normPat.startsWith('../') || path.isAbsolute(normPat)) return false;
   if (normPat.endsWith('/**') || normPat.endsWith('/*')) {
     const prefix = normPat.replace(/\/\*+$/, '');
     return rel === prefix || rel.startsWith(`${prefix}/`);
   }
-  return rel === normPat || rel.endsWith(`/${normPat}`) || rel.startsWith(`${normPat}/`);
+  return rel === normPat || rel.startsWith(`${normPat}/`);
 }
 
 function _checkSingleFileBoundary(f, { ownedFiles, worktreePath, effectiveBase }) {
   const fileViolations = [];
-  if (worktreePath && path.isAbsolute(f)) {
-    const relToWt = path.relative(path.resolve(worktreePath), path.resolve(f));
-    if (relToWt.startsWith('..') || path.isAbsolute(relToWt)) {
+  if (worktreePath) {
+    const absTarget = path.isAbsolute(f) ? path.resolve(f) : path.resolve(worktreePath, f);
+    if (!_isInsideDir(absTarget, worktreePath)) {
       fileViolations.push({
         type: 'worktree_escape',
         file: f,
@@ -94,10 +124,11 @@ function _checkOwnedFilesAndWorktree({ filesCreated = [], filesModified = [], ow
   return violations;
 }
 
-function _hasConflictMarkersOnDisk(absPath) {
+function _hasConflictMarkersOnDisk(absPath, baseDir = null) {
   try {
-    const stat = fs.statSync(absPath);
-    if (!stat.isFile() || stat.size > 512 * 1024) return false;
+    const lstat = fs.lstatSync(absPath);
+    if (lstat.isSymbolicLink() || !lstat.isFile() || lstat.size > 512 * 1024) return false;
+    if (baseDir && !_isInsideDir(absPath, baseDir)) return false;
     return CONFLICT_MARKER_PATTERN.test(fs.readFileSync(absPath, 'utf8'));
   } catch (_) {
     return false;
@@ -121,7 +152,7 @@ function _checkFabricatedAndConflictFiles({ filesCreated = [], filesModified = [
       });
       continue;
     }
-    if (fs.existsSync(absPath) && _hasConflictMarkersOnDisk(absPath)) {
+    if (fs.existsSync(absPath) && _hasConflictMarkersOnDisk(absPath, baseDir)) {
       violations.push({
         type: 'conflict_marker',
         file: f,
@@ -132,46 +163,19 @@ function _checkFabricatedAndConflictFiles({ filesCreated = [], filesModified = [
   return violations;
 }
 
-function _checkTodoDrift({ delegatedTodo = '', summary = '', filesCreated = [], filesModified = [] }) {
-  if (!delegatedTodo || typeof delegatedTodo !== 'string' || !summary || typeof summary !== 'string') {
-    return null;
-  }
-  const todoLower = delegatedTodo.toLowerCase();
-  const sumLower = summary.toLowerCase();
-  if (/\b(instead of|skipped the requested|unrelated task|abandoned the original)\b/i.test(sumLower)) {
-    return {
-      type: 'todo_drift',
-      detail: `Worker summary indicates deviation from delegated TODO: "${delegatedTodo.slice(0, 120)}".`
-    };
-  }
-  const stop = new Set(['the', 'and', 'for', 'with', 'into', 'from', 'that', 'this', 'task', 'implement', 'create', 'update', 'build']);
-  const keywords = todoLower
-    .replace(/[^a-z0-9_./-]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length >= 4 && !stop.has(w));
-  if (keywords.length === 0) return null;
-  const combinedHaystack = `${sumLower} ${(filesCreated || []).join(' ').toLowerCase()} ${(filesModified || []).join(' ').toLowerCase()}`;
-  const matched = keywords.filter((k) => combinedHaystack.includes(k));
-  if (keywords.length >= 3 && matched.length === 0) {
-    return {
-      type: 'todo_drift',
-      detail: `Worker output has zero keyword overlap with delegated TODO ("${delegatedTodo.slice(0, 120)}").`
-    };
-  }
-  return null;
-}
-
-function buildInterruptCorrectionDirective({ agent, taskId, delegatedTodo, worktreePath, ownedFiles, violations = [] }) {
-  const header = `[ADVISOR INTERRUPT -> @${agent || 'worker'}${taskId ? ` (${taskId})` : ''}]`;
+function buildInterruptCorrectionDirective({ agent, taskId, delegatedTodo, goal, plan, worktreePath, ownedFiles, violations = [] }) {
+  const header = `[ADVISOR INTERRUPT -> @${agent || 'worker'}${taskId ? ` (${taskId})` : ''}] [ADVISOR STEER]`;
   const vLines = violations.slice(0, 4).map((v, i) => `${i + 1}. [${v.type}] ${v.detail}`).join('\n');
-  const todoLine = delegatedTodo ? `Target TODO: ${delegatedTodo.slice(0, 220)}` : 'Target TODO: Execute only the assigned task slice.';
+  const todoLine = delegatedTodo ? `Target TODO: ${delegatedTodo.slice(0, 200)}` : 'Target TODO: Execute only the assigned task slice.';
+  const goalLine = goal ? `User Goal Anchor: ${String(goal).slice(0, 180)}` : '';
+  const planLine = plan ? `Approved Plan Anchor: ${String(plan).slice(0, 180)}` : '';
   const wtLine = worktreePath ? `Worktree Lock: Stay strictly inside \`${worktreePath}\`.` : '';
   const ownLine = Array.isArray(ownedFiles) && ownedFiles.length > 0
     ? `Owned Files Lock: Touch ONLY ${ownedFiles.slice(0, 6).join(', ')}.`
     : '';
-  const actionLine = 'Required Action: Revert out-of-scope edits immediately, complete the exact Target TODO above, run verification via `rtk`, and re-submit `konoha.report_from_agent` with real exit-code evidence.';
+  const actionLine = 'Direct Steer Action: Realign immediately with Goal, Plan, and Target TODO, revert out-of-scope edits, run verification via `rtk`, and report via `konoha.report_from_agent`.';
 
-  const raw = [header, vLines, todoLine, wtLine, ownLine, actionLine].filter(Boolean).join('\n');
+  const raw = [header, vLines, goalLine, planLine, todoLine, wtLine, ownLine, actionLine].filter(Boolean).join('\n');
   return clampAdvisorBytes(raw, MAX_ADVISOR_TURN_BYTES);
 }
 
@@ -192,7 +196,7 @@ function _buildIdleOkResponse(advisorMode, maxTokens) {
 /**
  * Evaluates a worker subagent's telemetry in real-time.
  * Consumes 0 tokens when idle (no active worker event or mode === 'off').
- * Hard-capped at <= 1,000 tokens (4,000 bytes) per turn when triggered.
+ * Hard-capped at <= 8,192 tokens (32,768 bytes) per turn when triggered.
  */
 function evaluateWorkerTurn(event = {}, options = {}) {
   const advisorMode = options.advisor_mode || options.advisorMode || 'realtime-idle';
@@ -207,15 +211,24 @@ function evaluateWorkerTurn(event = {}, options = {}) {
 
   const violations = [];
   const agent = (event.agent || 'worker').replace(/_/g, '-');
-  const isReadOnlyAgent = ['genin', 'chunin', 'kage'].includes(agent);
+  const isReadOnlyAgent = ['genin', 'chunin', 'kage', 'advisor'].includes(agent);
 
-  const drift = _checkTodoDrift({
+  const alignmentDrift = checkPlanTodoGoalDrift({
+    agent,
+    status: event.status,
     delegatedTodo: event.delegatedTodo || event.todo || '',
+    goal: event.goal || options.goal || '',
+    plan: event.plan || options.plan || '',
+    todos: event.todos || options.todos || [],
     summary: event.summary || '',
     filesCreated: event.filesCreated,
     filesModified: event.filesModified
   });
-  if (drift) violations.push(drift);
+  for (const item of alignmentDrift) {
+    if (!violations.some((v) => v.type === item.type && v.detail === item.detail)) {
+      violations.push(item);
+    }
+  }
 
   const boundaryViolations = _checkOwnedFilesAndWorktree({
     filesCreated: event.filesCreated,
@@ -264,6 +277,8 @@ function evaluateWorkerTurn(event = {}, options = {}) {
     agent,
     taskId: event.taskId,
     delegatedTodo: event.delegatedTodo || event.todo || '',
+    goal: event.goal || options.goal || '',
+    plan: event.plan || options.plan || '',
     worktreePath: event.worktreePath,
     ownedFiles: event.ownedFiles,
     violations
@@ -271,17 +286,41 @@ function evaluateWorkerTurn(event = {}, options = {}) {
   const directive = clampAdvisorBytes(rawDirective, maxBytes);
   const bytesUsed = Buffer.byteLength(directive, 'utf8');
   const tokensUsed = Math.min(maxTokens, estimateTokens(directive));
+  const steerCall = buildClientSteerCall({
+    client: event.client || options.client,
+    targetAgent: agent,
+    targetAgentId: event.agentId || event.targetAgentId,
+    directive,
+    piSubagentSupported: event.piSubagentSupported
+  });
+
+  if (event.enqueueSteer !== false && (event.taskDir || event.workflowStatus)) {
+    enqueueAdvisorSteer({
+      taskDir: event.taskDir,
+      workflowStatus: event.workflowStatus,
+      client: event.client || options.client,
+      targetAgent: agent,
+      targetAgentId: event.agentId || event.targetAgentId,
+      taskId: event.taskId,
+      violations,
+      directive,
+      clientSteerCall: steerCall,
+      piSubagentSupported: event.piSubagentSupported
+    });
+  }
 
   return {
     status: 'INTERRUPT_CORRECTION',
     mode: advisorMode,
     interrupted: true,
+    target_agent: agent,
     tokens_used: tokensUsed,
     bytes_used: bytesUsed,
     budget_tokens: maxTokens,
     evict_stale_results: true,
     violations,
-    directive
+    directive,
+    steer_call: steerCall
   };
 }
 
@@ -292,7 +331,7 @@ function buildAdvisorCoreCharter(options = {}) {
   );
   const roleFocus = options.stage ? ` | Stage: ${options.stage}` : '';
   const charter = [
-    `# @advisor Always-On Engineering Foreman Charter (<=1,000 Tokens${roleFocus})`,
+    `# @advisor Always-On Engineering Foreman Charter (<=8,192 Tokens${roleFocus})`,
     '## 1. Mission & Authority',
     '- Continuous real-time supervisor across planning, task decomposition, specialist dispatch, parallel execution, MCP tool usage, handoffs, context compaction, remediation, and Final Gate.',
     '- Authority to interrupt drift, reject fabricated evidence, enforce git worktree / owned_files boundaries, and require immediate specialist remediation.',
@@ -362,20 +401,27 @@ function retrieveAdvisorDynamicContext(params = {}) {
   }
   if (status.plan && typeof status.plan === 'string') {
     const planText = status.plan.trim();
-    const head = planText.slice(0, 280);
-    const tail = planText.length > 320 ? planText.slice(-200) : '';
-    slices.push(`Plan Anchor: ${head}${tail ? ` ... ${tail}` : ''}`);
+    const anchoredPlan = slicePreservingHeadMiddleTail(planText, 2400, { markerLabel: 'plan-anchor' });
+    slices.push(`Plan Anchor: ${anchoredPlan}`);
   }
   if (Array.isArray(status.tasks) && status.tasks.length > 0) {
-    const summary = status.tasks
-      .slice(0, 8)
+    const tasks = status.tasks;
+    const picked = tasks.length <= 12
+      ? tasks
+      : [
+          ...tasks.slice(0, 5),
+          ...tasks.slice(Math.floor(tasks.length / 2) - 2, Math.floor(tasks.length / 2) + 2),
+          ...tasks.slice(-3)
+        ];
+    const summary = picked
       .map((t) => `${t.id || 't'}:${t.agent || 'worker'}=${t.status || 'pending'}`)
       .join(', ');
-    slices.push(`Tasks (${status.tasks.length}): ${summary}`);
+    slices.push(`Tasks (${tasks.length}): ${summary}`);
   }
   _appendRagMemorySlice(slices, projectPath, query, status);
 
-  const contextText = clampAdvisorBytes(slices.join('\n'), 1600);
+  const contextBudgetBytes = Math.min(MAX_ADVISOR_TURN_BYTES, Number(params.maxBytes || 8192));
+  const contextText = clampAdvisorBytes(slices.join('\n'), contextBudgetBytes);
   return {
     context: contextText,
     bytes_used: Buffer.byteLength(contextText, 'utf8'),
@@ -395,6 +441,13 @@ function _collectExecutionStageViolations(context, options, violations) {
 function superviseLifecycleStage(stage, context = {}, options = {}) {
   const normStage = String(stage || 'execution').toLowerCase();
   const status = context.status || {};
+  initAdvisorSessionSupervisor({
+    status,
+    client: options.client || context.client || status.client,
+    goal: context.goal || status.prompt,
+    plan: context.plan || status.plan,
+    todos: context.todos || status.tasks
+  });
   const charterInfo = buildAdvisorCoreCharter({ stage: normStage });
   const dynamicCtx = retrieveAdvisorDynamicContext({
     status,
@@ -439,11 +492,42 @@ function superviseLifecycleStage(stage, context = {}, options = {}) {
   }
 
   const approved = violations.length === 0;
+  let steerCall = null;
+  if (!approved) {
+    const targetAgent = context.targetAgent || status.assigned_agent || 'sannin';
+    const steerDirective = buildInterruptCorrectionDirective({
+      agent: targetAgent,
+      taskId: status.task_id,
+      delegatedTodo: status.current_dispatch?.task || '',
+      goal: status.prompt || context.goal,
+      plan: status.plan || context.plan,
+      violations
+    });
+    steerCall = buildClientSteerCall({
+      client: options.client || context.client || status.client,
+      targetAgent,
+      directive: steerDirective
+    });
+    if (context.taskDir || (status && typeof status === 'object')) {
+      enqueueAdvisorSteer({
+        taskDir: context.taskDir,
+        workflowStatus: status,
+        client: options.client || context.client || status.client,
+        targetAgent,
+        taskId: status.task_id,
+        violations,
+        directive: steerDirective,
+        clientSteerCall: steerCall
+      });
+    }
+  }
+
   const record = {
     stage: normStage,
     status: approved ? 'ADVISOR_PASS' : 'INTERRUPT_CORRECTION',
     approved,
     interrupted: !approved,
+    steer_call: steerCall,
     charter_tokens: charterInfo.tokens_used,
     dynamic_context_tokens: dynamicCtx.tokens_used,
     budget_tokens: MAX_ADVISOR_TURN_TOKENS,
@@ -478,5 +562,13 @@ module.exports = {
   evaluateWorkerTurn,
   buildAdvisorCoreCharter,
   retrieveAdvisorDynamicContext,
-  superviseLifecycleStage
+  superviseLifecycleStage,
+  initAdvisorSessionSupervisor,
+  checkPlanTodoGoalDrift,
+  buildClientSteerCall,
+  enqueueAdvisorSteer,
+  peekPendingAdvisorSteers,
+  acknowledgeAdvisorSteers,
+  formatSteerInjectionBlock,
+  consumeAdvisorSteerContext
 };

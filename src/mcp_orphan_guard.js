@@ -85,13 +85,18 @@ function startStdioOrphanGuard(options = {}) {
   const idleMs = options.idleMs || envInt('KONOHA_MCP_STDIO_IDLE_MS')
     || getConfigValue('mcp_stdio_idle_timeout_ms', 14400000);
   const onExit = options.onExit || defaultOnExit;
+  const initialPpid = process.ppid;
   let lastActivity = Date.now();
   let stopped = false;
   const timer = setInterval(() => {
     if (stopped) return;
-    if (process.ppid === 1) {
+    // Detect parent exit both when reparented to init (PID 1) and when a
+    // container / systemd --user PR_SET_CHILD_SUBREAPER adopts the orphan.
+    const reparented = process.ppid === 1
+      || (process.platform !== 'win32' && initialPpid > 1 && process.ppid !== initialPpid);
+    if (reparented) {
       stop();
-      onExit('parent process is gone (reparented to init)');
+      onExit(`parent process is gone (ppid ${initialPpid} -> ${process.ppid})`);
       return;
     }
     if (Date.now() - lastActivity > idleMs) {

@@ -30,7 +30,7 @@ Token-efficient QA automation owned by **Anbu**. Explore once with a scoped Play
 
 | Claim | Required Verification Evidence |
 |---|---|
-| Route / Selector exists | Genin Semble citation with exact `file:line`. |
+| Route / Selector exists | Genin `code_search` citation with exact `file:line`. |
 | Flow verified | `qa_codify` compile + Playwright run exit code 0 on the flow hash. |
 | Bug confirmed | RED `qa_e2e_run` summary carrying unique `run_id`. |
 | Bug resolved | GREEN `qa_e2e_run` summary on identical test file and hash. |
@@ -53,6 +53,11 @@ pnpm exec playwright install chromium   # browsers, when the probe says the bina
 
 > [!WARNING]
 > Playwright is invoked through the project's own package manager (`pnpm exec playwright`), so the target project owns the version, the browser cache, and `PLAYWRIGHT_BROWSERS_PATH`. Do not reach for a global CLI or `npx`: a second install diverges from the project's pinned browser build and produces version-skew failures that look like product bugs.
+
+## Live Headed Docker Browser Workspace (Optional Interactive Mode)
+- Pass `headed: true, live: true` (plus optional `session_id`, `playwright_ui`, `timeout_ms`) to `qa_e2e_run` / `qaE2eRunAsync` (or run `konoha browser qa`) to run Chromium headed inside `docker/browser-workspace.Dockerfile` (`Xvfb :99`, `x11vnc`, `noVNC`, `/tmp/konoha-browser-agent.sock`).
+- `CI=1` automatically forces headless Playwright and skips Docker viewer startup so CI runs stay unaffected.
+- Viewer and Playwright UI endpoints bind exclusively to `127.0.0.1` and never mount host home dirs, personal browser profiles, `.env*`, or `konoha.db`.
 
 ## Playwright Overrides for Agent Runs
 

@@ -22,7 +22,8 @@ const {
   buildSubagentMcpBlock,
   truncateAtBoundary,
   cleanRedundantPersonaText,
-  runMcpAgent
+  runMcpAgent,
+  runMcpAgentAsync
 } = require('./memory_subagent_runner');
 
 module.exports = {
@@ -37,5 +38,6 @@ module.exports = {
   saveProjectContext,
   queryProjectMemory,
   cleanRedundantPersonaText,
-  runMcpAgent
+  runMcpAgent,
+  runMcpAgentAsync
 };

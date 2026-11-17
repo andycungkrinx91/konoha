@@ -5,11 +5,13 @@ const path = require('path');
 const crypto = require('crypto');
 const db = require('../db');
 const { getDb } = db;
+const { sliceBytesPreservingHeadMiddleTail } = require('../context_budget');
 const {
   HOME,
   AGENTS_DIR,
   isPathVisible,
-  isIdeInstallationDir
+  isIdeInstallationDir,
+  getWorkspaceRoot
 } = require('./runtime_state');
 const { detectActiveClient } = require('./client_detection');
 
@@ -159,38 +161,60 @@ function fuzzyResolveSkill(requested, conn, maxDistance = 3) {
   return bestName;
 }
 
+function _selectHeadMiddleTailSections(sections, maxSize, name) {
+  if (sections.length <= 2) return null;
+  const lastIdx = sections.length - 1;
+  const midIdx = Math.floor(sections.length / 2);
+  const tailSec = `\n## ${sections[lastIdx]}`;
+  const tailBytes = Buffer.byteLength(tailSec, 'utf8');
+  const midSec = midIdx > 1 && midIdx < lastIdx ? `\n## ${sections[midIdx]}` : '';
+  const midBytes = midSec ? Buffer.byteLength(midSec, 'utf8') : 0;
+  const noteReserve = 240;
+
+  let accumulated = sections[0] || '';
+  let lastHeadIdx = 0;
+  let keptCount = 0;
+  for (let i = 1; i < lastIdx; i++) {
+    const needMid = i < midIdx ? midBytes : 0;
+    const candidate = `${accumulated}\n## ${sections[i]}`;
+    if (Buffer.byteLength(candidate, 'utf8') + needMid + tailBytes + noteReserve > maxSize) break;
+    accumulated = candidate;
+    lastHeadIdx = i;
+    keptCount++;
+  }
+  if (keptCount === 0) return null;
+
+  let midIncluded = lastHeadIdx >= midIdx || !midSec;
+  if (!midIncluded && Buffer.byteLength(`${accumulated}\n${midSec}${tailSec}`, 'utf8') + noteReserve <= maxSize) {
+    accumulated += midSec;
+    keptCount++;
+    lastHeadIdx = midIdx;
+    midIncluded = true;
+  }
+  if (!midIncluded) return null;
+
+  if (Buffer.byteLength(`${accumulated}${tailSec}`, 'utf8') + noteReserve > maxSize) return null;
+  accumulated += tailSec;
+  keptCount++;
+
+  const omittedCount = Math.max(0, lastIdx - keptCount);
+  const note = omittedCount > 0
+    ? `\n\n... [${omittedCount} additional sections omitted (head/middle/tail preserved). Load sub-sections on demand with get_skill("${name || 'skill'}/<section>")]`
+    : '';
+  return { text: accumulated + note, truncated: true };
+}
+
 function smartTruncate(content, maxSize, name = null) {
   if (!content) return { text: '', truncated: false };
   const bytes = Buffer.byteLength(content, 'utf8');
   if (bytes <= maxSize) return { text: content, truncated: false };
 
   const sections = content.split(/^#{1,3}\s+/m);
-  const intro = sections[0] || '';
-  let accumulated = intro;
-  let keptSections = [];
+  const structured = _selectHeadMiddleTailSections(sections, maxSize, name);
+  if (structured) return structured;
 
-  for (let i = 1; i < sections.length; i++) {
-    const section = sections[i];
-    const candidate = accumulated + '\n## ' + section;
-    if (Buffer.byteLength(candidate, 'utf8') <= maxSize - 400) {
-      accumulated = candidate;
-      keptSections.push(section);
-    } else {
-      break;
-    }
-  }
-
-  if (keptSections.length > 0) {
-    const omittedCount = sections.length - 1 - keptSections.length;
-    const note = omittedCount > 0
-      ? `\n\n... [${omittedCount} additional sections omitted for token budget. Load sub-sections on demand with get_skill("${name || 'skill'}/<section>")]`
-      : '';
-    return { text: accumulated + note, truncated: true };
-  }
-
-  const truncatedBuffer = Buffer.from(content, 'utf8').subarray(0, maxSize - 120);
-  const truncatedStr = truncatedBuffer.toString('utf8') + '\n\n... [Content truncated for token budget]';
-  return { text: truncatedStr, truncated: true };
+  const bounded = sliceBytesPreservingHeadMiddleTail(content, maxSize, { markerLabel: 'Content truncated for token budget' });
+  return { text: bounded, truncated: true };
 }
 
 function extractSnippet(content, maxLen = 150) {
@@ -334,6 +358,53 @@ function resolveFlowHashFromTask(flowHash, taskId) {
   return null;
 }
 
+// Project skills that have not been migrated yet live under the workspace, not
+// under HOME. They are read from disk on every lookup so a project's own skill
+// stays authoritative: the database is an index of them, never a replacement.
+const PROJECT_SKILL_SUBDIRS = [
+  ['.agents', 'skills'],
+  ['.agent', 'skills'],
+  ['skills'],
+  ['.skills'],
+  ['.cursor', 'skills'],
+  ['.gemini', 'skills'],
+  ['.gemini', 'antigravity-cli', 'skills'],
+  ['.commandcode', 'skills'],
+  ['.claude', 'skills'],
+  ['.codex', 'skills'],
+  ['.omp', 'agent', 'skills'],
+  ['.omp', 'skills'],
+  ['.pi', 'agent', 'skills'],
+  ['.pi', 'skills'],
+  ['.config', 'opencode', 'skills'],
+  ['.opencode', 'skills'],
+  ['docs', 'skills']
+];
+
+function getProjectSkillRoots() {
+  const ws = getWorkspaceRoot() || process.env.KONOHA_WORKSPACE || process.env.WORKSPACE_ROOT;
+  if (!ws) return [];
+  const resolved = path.resolve(ws);
+  if (resolved === path.resolve(HOME) || isIdeInstallationDir(resolved)) return [];
+  const roots = [];
+  for (const parts of PROJECT_SKILL_SUBDIRS) {
+    const dir = path.join(resolved, ...parts);
+    if (fs.existsSync(dir) && !roots.includes(dir)) roots.push(dir);
+  }
+  return roots;
+}
+
+function getSkillReadRoots() {
+  const roots = [];
+  for (const c of getProjectSkillRoots()) {
+    if (!roots.includes(c)) roots.push(c);
+  }
+  for (const c of getMirrorRoots()) {
+    if (!roots.includes(c)) roots.push(c);
+  }
+  return roots;
+}
+
 function getMirrorRoots() {
   const home = process.env.HOME || process.env.USERPROFILE || HOME || require('os').homedir();
   const candidates = [
@@ -419,7 +490,7 @@ function findInMirror(name) {
   const syntactic = validateSkillPath(norm);
   if (syntactic.error) return null;
 
-  for (const root of getMirrorRoots()) {
+  for (const root of getSkillReadRoots()) {
     if (!fs.existsSync(root)) continue;
     const resolvedRoot = path.resolve(root);
     // Fast synthetic containment test before touching the filesystem.
@@ -443,7 +514,7 @@ function _searchSingleMirrorEntry(entry, root, terms, seen, hits) {
   const skillMd = path.join(root, skillName, 'SKILL.md');
   if (!fs.existsSync(skillMd)) return;
   const matchName = skillName.toLowerCase();
-  const matches = terms.some(t => matchName.includes(t));
+  const matches = terms.length === 0 || terms.some(t => matchName.includes(t));
   if (!matches || seen.has(skillName)) return;
 
   seen.add(skillName);
@@ -457,21 +528,28 @@ function _searchSingleMirrorEntry(entry, root, terms, seen, hits) {
   } catch (_) { /* ignore */ }
 }
 
-function searchMirrorSkills(keyword, limit = 5) {
-  const terms = String(keyword || '').toLowerCase().split(/\s+/).filter(Boolean);
-  if (terms.length === 0) return [];
-  const hits = [];
-  const seen = new Set();
+// Returns true once `limit` hits are collected, so the caller can stop at the
+// first root that fills the quota.
+function _scanSkillRoot(root, terms, seen, hits, limit) {
+  if (!fs.existsSync(root)) return false;
+  try {
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+      _searchSingleMirrorEntry(entry, root, terms, seen, hits);
+      if (hits.length >= limit) return true;
+    }
+  } catch (_) { /* unreadable root is not a lookup failure */ }
+  return false;
+}
 
-  for (const root of getMirrorRoots()) {
-    if (!fs.existsSync(root)) continue;
-    try {
-      const entries = fs.readdirSync(root, { withFileTypes: true });
-      for (const entry of entries) {
-        _searchSingleMirrorEntry(entry, root, terms, seen, hits);
-        if (hits.length >= limit) return hits;
-      }
-    } catch (_) { /* ignore */ }
+function searchMirrorSkills(keyword, limit = 5, opts = {}) {
+  const terms = String(keyword || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0 && !opts.allowEmpty) return [];
+  const hits = [];
+  const seen = new Set(opts.exclude || []);
+  const roots = Array.isArray(opts.roots) ? opts.roots : getSkillReadRoots();
+
+  for (const root of roots) {
+    if (_scanSkillRoot(root, terms, seen, hits, limit)) break;
   }
   return hits;
 }
@@ -570,11 +648,16 @@ function logToolCall(toolName, queryStr, returnedContent, agentName = null, base
     const bytesSaved = Math.max(baselineBytes - returnedBytes, 0);
     const tokensSaved = Math.floor(bytesSaved / 4);
     const clientName = detectActiveClient();
+    let safeQuery = String(queryStr || '');
+    try {
+      const { redactSecrets } = require('../bridge/utils');
+      safeQuery = redactSecrets(safeQuery);
+    } catch (_) { /* fallback */ }
 
     conn.prepare(`
       INSERT INTO tool_calls (tool, query, returned_bytes, total_library_bytes, bytes_saved, tokens_saved, agent, client)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(toolName, queryStr, returnedBytes, baselineBytes, bytesSaved, tokensSaved, agentName, clientName);
+    `).run(toolName, safeQuery, returnedBytes, baselineBytes, bytesSaved, tokensSaved, agentName, clientName);
   } catch (_) {
     // Fail silently on logging errors
   } finally {
@@ -602,6 +685,8 @@ module.exports = {
   getServedSkillsSet,
   resolveFlowHashFromTask,
   getMirrorRoots,
+  getProjectSkillRoots,
+  getSkillReadRoots,
   findInMirror,
   searchMirrorSkills,
   logToolCall,

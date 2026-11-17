@@ -14,6 +14,7 @@
 const path = require('path');
 const db = require('../../db');
 const personaMemory = require('../../persona_memory');
+const { getConfigValue } = require('../../config_access');
 
 // Quality Gate Levels
 
@@ -53,7 +54,8 @@ function getDbConn(dbPath = null) {
     try { conn.exec("ALTER TABLE sdlc_tasks ADD COLUMN client TEXT DEFAULT '';"); } catch (_) { /* column already exists */ }
     try { conn.exec("ALTER TABLE projects ADD COLUMN hitl_mode TEXT DEFAULT 'enabled';"); } catch (_) { /* column already exists */ }
     try { conn.exec("ALTER TABLE projects ADD COLUMN advisor_mode TEXT DEFAULT 'realtime-idle';"); } catch (_) { /* column already exists */ }
-    try { conn.exec('ALTER TABLE projects ADD COLUMN advisor_max_tokens INTEGER DEFAULT 1000;'); } catch (_) { /* column already exists */ }
+    try { conn.exec('ALTER TABLE projects ADD COLUMN advisor_max_tokens INTEGER DEFAULT 8192;'); } catch (_) { /* column already exists */ }
+    try { conn.exec('ALTER TABLE projects ADD COLUMN agent_input_token_quota INTEGER DEFAULT 100000;'); } catch (_) { /* column already exists */ }
   } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   return conn;
 }
@@ -522,57 +524,69 @@ function projectLookupKeys(projectPath) {
   };
 }
 
+const AGENT_INPUT_QUOTA_MIN = 1000;
+const AGENT_INPUT_QUOTA_MAX = 2000000;
+
+function _clampAgentInputQuota(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < AGENT_INPUT_QUOTA_MIN) return null;
+  return Math.min(AGENT_INPUT_QUOTA_MAX, Math.max(AGENT_INPUT_QUOTA_MIN, Math.floor(num)));
+}
+
+function _resolveDefaultAgentInputQuota() {
+  const envQuota = _clampAgentInputQuota(process.env.KONOHA_AGENT_INPUT_TOKEN_QUOTA);
+  if (envQuota !== null) return envQuota;
+  const cfgQuota = _clampAgentInputQuota(getConfigValue('agent_input_token_quota', 100000));
+  return cfgQuota !== null ? cfgQuota : 100000;
+}
+
 function getProjectSdlcConfig(projectPath, dbPath = null) {
   const envHitl = process.env.KONOHA_HITL_MODE;
   const envAdvisor = process.env.KONOHA_ADVISOR_MODE;
-  if (!projectPath) {
-    return {
-      dor_mode: 'advisory',
-      review_mode: 'self',
-      hitl_mode: envHitl || 'enabled',
-      advisor_mode: envAdvisor || 'realtime-idle',
-      advisor_max_tokens: 1000
-    };
-  }
+  const envQuota = _clampAgentInputQuota(process.env.KONOHA_AGENT_INPUT_TOKEN_QUOTA);
+  const defaultQuota = _resolveDefaultAgentInputQuota();
+  const fallbackCfg = () => ({
+    dor_mode: 'advisory',
+    review_mode: 'self',
+    hitl_mode: envHitl || 'enabled',
+    advisor_mode: envAdvisor || 'realtime-idle',
+    advisor_max_tokens: 8192,
+    agent_input_token_quota: defaultQuota
+  });
+  if (!projectPath) return fallbackCfg();
   const conn = getDbConn(dbPath);
   try {
     const keys = projectLookupKeys(projectPath);
     const row = conn.prepare(`
-      SELECT dor_mode, review_mode, hitl_mode, advisor_mode, advisor_max_tokens FROM projects
+      SELECT dor_mode, review_mode, hitl_mode, advisor_mode, advisor_max_tokens, agent_input_token_quota FROM projects
       WHERE project_hash = ? OR project_path = ?
       LIMIT 1
     `).get(keys.hash, keys.canonical);
 
+    const rowQuota = row ? _clampAgentInputQuota(row.agent_input_token_quota) : null;
     return {
       dor_mode: row && row.dor_mode ? row.dor_mode : 'advisory',
       review_mode: row && row.review_mode ? row.review_mode : 'self',
       hitl_mode: envHitl || (row && row.hitl_mode ? row.hitl_mode : 'enabled'),
       advisor_mode: envAdvisor || (row && row.advisor_mode ? row.advisor_mode : 'realtime-idle'),
       advisor_max_tokens: row && Number.isFinite(Number(row.advisor_max_tokens))
-        ? Math.min(1000, Math.max(250, Number(row.advisor_max_tokens)))
-        : 1000
+        ? Math.min(8192, Math.max(250, Number(row.advisor_max_tokens))) : 8192,
+      agent_input_token_quota: envQuota !== null ? envQuota : (rowQuota !== null ? rowQuota : defaultQuota)
     };
   } catch (_) {
-    return {
-      dor_mode: 'advisory',
-      review_mode: 'self',
-      hitl_mode: envHitl || 'enabled',
-      advisor_mode: envAdvisor || 'realtime-idle',
-      advisor_max_tokens: 1000
-    };
+    return fallbackCfg();
   } finally {
     try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
 }
 
-function setProjectSdlcConfig(projectPath, { dor_mode = null, review_mode = null, hitl_mode = null, advisor_mode = null, advisor_max_tokens = null }, dbPath = null) {
-  if (!projectPath) {
-    throw new Error('Project path is required to set SDLC configuration.');
-  }
+function setProjectSdlcConfig(projectPath, { dor_mode = null, review_mode = null, hitl_mode = null, advisor_mode = null, advisor_max_tokens = null, agent_input_token_quota = null }, dbPath = null) {
+  if (!projectPath) throw new Error('Project path is required to set SDLC configuration.');
   const conn = getDbConn(dbPath);
   try {
     const keys = projectLookupKeys(projectPath);
-    const selectRow = 'SELECT project_hash, dor_mode, review_mode, hitl_mode, advisor_mode, advisor_max_tokens FROM projects WHERE project_hash = ? OR project_path = ?';
+    const selectRow = 'SELECT project_hash, dor_mode, review_mode, hitl_mode, advisor_mode, advisor_max_tokens, agent_input_token_quota FROM projects WHERE project_hash = ? OR project_path = ?';
     let row = conn.prepare(selectRow).get(keys.hash, keys.canonical);
     if (!row) {
       personaMemory.saveOrUpdateProject(projectPath, '', null, dbPath || db.DB_PATH);
@@ -581,48 +595,41 @@ function setProjectSdlcConfig(projectPath, { dor_mode = null, review_mode = null
 
     const updates = [];
     const params = [];
-
-    if (dor_mode !== null) {
-      const normalizedDor = (dor_mode === 'enforced' || dor_mode === 'hard-mandatory') ? 'enforced' : 'advisory';
-      updates.push('dor_mode = ?');
-      params.push(normalizedDor);
+    const pushUpdate = (col, val) => { updates.push(`${col} = ?`); params.push(val); };
+    if (dor_mode !== null) pushUpdate('dor_mode', (dor_mode === 'enforced' || dor_mode === 'hard-mandatory') ? 'enforced' : 'advisory');
+    if (review_mode !== null) pushUpdate('review_mode', review_mode === 'cross-provider' ? 'cross-provider' : 'self');
+    if (hitl_mode !== null) pushUpdate('hitl_mode', (hitl_mode === 'disabled' || hitl_mode === 'autonomous') ? 'disabled' : 'enabled');
+    if (advisor_mode !== null) pushUpdate('advisor_mode', ['realtime-idle', 'turn-gate', 'off'].includes(String(advisor_mode)) ? String(advisor_mode) : 'realtime-idle');
+    if (advisor_max_tokens !== null && Number.isFinite(Number(advisor_max_tokens))) pushUpdate('advisor_max_tokens', Math.min(8192, Math.max(250, Math.floor(Number(advisor_max_tokens)))));
+    if (agent_input_token_quota !== null && agent_input_token_quota !== undefined && Number.isFinite(Number(agent_input_token_quota))) {
+      pushUpdate('agent_input_token_quota', Math.min(AGENT_INPUT_QUOTA_MAX, Math.max(AGENT_INPUT_QUOTA_MIN, Math.floor(Number(agent_input_token_quota)))));
     }
-
-    if (review_mode !== null) {
-      const normalizedReview = (review_mode === 'cross-provider') ? 'cross-provider' : 'self';
-      updates.push('review_mode = ?');
-      params.push(normalizedReview);
-    }
-
-    if (hitl_mode !== null) {
-      const normalizedHitl = (hitl_mode === 'disabled' || hitl_mode === 'autonomous') ? 'disabled' : 'enabled';
-      updates.push('hitl_mode = ?');
-      params.push(normalizedHitl);
-    }
-
-    if (advisor_mode !== null) {
-      const validModes = ['realtime-idle', 'turn-gate', 'off'];
-      const normalizedAdvisor = validModes.includes(String(advisor_mode)) ? String(advisor_mode) : 'realtime-idle';
-      updates.push('advisor_mode = ?');
-      params.push(normalizedAdvisor);
-    }
-
-    if (advisor_max_tokens !== null && Number.isFinite(Number(advisor_max_tokens))) {
-      const clampedTokens = Math.min(1000, Math.max(250, Math.floor(Number(advisor_max_tokens))));
-      updates.push('advisor_max_tokens = ?');
-      params.push(clampedTokens);
-    }
-
     if (updates.length > 0 && row) {
-      updates.push('updated_at = ?');
-      params.push(new Date().toISOString());
+      pushUpdate('updated_at', new Date().toISOString());
       params.push(row.project_hash);
       conn.prepare(`UPDATE projects SET ${updates.join(', ')} WHERE project_hash = ?`).run(...params);
     }
-
     return getProjectSdlcConfig(projectPath, dbPath);
   } finally {
     try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+  }
+}
+
+function hasExplicitHitlEnabled(projectPath, dbPath = null) {
+  if (!projectPath) return false;
+  let conn = null;
+  try {
+    conn = getDbConn(dbPath);
+    const hash = personaMemory.computeProjectHash(projectPath);
+    const row = conn.prepare('SELECT hitl_mode FROM projects WHERE project_hash = ?').get(hash);
+    if (!row) return false;
+    return String(row.hitl_mode || 'enabled').toLowerCase() !== 'disabled';
+  } catch (_) {
+    return false;
+  } finally {
+    if (conn) {
+      try { conn.close(); } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
+    }
   }
 }
 
@@ -647,6 +654,7 @@ module.exports = {
   recordSlopResult,
   getProjectSdlcConfig,
   setProjectSdlcConfig,
+  hasExplicitHitlEnabled,
   checkReadiness,
   detectReviewIndependence,
   evaluateAntiSlopDeliveryGate,

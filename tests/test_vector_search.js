@@ -156,6 +156,41 @@ async function testClangCanonicalSearchRanking() {
   }
 }
 
+async function testSearchChunksRagFusionAndRerank() {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-vec-rag-'));
+  const conn = db.getConnection(path.join(tmp, 'rag.db'));
+  try {
+    db.setupSchema(conn);
+    const docs = [
+      ['auth-guide', 'JWT HMAC token verification and signature checks for HTTP bearer credentials.', 'security, jwt'],
+      ['css-theme', 'CSS custom properties, color palette tokens, and typography grid spacing.', 'ui, css']
+    ];
+    for (const [name, content, tags] of docs) {
+      conn.prepare(`
+        INSERT INTO skills (name, skill_name, type, tags, content, file_path, byte_size, line_count)
+        VALUES (?, ?, 'skill', ?, ?, ?, ?, 1)
+      `).run(name, name, tags, content, `/tmp/${name}.md`, content.length);
+      conn.prepare('INSERT INTO skills_fts (name, skill_name, tags, content) VALUES (?, ?, ?, ?)').run(name, name, tags, content);
+      const vec = await vector_search.embedText(content);
+      conn.prepare('INSERT INTO skill_chunks (skill_name, chunk_index, chunk_text, embedding) VALUES (?, 0, ?, ?)')
+        .run(name, content, Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength));
+    }
+
+    const noRerank = await vector_search.searchChunksRAG(conn, 'HMAC signature verification', { rerank: false, topK: 2 });
+    assert.ok(noRerank.length >= 1, 'Expected at least 1 chunk candidate from RRF');
+    assert.ok(typeof noRerank[0].rrf_score === 'number' && noRerank[0].rrf_score > 0, 'Expected positive rrf_score');
+    assert.strictEqual(noRerank[0].skill_name, 'auth-guide');
+
+    const withRerank = await vector_search.searchChunksRAG(conn, 'cryptographic token signature check', { rerank: true, topK: 2 });
+    assert.ok(withRerank.length >= 1);
+    assert.strictEqual(withRerank[0].skill_name, 'auth-guide');
+    assert.ok(typeof withRerank[0].rerank_score === 'number');
+  } finally {
+    conn.close();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 async function run() {
   console.log('Running test_vector_search.js...');
   console.log('1. testRrfDeterministicOrdering');
@@ -170,6 +205,8 @@ async function run() {
   await testMultilingualIndonesianQueriesTop5();
   console.log('6. testClangCanonicalSearchRanking');
   await testClangCanonicalSearchRanking();
+  console.log('7. testSearchChunksRagFusionAndRerank');
+  await testSearchChunksRagFusionAndRerank();
   console.log('test_vector_search.js passed cleanly.');
 }
 

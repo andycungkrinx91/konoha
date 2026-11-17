@@ -59,7 +59,7 @@ const currentCwd = (() => {
 })();
 const {
   AGENTS_SKILLS, AGENTS, ANTIGRAVITY_CLI
-} = require('../bin/lib/paths');
+} = require('./config_access').loadBinLib('paths');
 
 function getSkillsScanDirs(_targetCwd = null) {
   const dirs = [

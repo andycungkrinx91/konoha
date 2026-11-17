@@ -10,7 +10,6 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const crypto = require('crypto');
 const db = require('../src/db');
 const personaMemory = require('../src/persona_memory');
 const vectorSearch = require('../src/vector_search');
@@ -50,9 +49,14 @@ This is repeated content.
     const normVal = Math.sqrt(384);
     for (let i = 0; i < 384; i++) mockVec[i] /= normVal;
 
-    const normKey = t1.trim().split(/\s+/).join(' ');
-    const h = crypto.createHash('sha256').update(normKey, 'utf8').digest('hex');
-    vectorSearch._EMBED_CACHE.set(h, mockVec);
+    const normKey = vectorSearch.normalizeForEmbedding(t1);
+    const h = vectorSearch.hashNormalizedText(normKey);
+    const scopedKey = vectorSearch.makeEmbedCacheKey(h, vectorSearch.EMBED_MODEL_REPO);
+
+    // Cross-model isolation: poisoning another model repo key must not leak into Granite cache lookup.
+    const foreignVec = new Float32Array(384).fill(-0.25);
+    vectorSearch._EMBED_CACHE.set(vectorSearch.makeEmbedCacheKey(h, 'foreign/other-model'), foreignVec);
+    vectorSearch._EMBED_CACHE.set(scopedKey, mockVec);
 
     const res1 = await vectorSearch.embedText(t1);
     const res2 = await vectorSearch.embedText(t2);
@@ -63,7 +67,8 @@ This is repeated content.
       assert.strictEqual(res1[i], mockVec[i]);
       assert.strictEqual(res2[i], mockVec[i]);
     }
-    console.log('✓ Embed cache deduplication passed');
+    assert.notStrictEqual(res1[0], -0.25, 'Foreign model cache key must remain isolated');
+    console.log('✓ Embed cache deduplication and cross-model isolation passed');
 
     // DB-level embedding blob reuse
     conn.prepare("INSERT INTO skills (name, skill_name, type, content) VALUES ('skill-base', 'skill-base', 'skill', 'base content')").run();

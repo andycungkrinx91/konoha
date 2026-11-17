@@ -46,34 +46,43 @@ function _fetchBridgeModels(bridge) {
   }
 }
 
-async function _collectBridgeSources() {
+function _format9RouterSource(routerStatus) {
+  return {
+    id: '9router',
+    label: '9router',
+    provider: '9router',
+    installed: routerStatus.installed,
+    running: routerStatus.running,
+    base_url: routerStatus.base_url,
+    model_count: routerStatus.model_count,
+    has_credentials: false
+  };
+}
+
+async function _probeCompatibleSources(nineRouter) {
+  return Promise.all(nineRouter.COMPATIBLE_SOURCES.map(async (candidate) => {
+    const probe = await probeOpenAiCompatibleEndpoint(candidate.port, candidate.host);
+    return {
+      id: candidate.id,
+      label: candidate.label,
+      provider: candidate.provider,
+      installed: probe.ok,
+      running: probe.ok,
+      base_url: `http://${candidate.host}:${candidate.port}/v1`,
+      model_count: probe.ok ? probe.data.length : 0,
+      has_credentials: false
+    };
+  }));
+}
+
+async function _collectBridgeSources(cachedRouterStatus = null) {
   try {
     const nineRouter = require('../../nine_router');
-    const routerStatus = await nineRouter.get9RouterStatus();
-    const sources = [{
-      id: '9router',
-      label: '9router',
-      provider: '9router',
-      installed: routerStatus.installed,
-      running: routerStatus.running,
-      base_url: routerStatus.base_url,
-      model_count: routerStatus.model_count,
-      has_credentials: false
-    }];
-    for (const candidate of nineRouter.COMPATIBLE_SOURCES) {
-      const probe = await probeOpenAiCompatibleEndpoint(candidate.port, candidate.host);
-      sources.push({
-        id: candidate.id,
-        label: candidate.label,
-        provider: candidate.provider,
-        installed: probe.ok,
-        running: probe.ok,
-        base_url: `http://${candidate.host}:${candidate.port}/v1`,
-        model_count: probe.ok ? probe.data.length : 0,
-        has_credentials: false
-      });
-    }
-    return sources;
+    const [routerStatus, compatibleSources] = await Promise.all([
+      cachedRouterStatus ? Promise.resolve(cachedRouterStatus) : nineRouter.get9RouterStatus(),
+      _probeCompatibleSources(nineRouter)
+    ]);
+    return [_format9RouterSource(routerStatus), ...compatibleSources];
   } catch (_) {
     return [];
   }
@@ -92,7 +101,13 @@ async function handleBridgesModels(res, pathname) {
   try {
     const bridges = dbBridges.listBridges();
     const enabledBridges = bridges.filter(b => b.enabled && (b.target_url || b.targetUrl));
-    const results = await Promise.all(enabledBridges.map(_fetchBridgeModels));
+    const nineRouter = require('../../nine_router');
+    const [results, nineRouterModels, nineRouterStatus, sources] = await Promise.all([
+      Promise.all(enabledBridges.map(_fetchBridgeModels)),
+      nineRouter.discover9RouterModels(),
+      nineRouter.get9RouterStatus(),
+      _probeCompatibleSources(nineRouter).catch(() => [])
+    ]);
     const models = [];
     for (const resItem of results) {
       for (const m of resItem.data) {
@@ -100,11 +115,9 @@ async function handleBridgesModels(res, pathname) {
       }
     }
     for (const cm of discoverClientModels()) models.push(cm);
-    const nineRouter = require('../../nine_router');
-    for (const nm of await nineRouter.discover9RouterModels()) models.push(nm);
-    const nineRouterStatus = await nineRouter.get9RouterStatus();
-    const sources = await _collectBridgeSources();
-    return sendJson(res, 200, { models, total: models.length, nine_router: nineRouterStatus, sources });
+    for (const nm of nineRouterModels) models.push(nm);
+    const allSources = [_format9RouterSource(nineRouterStatus), ...sources];
+    return sendJson(res, 200, { models, total: models.length, nine_router: nineRouterStatus, sources: allSources });
   } catch (err) {
     return sendJson(res, 500, { error: err.message });
   }

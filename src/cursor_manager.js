@@ -1,5 +1,5 @@
 
-const { getCanonicalAgentNames } = require('./canonical_agents');
+const { getDeployableAgents, getDeployableAgentNames } = require('./canonical_agents');
 const {
   generateCursorSubagent,
   generateCursorRule,
@@ -7,17 +7,23 @@ const {
 } = require('./cursor_rules');
 const fs = require('fs');
 const path = require('path');
-const { SEMBLE_PACKAGE, AISLOP_PACKAGE, resolveUvxExecutablePath } = require('./semble_manager');
+const { AISLOP_PACKAGE } = require('./uvx_runtime');
 const { spawnSync } = require('child_process');
 const deployUtils = require('./deploy_utils');
 const { resolveCompatibleNode } = require('./runtime_resolver');
+const {
+  writeAgentFileSafe,
+  writeManagedFileSafe,
+  snapshotNonKonohaRuleFiles,
+  restoreNonKonohaRuleFiles
+} = require('./agent_file_safety');
 
 const {
   HOME,
   CURSOR_DIR, CURSOR_MCP_GLOBAL, CURSOR_MCP_LEGACY, CURSOR_AGENTS_GLOBAL, CURSOR_SKILLS_GLOBAL, AGENTS_SKILLS,
   CURSOR_HOOKS_GLOBAL, CURSOR_CLI_CONFIG, SKILLS_DB_DIR,
   SERVER_PATH, CURSOR_BOOTSTRAP_PATH, SRC_DIR, FILE_TOOLS_LAUNCHER_JS
-} = require('../bin/lib/paths');
+} = require('./config_access').loadBinLib('paths');
 
 const PROJECT_CURSOR_DIR = '.cursor';
 
@@ -33,6 +39,8 @@ function deployCursorRtkRule(silent = true, options = {}) {
   const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
   const home = opts.home || process.env.HOME || process.env.USERPROFILE || HOME;
   const targetRulesDir = path.join(home, '.cursor', 'rules');
+  const dest = path.join(targetRulesDir, 'rtk.mdc');
+  const protectedSnaps = snapshotNonKonohaRuleFiles([dest]);
 
   // The rule template is static, so it deploys with or without `rtk` on PATH;
   // `rtk init` only enriches it and stays best-effort.
@@ -44,13 +52,16 @@ function deployCursorRtkRule(silent = true, options = {}) {
       });
     } catch { /* best-effort enrichment: never crash the CLI/MCP runtime */ }
   }
+  restoreNonKonohaRuleFiles(protectedSnaps);
   if (!fileExists(CURSOR_RTK_RULE_SRC)) return { ok: false, reason: 'rtk-rule-template-missing' };
   ensureDir(targetRulesDir);
-  const dest = path.join(targetRulesDir, 'rtk.mdc');
   try {
-    fs.copyFileSync(CURSOR_RTK_RULE_SRC, dest);
-    if (!isSilent) process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
-    return { ok: true };
+    const content = fs.readFileSync(CURSOR_RTK_RULE_SRC, 'utf8');
+    const writeRes = writeManagedFileSafe(dest, content, { silent: isSilent });
+    if (writeRes.status !== 'conflict' && !isSilent) {
+      process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
+    }
+    return { ok: true, status: writeRes.status };
   } catch (e) {
     return { ok: false, reason: 'copy-failed', error: e.message };
   }
@@ -65,13 +76,6 @@ function _buildClientPathEnv(nodeCmd) {
   const cargoBin = path.join(HOME, '.cargo', 'bin');
   const nodeDir = nodeCmd ? path.dirname(nodeCmd) : '';
   return [nodeDir, localBin, cargoBin, process.env.PATH || ''].filter(Boolean).join(path.delimiter);
-}
-
-function _resolveUvxAvailable(uvxCmd) {
-  try {
-    const cmd = resolveUvxExecutablePath ? (resolveUvxExecutablePath(uvxCmd) || uvxCmd) : uvxCmd;
-    return spawnSync(cmd, ['--version'], { encoding: 'utf-8', timeout: 5000, windowsHide: true, stdio: 'ignore' }).status === 0;
-  } catch { return false; }
 }
 
 function _resolveAislopMcpConfig(npxCmd) {
@@ -92,21 +96,9 @@ function _resolveAislopMcpConfig(npxCmd) {
   };
 }
 
-function buildMcpServers(pythonCmd, serverPath, uvxCmd) {
+function buildMcpServers() {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const resolvedUvx = resolveUvxExecutablePath ? resolveUvxExecutablePath(uvxCmd) : (uvxCmd || 'uvx');
-  const uvxAvailable = _resolveUvxAvailable(resolvedUvx);
   const servers = {
-    ...(uvxAvailable ? {
-      semble: {
-        type: 'stdio',
-        command: resolvedUvx,
-        args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
-        env: { PATH: _buildClientPathEnv(null) },
-        autoApprove: ['search', 'find_related'],
-        auto_approve: true
-      }
-    } : {}),
     aislop: _resolveAislopMcpConfig(npxCmd)
   };
 
@@ -128,7 +120,7 @@ function _backupCursorMcpSafe(targetMcp, backupPath, konohaHome, options = {}) {
   }
 }
 
-function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true, options = {}) {
+function registerCursorMcp(pythonCmd, serverPath, silent = true, options = {}) {
   if (typeof silent === 'object' && silent !== null) {
     options = silent;
     silent = options.silent !== false;
@@ -138,7 +130,7 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true, options
 
   if (!serverPath || !fileExists(serverPath)) return false;
 
-  const { parseYaml } = require('../bin/lib/yaml_utils');
+  const { parseYaml } = require('./config_access').loadBinLib('yaml_utils');
   ensureDir(targetDir);
 
   const backupPath = targetMcp + '.back';
@@ -162,7 +154,7 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true, options
   if (!config.mcpServers || typeof config.mcpServers !== 'object' || Array.isArray(config.mcpServers)) {
     config.mcpServers = {};
   }
-  const servers = buildMcpServers(pythonCmd, serverPath, uvxCmd || 'uvx');
+  const servers = buildMcpServers();
   Object.assign(config.mcpServers, servers);
   fs.writeFileSync(targetMcp, JSON.stringify(config, null, 2) + '\n');
   try {
@@ -178,10 +170,10 @@ function registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent = true, options
   return true;
 }
 
-function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, silent = true) {
+function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, silent = true) {
   if (!projectRoot || !fileExists(projectRoot)) return false;
 
-  const { parseYaml } = require('../bin/lib/yaml_utils');
+  const { parseYaml } = require('./config_access').loadBinLib('yaml_utils');
   const cursorDir = path.join(projectRoot, PROJECT_CURSOR_DIR);
   const mcpPath = path.join(cursorDir, 'mcp.json');
   const legacyMcpPath = path.join(cursorDir, 'mcp.yaml');
@@ -207,11 +199,7 @@ function registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, si
     config.mcpServers = {};
   }
 
-  const servers = buildMcpServers(
-    pythonCmd,
-    serverPath,
-    uvxCmd || 'uvx'
-  );
+  const servers = buildMcpServers();
 
   const launcherPath = fileExists(FILE_TOOLS_LAUNCHER_JS) ? FILE_TOOLS_LAUNCHER_JS : serverPath;
   if (servers['konoha']) {
@@ -269,7 +257,6 @@ function _getCursorGrants() {
   const konohaGrants = (deployUtils.KONOHA_CANONICAL_TOOLS || []).map(t => `Mcp(konoha, ${t})`);
   return [
     'Mcp(konoha)', ...konohaGrants,
-    'Mcp(semble)', 'Mcp(semble, search)', 'Mcp(semble, find_related)',
     'Mcp(aislop)', 'Mcp(aislop, aislop_scan)', 'Mcp(aislop, aislop_fix)',
     'Mcp(aislop, aislop_why)', 'Mcp(aislop, aislop_baseline)',
     'Shell(rtk)', 'Shell(konoha)'
@@ -295,7 +282,6 @@ function _updateSingleCursorSettingsPath(sPath, grants, options = {}) {
     const kTools = deployUtils.KONOHA_CANONICAL_TOOLS || [];
     const konohaMcpApprovals = [
       ...kTools.map(t => 'konoha/' + t), ...kTools.map(t => 'konoha:' + t), ...kTools,
-      'semble/search', 'semble/find_related', 'semble:search', 'semble:find_related', 'search', 'find_related',
       'aislop/aislop_scan', 'aislop/aislop_fix', 'aislop/aislop_why', 'aislop/aislop_baseline',
       'aislop:aislop_scan', 'aislop:aislop_fix', 'aislop:aislop_why', 'aislop:aislop_baseline',
       'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'
@@ -347,7 +333,6 @@ function registerCursorCliPermissions(silent = true, options = {}) {
   const kTools = deployUtils.KONOHA_CANONICAL_TOOLS || [];
   const konohaAutoApprove = ['rtk', 'rtk *', 'konoha', 'konoha *',
     ...kTools.map(t => `konoha:${t}`), ...kTools.map(t => `konoha/${t}`), ...kTools,
-    'semble:search', 'semble:find_related', 'search', 'find_related',
     'aislop:aislop_scan', 'aislop:aislop_fix', 'aislop:aislop_why', 'aislop:aislop_baseline'];
   config.autoApprove = Array.isArray(config.autoApprove)
     ? [...new Set([...config.autoApprove, ...konohaAutoApprove])]
@@ -428,16 +413,15 @@ function registerCursorHooks(silent = true, allowHooks = true, options = {}) {
   return true;
 }
 
-function _writeCursorRuleIfChanged(rulePath, content, opts) {
-  if (fileExists(rulePath) && fs.readFileSync(rulePath, 'utf8') === content) {
-    return false;
-  }
-  if (fileExists(rulePath)) {
-    const backupMgr = require('./config_backup_manager');
-    backupMgr.ensureBackupBeforeModify(rulePath, { client: 'cursor', scope: 'global', ...opts });
-  }
-  fs.writeFileSync(rulePath, content, 'utf8');
-  return true;
+function _writeCursorRuleIfChanged(rulePath, content, opts = {}) {
+  const res = writeManagedFileSafe(rulePath, content, {
+    silent: opts.silent !== false,
+    onBeforeOverwrite: (p) => {
+      const backupMgr = require('./config_backup_manager');
+      backupMgr.ensureBackupBeforeModify(p, { client: 'cursor', scope: 'global', ...opts });
+    }
+  });
+  return res.status === 'written';
 }
 
 function deployCursorGlobalRule(agents, silent = true, options = {}) {
@@ -459,13 +443,11 @@ function deployCursorGlobalRule(agents, silent = true, options = {}) {
   }
 }
 
-function _writeCursorAgentIfChanged(cursorAgentsGlobal, agent, official) {
+function _writeCursorAgentIfChanged(cursorAgentsGlobal, agent, official, opts = {}) {
   if (!agent || !agent.name || !official.has(agent.name)) return;
   const agentPath = path.join(cursorAgentsGlobal, `${agent.name}.md`);
   const content = generateCursorSubagent(agent);
-  if (!fileExists(agentPath) || fs.readFileSync(agentPath, 'utf8') !== content) {
-    fs.writeFileSync(agentPath, content, 'utf8');
-  }
+  writeAgentFileSafe(agentPath, content, agent.name, { silent: opts.silent !== false });
 }
 
 function deployCursorGlobalAgents(agents, silent = true, options = {}) {
@@ -477,8 +459,8 @@ function deployCursorGlobalAgents(agents, silent = true, options = {}) {
 
   try {
     ensureDir(cursorAgentsGlobal);
-    const official = new Set(getCanonicalAgentNames());
-    for (const agent of agents) {
+    const official = new Set(getDeployableAgentNames());
+    for (const agent of getDeployableAgents(agents)) {
       _writeCursorAgentIfChanged(cursorAgentsGlobal, agent, official);
     }
     if (!isSilent) process.stderr.write(`✓ Deployed global Cursor subagents: ${cursorAgentsGlobal}\n`);
@@ -497,14 +479,14 @@ function deployProjectCursor(projectRoot, agents, silent = true, ruleContent = n
   ensureDir(rulesDir);
   ensureDir(agentsDir);
 
-  // Deploy orchestrator rule
+  // Deploy orchestrator rule without clobbering user-authored rules
   const rulePath = path.join(rulesDir, 'konoha.mdc');
-  fs.writeFileSync(rulePath, generateCursorRule(agents, ruleContent));
+  writeManagedFileSafe(rulePath, generateCursorRule(agents, ruleContent), { silent });
 
-  const official = new Set(getCanonicalAgentNames());
-  for (const agent of (agents || [])) {
+  const official = new Set(getDeployableAgentNames());
+  for (const agent of getDeployableAgents(agents || [])) {
     if (!agent || !agent.name || !official.has(agent.name)) continue;
-    fs.writeFileSync(path.join(agentsDir, `${agent.name}.md`), generateCursorSubagent(agent), 'utf8');
+    writeAgentFileSafe(path.join(agentsDir, `${agent.name}.md`), generateCursorSubagent(agent), agent.name, { silent });
   }
 
   if (!silent) {
@@ -541,7 +523,6 @@ function ensureCursorSetup(options = {}) {
   const {
     pythonCmd = 'python3',
     serverPath = SERVER_PATH,
-    uvxCmd = 'uvx',
     agents = [],
     projectRoot = null,
     deployProject = false,
@@ -557,7 +538,7 @@ function ensureCursorSetup(options = {}) {
     return { ok: false, reason: 'konoha server not installed' };
   }
 
-  registerCursorMcp(pythonCmd, serverPath, uvxCmd, silent, options);
+  registerCursorMcp(pythonCmd, serverPath, silent, options);
   registerCursorCliPermissions(silent, options);
   registerCursorHooks(silent, allowHooks, options);
   deployCursorRtkRule(silent, options);
@@ -566,7 +547,7 @@ function ensureCursorSetup(options = {}) {
   deployCursorGlobalAgents(effectiveAgents, silent, options);
 
   if (projectRoot && (appendProject || (deployProject && _hasExistingCursorProjectConfig(projectRoot)))) {
-    registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, uvxCmd, silent);
+    registerCursorProjectMcp(projectRoot, pythonCmd, serverPath, silent);
     deployProjectCursor(projectRoot, effectiveAgents, silent, options.ruleContent || null);
   }
 
@@ -588,7 +569,7 @@ function _removeCursorMcpServers(cursorMcp, silent) {
     const config = JSON.parse(fs.readFileSync(cursorMcp, 'utf-8'));
     if (!config?.mcpServers) return;
     let updated = false;
-    for (const name of ['konoha', 'semble', 'aislop', 'skills-db']) {
+    for (const name of ['konoha', 'aislop', 'skills-db', 'semble']) {
       if (config.mcpServers[name]) { delete config.mcpServers[name]; updated = true; }
     }
     if (updated) {
@@ -626,7 +607,7 @@ function _cleanCursorCliPermissions(silent) {
 }
 
 function _removeGlobalCursorAgents(agentsGlobal) {
-  const official = getCanonicalAgentNames();
+  const official = getDeployableAgentNames();
   for (const name of official) {
     const p = path.join(agentsGlobal, `${name}.md`);
     if (fileExists(p)) { try { fs.unlinkSync(p); } catch { /* best-effort */ } }
@@ -646,7 +627,7 @@ function removeCursorConfig(silent = true, options = {}) {
 
 function getCursorStatus() {
   const status = {
-    mcpGlobal: fileExists(CURSOR_MCP_GLOBAL), mcpSkillsDb: false, mcpSemble: false, mcpKonoha: false,
+    mcpGlobal: fileExists(CURSOR_MCP_GLOBAL), mcpSkillsDb: false, mcpKonoha: false,
     subagentsGlobal: 0, skillsGlobal: 0, skillsProject: 0, cliPermissions: false, hooks: false,
     projectMcp: false, projectRule: false, projectAgents: 0, rtkInstalled: isRtkInstalled(),
     rtkRuleDeployed: fileExists(path.join(CURSOR_RULES_GLOBAL, 'rtk.mdc'))
@@ -656,7 +637,6 @@ function getCursorStatus() {
     try {
       const cfg = JSON.parse(fs.readFileSync(CURSOR_MCP_GLOBAL, 'utf-8'));
       status.mcpSkillsDb = !!(cfg.mcpServers?.konoha);
-      status.mcpSemble = !!(cfg.mcpServers?.semble);
       status.mcpKonoha = !!(cfg.mcpServers?.konoha);
     } catch { /* best-effort */ }
   }
@@ -670,7 +650,7 @@ function getCursorStatus() {
     try {
       const cfg = JSON.parse(fs.readFileSync(CURSOR_CLI_CONFIG, 'utf-8'));
       const allows = Array.isArray(cfg.permissions?.allow) ? cfg.permissions.allow : [];
-      status.cliPermissions = allows.some(a => a.includes('konoha')) && allows.some(a => a.includes('semble'));
+      status.cliPermissions = allows.some(a => a.includes('konoha'));
     } catch { /* best-effort */ }
   }
   if (fileExists(CURSOR_HOOKS_GLOBAL)) {

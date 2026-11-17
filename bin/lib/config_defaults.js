@@ -50,7 +50,6 @@ const CONFIG_DEFAULTS = Object.freeze({
   probe_timeout_ms: 1500,
   aislop_gate_timeout_ms: 180000,
   live_glb_poll_timeout_ms: 15000,
-  ui_ready_timeout_ms: 180000,
   notify_dedupe_ttl_ms: 180000,
   // mcp server orphan guard (src/mcp_orphan_guard.js)
   mcp_orphan_parent_poll_ms: 30000,
@@ -58,6 +57,7 @@ const CONFIG_DEFAULTS = Object.freeze({
   mcp_daemon_superseded_poll_ms: 30000,
   // budgets / thresholds
   minimum_confidence: 98,
+  agent_input_token_quota: 100000,
   skill_top_k: 5,
   skill_candidate_k: 25,
   semantic_top_k: 10,
@@ -109,7 +109,6 @@ const CONFIG_DEFAULTS = Object.freeze({
   three_d_output_dir: null,
   cycles_samples: 64,
   // local toolchain
-  onnx_threads: 1,
   embed_pace_ms: 0,
   chrome_path: null,
   toolchain_dir: null,
@@ -143,6 +142,7 @@ const SECRET_KEYS = Object.freeze([
 const ENV_ALIASES = Object.freeze({
   // budgets
   turn_budget: ['KONOHA_TURN_BUDGET'],
+  agent_input_token_quota: ['KONOHA_AGENT_INPUT_TOKEN_QUOTA'],
   hitl_mode: ['KONOHA_HITL_MODE'],
   advisor_mode: ['KONOHA_ADVISOR_MODE'],
   spinners: ['KONOHA_SPINNERS'],
@@ -190,7 +190,6 @@ const ENV_ALIASES = Object.freeze({
   three_d_model: ['KONOHA_3D_MODEL'],
   three_d_output_dir: ['KONOHA_3D_OUTPUT_DIR'],
   cycles_samples: ['KONOHA_CYCLES_SAMPLES'],
-  onnx_threads: ['KONOHA_ONNX_THREADS'],
   embed_pace_ms: ['KONOHA_EMBED_PACE_MS'],
   qa_retention_count: ['KONOHA_QA_RETENTION_COUNT'],
   doc_gate_max_attempts: ['KONOHA_DOC_GATE_MAX_ATTEMPTS'],

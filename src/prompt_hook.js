@@ -42,15 +42,14 @@ async function getLastUserInput(transcriptPath) {
   });
 }
 
-// File-based IPC is retired: this hook NEVER writes prompt.md / delegate.md.
-// User input already lives in the transcript; routing uses structured MCP args.
-// Inbox notification below peeks SQLite only (no claim, no file append).
+// Transcript state uses canonical JSONL records; routing uses structured MCP args.
+// Inbox notification below peeks SQLite only (no claim, no file writes).
 
 const SELF_NUDGE = {
   injectSteps: [
     {
       ephemeralMessage:
-        "A user prompt or conversation resume action has been received. User instructions and constraints are passed directly in conversation context / <USER_REQUEST>. Execute the Konoha orchestration workflow immediately via direct structured MCP tool arguments (sannin/genin/kage/chunin/jonin/anbu/tokubetsu-jonin). Do NOT call file_info('prompt.md') or read prompt.md/delegate.md. Adopt High Effort + Instruct Style base personality: strictly NO conversational filler ('hmmmm', 'let me', 'wait - but'), lead with direct action, strictly no lies, zero hallucination. Delivery requires Kage review (>=98% confidence, 0 slop findings) and @advisor approval review before delivery sign-off. The original task remains authoritative; follow-ups refine it. Never drop or replace the original goal."
+        "A user prompt or conversation resume action has been received. User instructions and constraints arrive via canonical JSONL transcript context / <USER_REQUEST>. Execute the Konoha orchestration workflow immediately via direct structured MCP tool arguments (sannin/genin/kage/chunin/jonin/anbu/tokubetsu-jonin/akatsuki/yamanaka). Keep @advisor running idle from turn 0 to watch all agents against Plan, TODOs, and User Goals and steer drifted agents directly. Adopt High Effort + Instruct Style base personality: strictly NO conversational filler ('hmmmm', 'let me', 'wait - but'), lead with direct action, strictly no lies, zero hallucination. Delivery requires Kage review (>=98% confidence, 0 slop findings) and @advisor approval review before delivery sign-off. The original task remains authoritative; follow-ups refine it. Never drop or replace the original goal."
     }
   ]
 };

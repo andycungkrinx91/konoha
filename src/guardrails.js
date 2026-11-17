@@ -90,8 +90,8 @@ function checkCommandGuardrails(command) {
   var REASON_READ_BYPASS =
     'KONOHA RULE VIOLATION: Shell file reading is strictly forbidden (including rtk cat/grep). ' +
     'Use the konoha MCP bounded file tools (read_file_head, read_file_range, file_info, ' +
-    'get_file_structure, find_files_clean, token_efficient_grep) or the semble MCP ' +
-    '(search / find_related) instead.';
+    'get_file_structure, find_files_clean, token_efficient_grep) or the konoha code_search ' +
+    'tool instead.';
 
   // Layer 1: whole-command regex scans
   var wholeCommandPatterns = [

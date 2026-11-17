@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('../semble_manager');
+const { AISLOP_PACKAGE } = require('../uvx_runtime');
 const deployUtils = require('../deploy_utils');
 const {
   fileExists,
@@ -15,9 +15,12 @@ const {
 const {
   SERVER_PATH, FILE_TOOLS_MCP_PATH,
   CLAUDE_JSON, CLAUDE_SETTINGS, COMMANDCODE_JSON, HOME
-} = require('../../bin/lib/paths');
+} = require('../config_access').loadBinLib('paths');
 
-const KONOHA_MCP_NAMES = ['konoha', 'semble', 'aislop'];
+const KONOHA_MCP_NAMES = ['konoha', 'aislop'];
+// Servers Konoha used to register. Removed from client configs on install and uninstall
+// so an upgrade does not leave a dead entry behind.
+const LEGACY_MCP_NAMES = ['semble'];
 
 function isClaudeCodeInstalled() {
   return (
@@ -103,22 +106,9 @@ function resolveAislopMcpConfig() {
 }
 
 function buildStdioMcpServers(options = {}) {
-  const {
-    uvxCmd = 'uvx',
-    client = 'cursor'
-  } = options;
-
-  const isWin = process.platform === 'win32';
-  const resolvedUvx = uvxCmd || (isWin ? 'uvx.exe' : 'uvx');
+  const { client = 'cursor' } = options;
 
   const servers = {
-    semble: {
-      type: 'stdio',
-      command: resolvedUvx,
-      args: ['--from', SEMBLE_PACKAGE, 'semble', '--content', 'all'],
-      autoApprove: ['search', 'find_related'],
-      auto_approve: true
-    },
     aislop: resolveAislopMcpConfig()
   };
   // buildKonohaFilesMcpEntry falls back to the repo copy when the deployed
@@ -153,7 +143,7 @@ function _writeUpdatedJsonOrYamlFile(filePath, config, isJson, beforeKeys, optio
   ensureDir(path.dirname(filePath));
   fs.writeFileSync(filePath, isJson ? JSON.stringify(config, null, 2) + '\n' : stringifyYaml(config) + '\n');
   const addedKeys = Object.keys(config || {}).filter(k => !beforeKeys.has(k));
-  recordOwnership(filePath, { ownedKeys: [...addedKeys, 'mcpServers.konoha', 'mcpServers.semble'] }, options);
+  recordOwnership(filePath, { ownedKeys: [...addedKeys, 'mcpServers.konoha'] }, options);
   if (!options.silent) process.stderr.write(`✓ Updated ${filePath}\n`);
 }
 
@@ -215,14 +205,13 @@ function buildClientToolGrants(prefix) {
   const tools = deployUtils.KONOHA_CANONICAL_TOOLS || [];
   const sep = prefix === 'mcp__' ? '__' : ':';
   const konohaGrants = tools.map(t => `${prefix}konoha${sep}${t}`);
-  const sembleGrants = ['search', 'find_related'].map(t => `${prefix}semble${sep}${t}`);
   const aislopGrants = ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'].map(t => `${prefix}aislop${sep}${t}`);
-  return [...konohaGrants, ...sembleGrants, ...aislopGrants];
+  return [...konohaGrants, ...aislopGrants];
 }
 
 function buildBareToolGrants() {
   const tools = deployUtils.KONOHA_CANONICAL_TOOLS || [];
-  return [...tools, 'search', 'find_related', 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
+  return [...tools, 'aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
 }
 
 /**
@@ -244,7 +233,6 @@ const MAIN_AGENT_BUILTIN_TOOLS = Object.freeze([
 ]);
 
 const SUBAGENT_SAFE_MCP_GRANTS = Object.freeze({
-  semble: ['search', 'find_related'],
   aislop: ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline']
 });
 
@@ -260,23 +248,78 @@ function getKonohaMappedTools(client) {
   return [];
 }
 
+const COMMANDCODE_READONLY_BUILTINS = Object.freeze([
+  'read_file',
+  'read_directory',
+  'grep',
+  'glob'
+]);
+
+const COMMANDCODE_WRITE_BUILTINS = Object.freeze([
+  'write_file',
+  'edit_file',
+  'bash'
+]);
+
+const READONLY_AISLOP_TOOLS = Object.freeze(['aislop_scan', 'aislop_why']);
+
 /**
  * The single source of truth for "which tools does an agent get".
- * The main agent and every subagent definition are both derived from it, so
- * parity holds by construction rather than by two hand-maintained lists.
+ * Read-only agents (e.g. genin) receive strictly read-only built-ins and MCP tools.
  */
-function buildSubagentToolGrants(client = 'generic') {
-  const konoha = (deployUtils.KONOHA_CANONICAL_TOOLS || []).map(t => `mcp__konoha__${t}`);
-  const semble = SUBAGENT_SAFE_MCP_GRANTS.semble.map(t => `mcp__semble__${t}`);
-  const aislop = SUBAGENT_SAFE_MCP_GRANTS.aislop.map(t => `mcp__aislop__${t}`);
+function buildSubagentToolGrants(client = 'generic', agent = null) {
+  const { isReadOnlyAgent } = require('../agent_file_safety');
+  const readOnly = isReadOnlyAgent(agent);
+  const { GENIN_BLOCKED_TOOLS } = readOnly
+    ? require('../mcp/genin_guard')
+    : { GENIN_BLOCKED_TOOLS: [] };
+  const blockedMcp = new Set(GENIN_BLOCKED_TOOLS);
+
+  const konoha = (deployUtils.KONOHA_CANONICAL_TOOLS || [])
+    .filter((t) => !readOnly || !blockedMcp.has(t))
+    .map((t) => `mcp__konoha__${t}`);
+  const aislopSource = readOnly ? READONLY_AISLOP_TOOLS : SUBAGENT_SAFE_MCP_GRANTS.aislop;
+  const aislop = aislopSource.map((t) => `mcp__aislop__${t}`);
+
+  if (readOnly) {
+    const readOnlyBuiltins = client === 'gemini'
+      ? ['view_file']
+      : ['Read', 'Grep', 'Glob', 'WebSearch', 'TodoRead'];
+    return [...konoha, ...aislop, ...readOnlyBuiltins];
+  }
+
   const native = getKonohaMappedTools(client);
   return [
     ...konoha,
-    ...semble,
     ...aislop,
     ...MAIN_AGENT_BUILTIN_TOOLS,
     ...native.filter(t => !MAIN_AGENT_BUILTIN_TOOLS.includes(t))
   ];
+}
+
+function buildCommandCodeTools(agent = null) {
+  const { isReadOnlyAgent, isRouterAgent } = require('../agent_file_safety');
+  const readOnly = isReadOnlyAgent(agent);
+  const { GENIN_BLOCKED_TOOLS } = readOnly
+    ? require('../mcp/genin_guard')
+    : { GENIN_BLOCKED_TOOLS: [] };
+  const blockedMcp = new Set(GENIN_BLOCKED_TOOLS);
+
+  const konoha = (deployUtils.KONOHA_CANONICAL_TOOLS || [])
+    .filter((t) => !readOnly || !blockedMcp.has(t))
+    .map((t) => `mcp__konoha__${t}`);
+  const aislopSource = readOnly ? READONLY_AISLOP_TOOLS : SUBAGENT_SAFE_MCP_GRANTS.aislop;
+  const aislop = aislopSource.map((t) => `mcp__aislop__${t}`);
+
+  const builtins = readOnly
+    ? [...COMMANDCODE_READONLY_BUILTINS]
+    : [
+        ...COMMANDCODE_READONLY_BUILTINS,
+        ...COMMANDCODE_WRITE_BUILTINS,
+        ...(isRouterAgent(agent) ? ['Task'] : [])
+      ];
+
+  return [...konoha, ...aislop, ...builtins];
 }
 
 function isWildcardGrant(grant) {
@@ -300,7 +343,6 @@ function readMcpHealth(config, key = 'mcpServers') {
   const block = config[key] || config.mcp || {};
   return {
     konoha: !!block['konoha'],
-    semble: !!block.semble,
     aislop: !!block.aislop,
     skillsDb: !!block['konoha']
   };
@@ -309,7 +351,7 @@ function readMcpHealth(config, key = 'mcpServers') {
 function removeKonohaFromMcpBlock(block) {
   if (!block) return false;
   let updated = false;
-  for (const name of KONOHA_MCP_NAMES) {
+  for (const name of [...KONOHA_MCP_NAMES, ...LEGACY_MCP_NAMES]) {
     if (block[name]) {
       delete block[name];
       updated = true;
@@ -342,6 +384,7 @@ module.exports = {
   SUBAGENT_SAFE_MCP_GRANTS,
   getKonohaMappedTools,
   buildSubagentToolGrants,
+  buildCommandCodeTools,
   isWildcardGrant,
   assertNoWildcardGrants,
   readMcpHealth,

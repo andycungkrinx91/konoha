@@ -14,8 +14,8 @@ const DIAGRAM = path.join(ROOT, 'docs', 'diagrams', 'konoha-architecture.drawio'
 const MANIFEST = path.join(ROOT, 'docs', 'diagrams', 'README.md');
 
 const MERMAID_OWNERS = [
-  { file: path.join(ROOT, 'README.md'), count: 2, required: ['genin-skill', 'sannin', 'Konoha MCP', 'Semble MCP', 'SQLite FTS5', 'assets/konoha-orchestration-flow.webp'] },
-  { file: path.join(ROOT, 'docs', 'ARCHITECTURE.md'), count: 4, required: ['genin-skill', 'sannin', 'Konoha MCP', 'Semble MCP', 'SQLite FTS5'] },
+  { file: path.join(ROOT, 'README.md'), count: 2, required: ['genin-skill', 'sannin', 'Konoha MCP', 'code_search', 'SQLite FTS5', 'assets/konoha-orchestration-flow.webp'] },
+  { file: path.join(ROOT, 'docs', 'ARCHITECTURE.md'), count: 4, required: ['genin-skill', 'sannin', 'Konoha MCP', 'code_search', 'SQLite FTS5'] },
   { file: path.join(ROOT, 'docs', 'LLM-BRIDGE-GATEWAY.md'), count: 1, required: ['Konoha Bridge Router', 'SQLite', 'Antigravity Sidecar'] },
   { file: path.join(ROOT, 'docs', 'SETUP-SEARXNG.md'), count: 1, required: ['SearXNG', 'DuckDuckGo', 'Startpage', 'Wikipedia'] },
   { file: path.join(ROOT, 'docs', 'ADDING-SKILLS.md'), count: 1, required: ['skills.sh', 'konoha migrate', 'SQLite', 'find_skill', 'get_skill'] }

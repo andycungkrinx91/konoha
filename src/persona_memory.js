@@ -48,6 +48,10 @@ const {
   getSoul
 } = require('./persona_memory_soul');
 
+const memoryBrain = require('./memory_brain');
+const memoryBrainExport = require('./memory_brain_export');
+const { getMemoryProvider } = require('./memory_provider_adapter');
+
 module.exports = {
   get DB_PATH() { return DB_PATH || db.DB_PATH; },
   set DB_PATH(val) { db.DB_PATH = val; },
@@ -102,5 +106,27 @@ module.exports = {
   formatProjectContextForPrompt,
   format_project_context_for_prompt: formatProjectContextForPrompt,
   resolveSoulPath,
-  parseSoulMarkdown
+  parseSoulMarkdown,
+  remember: memoryBrain.remember,
+  saveKnowledge: memoryBrain.saveKnowledge,
+  recall: memoryBrain.recall,
+  recallAsync: memoryBrain.recallAsync,
+  listKnowledge: memoryBrain.listKnowledge,
+  deleteKnowledge: memoryBrain.deleteKnowledge,
+  correctMemory: memoryBrain.correctMemory,
+  supersedeMemory: memoryBrain.supersedeMemory,
+  withdrawMemory: memoryBrain.withdrawMemory,
+  verifyMemory: memoryBrain.verifyMemory,
+  restoreMemoryFromAudit: memoryBrain.restoreMemoryFromAudit,
+  getMemoryHistory: memoryBrain.getMemoryHistory,
+  linkMemories: memoryBrain.linkMemories,
+  traverseKnowledgeGraph: memoryBrain.traverseKnowledgeGraph,
+  explainRelation: memoryBrain.explainRelation,
+  runMemoryMaintenance: memoryBrain.runMemoryMaintenance,
+  revertMaintenanceRun: memoryBrain.revertMaintenanceRun,
+  exportMemoryBrain: memoryBrainExport.exportMemoryBrain,
+  importMemoryBrain: memoryBrainExport.importMemoryBrain,
+  rebuildMemoryIndex: memoryBrainExport.rebuildMemoryIndex,
+  benchmarkRetrieval: memoryBrainExport.benchmarkRetrieval,
+  getMemoryProvider
 };

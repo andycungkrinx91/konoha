@@ -58,14 +58,21 @@ test('returns false for empty transcript (invocation 0)', () => {
 
 test('returns false when transcript contains subagent "acting as @" prompt', () => {
   writeTranscript([
-    { type: 'USER_INPUT', content: 'You are acting as the `@kage` subagent. Please read delegate.md' }
+    { type: 'USER_INPUT', content: 'You are acting as the `@kage` subagent. Please review the plan in structured MCP context' }
   ]);
   assert.strictEqual(hookBase.isConfirmedOrchestrator(transcriptPath), false);
 });
 
 test('returns false when transcript contains "You are the genin" prompt', () => {
   writeTranscript([
-    { type: 'USER_INPUT', content: 'You are the genin subagent, read result.md' }
+    { type: 'USER_INPUT', content: 'You are the genin subagent, inspect src/ and submit report_from_agent' }
+  ]);
+  assert.strictEqual(hookBase.isConfirmedOrchestrator(transcriptPath), false);
+});
+
+test('returns false when transcript contains "You are the yamanaka" prompt', () => {
+  writeTranscript([
+    { type: 'USER_INPUT', content: 'You are the yamanaka subagent, synthesize 3D viewport asset' }
   ]);
   assert.strictEqual(hookBase.isConfirmedOrchestrator(transcriptPath), false);
 });

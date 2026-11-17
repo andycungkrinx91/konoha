@@ -66,7 +66,15 @@ function getReturnDescription(toolName) {
     spreadsheet_create: 'Spreadsheet generation result JSON',
     presentation_create: 'Presentation generation result JSON',
     diagram_create: 'Diagram generation result JSON',
-    animation_export: 'Animation export result with format & frame metadata JSON'
+    animation_export: 'Animation export result with format & frame metadata JSON',
+    code_index: 'Index summary JSON: files, symbols, chunks, changed and removed counts',
+    code_search: 'Ranked hit list JSON with path, line span, bm25 score and snippet',
+    code_symbol: 'Symbol definition list JSON with kind, parent, span and signature',
+    code_context: 'Indexed source JSON for a file or line window',
+    code_impact: 'Reverse-dependency list JSON with depth and enclosing symbol',
+    code_related: 'Related chunks and call-graph neighbors JSON',
+    code_status: 'Indexed root list JSON with status, counts and last index time',
+    code_remove: 'Removal confirmation JSON'
   };
   return returnTypes[toolName] || 'JSON result object';
 }

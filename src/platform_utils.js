@@ -241,20 +241,6 @@ function getUvCommand() {
   return 'uv';
 }
 
-function getUvxCommand(uvCmd) {
-  const uv = uvCmd || getUvCommand();
-  if (uv !== 'uv') {
-    const companion = path.join(
-      path.dirname(uv),
-      IS_WIN ? 'uvx.exe' : 'uvx'
-    );
-    if (fileExists(companion)) {
-      return companion;
-    }
-  }
-  return IS_WIN ? 'uvx.exe' : 'uvx';
-}
-
 function isCommandAvailable(cmd) {
   const probe = IS_WIN ? 'where.exe' : 'which';
   try {
@@ -476,7 +462,6 @@ module.exports = {
   uriToPath,
   detectPython,
   getUvCommand,
-  getUvxCommand,
   getRtkCommand,
   isRtkInstalled,
   ensureUserBinInPath,

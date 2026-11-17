@@ -73,7 +73,7 @@
       const url = q
         ? "/api/v1/skills?q=" + encodeURIComponent(q)
         : "/api/v1/skills?limit=250";
-      const res = await api.get(url);
+      const res = await api.get(url, { signal: controller.signal });
       if (!controller.signal.aborted) {
         skills = res || [];
         loadVectorStats();

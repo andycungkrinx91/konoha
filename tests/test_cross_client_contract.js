@@ -14,22 +14,22 @@ const clients = require('../src/mcp_clients_manager');
 const opencode = require('../src/opencode_manager');
 
 const agents = [
-  'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'sannin'
+  'genin', 'kage', 'chunin', 'jonin', 'anbu', 'tokubetsu-jonin', 'akatsuki', 'yamanaka', 'sannin'
 ].map((name) => ({
   name,
   description: `${name} agent`,
   purpose: 'test coverage',
   title: `${name} title`,
   delegateWhen: 'test coverage',
-  constraints: 'use Konoha and Semble',
+  constraints: 'use Konoha and code_search',
   workflow: 'find skill, search, delegate',
   skills: [`${name}-skill`],
-  instructions: `You are the ${name} agent. Use Konoha and Semble.`
+  instructions: `You are the ${name} agent. Use Konoha and code_search.`
 }));
 
 const generated = {
   antigravityMain: antigravity.buildAgentJson(agents[0]).config.customAgent.systemPromptSections[0].content,
-  antigravityArgs: antigravity.buildDefineSubagentArgs(agents[0]).system_prompt,
+  antigravityArgs: antigravity.buildDefineSubagentArgs(agents[0]).SystemPrompt,
   cursorMain: cursor.generateCursorRule(agents),
   cursorSubagent: cursor.generateCursorSubagent(agents[0]),
   claudeMain: agentManager.generateClaudeCodeMd(agents),
@@ -58,7 +58,7 @@ for (const agent of agents) {
 
 const claudePermissions = fs.readFileSync(path.join(root, 'src', 'mcp_clients_manager.js'), 'utf8');
 assert.match(claudePermissions, /mcp__konoha__\*/);
-assert.match(claudePermissions, /mcp__semble__\*/);
+assert.doesNotMatch(claudePermissions, /mcp__semble__\*/);
 assert.match(claudePermissions, /Shell\(rtk \*\)/);
 
 const openCodeSource = fs.readFileSync(path.join(root, 'src', 'opencode_manager.js'), 'utf8');
@@ -75,9 +75,9 @@ const cliSource = fs.readFileSync(path.join(root, 'bin', 'cli.js'), 'utf8') +
   fs.readFileSync(path.join(root, 'bin', 'lib', 'runtime.js'), 'utf8') +
   fs.readFileSync(path.join(root, 'bin', 'lib', 'extension.js'), 'utf8') +
   fs.readFileSync(path.join(root, 'bin', 'commands', 'init.js'), 'utf8');
-assert.match(cliSource, /refreshSemblePackage/);
+assert.doesNotMatch(cliSource, /refreshSemblePackage/);
 assert.match(cliSource, /refreshRtk/);
 assert.match(cliSource, /agent_contract\.js/);
 assert.doesNotMatch(cliSource, /autoInstallKonohaBridgeExtension/);
 
-console.log('Cross-client Konoha/Semble/RTK contract passed for all official agents and supported clients.');
+console.log('Cross-client Konoha/RTK contract passed for all official agents and supported clients.');

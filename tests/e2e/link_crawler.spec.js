@@ -33,7 +33,7 @@ test.describe('Internal Link & Route Integrity Crawler', () => {
       '/persona',
       '/context',
       '/search',
-      '/semble',
+      '/code',
       '/detector',
       '/tasks',
       '/doctor',

@@ -1,4 +1,4 @@
-# Konoha MCP Orchestrator — Production Docker Container (v2.2.21)
+# Konoha MCP Orchestrator — Production Docker Container (v2.2.22)
 FROM node:24-slim AS base
 
 ENV NODE_ENV=production \

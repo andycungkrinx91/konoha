@@ -12,7 +12,9 @@ fs.mkdirSync(yamlDir, { recursive: true });
 const yamlPath = path.join(yamlDir, 'agents.yaml');
 
 const origHome = process.env.HOME;
+const origUserProfile = process.env.USERPROFILE;
 process.env.HOME = tmpDir;
+process.env.USERPROFILE = tmpDir;
 
 try {
   const db = require('../src/db');
@@ -37,7 +39,7 @@ try {
       const origPrepare = c.prepare.bind(c);
       c.prepare = function(sql) {
         const stmt = origPrepare(sql);
-        if (sql.includes("INSERT OR REPLACE INTO agents")) {
+        if (sql.includes("INSERT INTO agents")) {
           const origRun = stmt.run.bind(stmt);
           stmt.run = function(...a) {
             insertCount++;
@@ -92,7 +94,7 @@ try {
     let insertCount = 0;
     conn.prepare = function(sql) {
       const stmt = origPrepare(sql);
-      if (sql.includes("INSERT OR REPLACE INTO agents")) {
+      if (sql.includes("INSERT INTO agents")) {
         const origRun = stmt.run.bind(stmt);
         stmt.run = function(...a) {
           insertCount++;
@@ -127,6 +129,9 @@ try {
 
   console.log('test_db_agents_atomic: PASS');
 } finally {
-  process.env.HOME = origHome;
-  fs.rmSync(tmpDir, { recursive: true, force: true });
+  if (origHome === undefined) delete process.env.HOME;
+  else process.env.HOME = origHome;
+  if (origUserProfile === undefined) delete process.env.USERPROFILE;
+  else process.env.USERPROFILE = origUserProfile;
+  fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }

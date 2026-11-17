@@ -8,9 +8,9 @@ const { roundCorners } = require('./flow_path_geometry');
 
 const PKG_VERSION = (() => {
   try {
-    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.21';
+    return JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8')).version || '2.2.22';
   } catch (_) {
-    return '2.2.21';
+    return '2.2.22';
   }
 })();
 
@@ -271,7 +271,7 @@ function generateOrchestrationHtml() {
     renderCard([40, 95, 180, 56], C.azure, 'USER PROMPT', 'user · resume prompt'),
     renderCard([260, 88, 245, 70], C.violet, 'PRIMARY ORCHESTRATOR', 'LangGraph.js StateGraph · 8 clients'),
     renderCard([40, 195, 270, 56], C.teal, '1. PROJECT MEMORY & CONTEXT', 'stack detect · auto-inject invariants'),
-    renderCard([340, 195, 280, 56], C.azure, '2. DISCOVER SKILL & HYGIENE', 'find_skill · semble.search · npx aislop'),
+    renderCard([340, 195, 280, 56], C.azure, '2. DISCOVER SKILL & HYGIENE', 'find_skill · code_search · npx aislop'),
     renderCard([650, 190, 270, 66], C.amber, 'GATE 1: PLAN APPROVAL', 'pending_plan_approval · 3-option HITL'),
     renderCard([320, 295, 345, 58], C.violet, '3. LANGGRAPH STATE DISPATCH', 'PLAN → BRIEF → TODO · Turn Budget (8k)'),
     renderCard([230, 390, 700, 76], C.violet, '4. SPECIALIST NINJA AGENTS', { detail: 'single-thread persona adoption · 9 ninjas', chips: ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu', 'akatsuki', 'yamanaka'] }),

@@ -23,10 +23,36 @@ const { parseYaml, stringifyYaml } = yamlUtils;
 
 const AGENTS_YAML_PATH = path.normalize(path.join(os.homedir(), '.agents', 'agents.yaml'));
 
+// ON CONFLICT DO UPDATE, never INSERT OR REPLACE: REPLACE deletes the row and
+// reinserts it, so every column this statement omits becomes NULL. model_tier and
+// cursor_fallback_model are not in the YAML, and getMainModel() reads model_tier,
+// so a reseed used to erase the configured model. One shared statement keeps the
+// four write paths from drifting on which columns they preserve.
+const UPSERT_AGENT_SQL = `
+  INSERT INTO agents (
+    name, icon, title, model, purpose, skills, delegate_when,
+    constraints_text, workflow, description, instructions, delegation_keywords,
+    enable_mcp_tools
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(name) DO UPDATE SET
+    icon = excluded.icon,
+    title = excluded.title,
+    model = excluded.model,
+    purpose = excluded.purpose,
+    skills = excluded.skills,
+    delegate_when = excluded.delegate_when,
+    constraints_text = excluded.constraints_text,
+    workflow = excluded.workflow,
+    description = excluded.description,
+    instructions = excluded.instructions,
+    delegation_keywords = excluded.delegation_keywords,
+    enable_mcp_tools = excluded.enable_mcp_tools
+`;
+
 function getDbConnection(dbPath = null) {
   const target = dbPath !== null ? dbPath : db.DB_PATH;
   const conn = db.getConnection(target, false);
-  db.setupSchema(conn);
+  (db.ensureSchema || db.setupSchema)(conn);
   return conn;
 }
 
@@ -42,13 +68,7 @@ function _readYamlAgents() {
 }
 
 function _insertYamlAgents(conn, data) {
-  const stmt = conn.prepare(`
-    INSERT OR REPLACE INTO agents (
-      name, icon, title, model, purpose, skills, delegate_when,
-      constraints_text, workflow, description, instructions, delegation_keywords,
-      enable_mcp_tools
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
+  const stmt = conn.prepare(UPSERT_AGENT_SQL);
 
   const tx = conn.transaction(() => {
     for (const a of data) {
@@ -142,13 +162,7 @@ function upsertAgent(agentDict, dbPath = null) {
     }
 
     const skillsStr = JSON.stringify(agentDict.skills || []);
-    conn.prepare(`
-      INSERT OR REPLACE INTO agents (
-        name, icon, title, model, purpose, skills, delegate_when,
-        constraints_text, workflow, description, instructions, delegation_keywords,
-        enable_mcp_tools
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    conn.prepare(UPSERT_AGENT_SQL).run(
       name,
       agentDict.icon || null,
       agentDict.title || null,
@@ -201,14 +215,15 @@ function bindAgentRow(stmt, a) {
 
 function _replaceAgentsInDb(conn, data) {
   const tx = conn.transaction(() => {
-    conn.prepare("DELETE FROM agents").run();
-    const stmt = conn.prepare(`
-      INSERT OR REPLACE INTO agents (
-        name, icon, title, model, purpose, skills, delegate_when,
-        constraints_text, workflow, description, instructions, delegation_keywords,
-        enable_mcp_tools
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    // Delete only the agents the YAML dropped. A blanket DELETE FROM agents
+    // followed by a reinsert erased model_tier and cursor_fallback_model for
+    // every agent, since the YAML does not carry them.
+    const keep = data.filter(a => a.name).map(a => a.name);
+    if (keep.length > 0) {
+      const placeholders = keep.map(() => '?').join(',');
+      conn.prepare(`DELETE FROM agents WHERE name NOT IN (${placeholders})`).run(...keep);
+    }
+    const stmt = conn.prepare(UPSERT_AGENT_SQL);
 
     for (const a of data) {
       if (!a.name) continue;
@@ -233,13 +248,7 @@ function importYamlToDb(dbPath = null) {
 function bulkImportAgents(agentsList, dbPath = null) {
   const conn = getDbConnection(dbPath);
   try {
-    const stmt = conn.prepare(`
-      INSERT OR REPLACE INTO agents (
-        name, icon, title, model, purpose, skills, delegate_when,
-        constraints_text, workflow, description, instructions, delegation_keywords,
-        enable_mcp_tools
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    const stmt = conn.prepare(UPSERT_AGENT_SQL);
 
     const insertMany = conn.transaction((list) => {
       for (const a of list) {

@@ -135,6 +135,7 @@ apps/web/test-results/
 .agents/
 .codex/
 *.skills.fingerprint
+.aislop/history.jsonl
 
 # Local junk
 tmp/
@@ -143,3 +144,17 @@ vendor/
 
 # Local Windows VM run logs (docker/windows-vm)
 docker/windows-vm/logs/
+.cache
+
+# Alternate ONNX exports of a bundled model: only model.onnx and
+# model_quantized.onnx ship, the rest are 300 MB - 800 MB duplicates of the
+# same weights. Keep them out so a local export never lands in the repo.
+assets/models/**/onnx/model_*.onnx
+!assets/models/**/onnx/model_quantized.onnx
+
+# Hugging Face snapshot residue beside a bundled model: .gitattributes would
+# drag the tracked .onnx weights into LFS, and the model card is upstream
+# prose. The repo ships its own config/tokenizer pair instead.
+assets/models/**/.gitattributes
+assets/models/**/README.md
+assets/models/**/special_tokens_map.json

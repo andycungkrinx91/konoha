@@ -4,9 +4,18 @@
 
 The `Cross-Platform` workflow (`.github/workflows/cross-platform.yml`) runs the repo
 checks on **ubuntu-latest, windows-latest, and macos-latest** for every push to
-`master`, every pull request, and on manual dispatch (`workflow_dispatch`). It never
+`master`, every pull request, every `v*` tag, on manual dispatch
+(`workflow_dispatch`), and nightly at 02:00 UTC (`schedule`). The nightly run exists
+because a push-only trigger cannot catch a regression introduced by a runner image
+change or a dependency that resolves differently on one OS, and because
+cross-platform verification is a project rule, not an optional extra. It never
 publishes anything — the tag-only `publish.yml` and `release-assets.yml` workflows
 still own releases.
+
+Tag pushes are included so a release carries its own verdict rather than inheriting
+whatever `master` last produced: the README CI badge is pinned to the release tag
+(`cross-platform.yml?branch=v<version>`, rewritten by `scripts/bump_version.js` on
+every bump) and can only render a status once the tag has a run.
 
 There are two jobs per OS (Node 24, pnpm 12.16.1, setup reused exactly from
 `publish.yml`).
@@ -23,18 +32,19 @@ There are two jobs per OS (Node 24, pnpm 12.16.1, setup reused exactly from
    by the suite job, and an unbounded Hugging Face download here would turn a
    network hiccup into a fake cross-platform failure.
 
-`test` — eight shards per OS, `KONOHA_TEST_SHARD=<shard>/8`:
+`seed` — once per OS (`ubuntu-latest`, `macos-latest`, `windows-latest`), restoring Hugging Face model caches and building the golden seed (`node tests/run_all.js --seed-only`) only when `konoha-seed` misses, avoiding redundant seed builds across all 29 test shards.
+
+`test` — `needs: [seed]`, 29 shards across OSes (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 5 shards), `KONOHA_TEST_SHARD=<shard>/<shard_total>`:
 
 1. `pnpm install --frozen-lockfile`
-2. `pnpm --filter konoha-web build` — before the seed, because `konoha init` builds the
-   UI on demand when no build of the current version exists; with the repo build
-   present the seed copies it instead of running a second SvelteKit build.
-3. Restore the golden seed cache, build it only on a miss (`node tests/run_all.js
-   --seed-only` with `KONOHA_SEED_DIR`), then save it explicitly.
+2. Restore Hugging Face model cache (`node_modules/@huggingface/transformers/.cache`, `~/.cache/huggingface`, `~/.konoha/models`) and run `pnpm --filter konoha-web build` (with deterministic `SOURCE_DATE_EPOCH`) — before the seed fallback, because `konoha init` builds the UI on demand when no build of the current version exists; with the repo build present the seed copies it instead of running a second SvelteKit build.
+3. Restore the golden seed cache built by `seed` (or build on fallback miss with `KONOHA_SEED_DIR`, cross-skill batched embeddings, `KONOHA_SKIP_UV_INSTALL=1`, `KONOHA_SKIP_RTK_INSTALL=1`).
 4. Playwright browsers (cached) and the ffmpeg `libwebp_anim` check.
-5. `pnpm test` — this shard's slice of the suite via `tests/run_all.js`, in the
-   harness's own parallel mode (`KONOHA_TEST_PARALLEL=1`, concurrency 4), reusing
-   the restored seed. No `continue-on-error`: a failing suite turns the workflow red.
+5. `pnpm test` — this shard's slice of the suite via `tests/run_all.js`, in the harness's own parallel mode (`KONOHA_TEST_PARALLEL=1`, concurrency 4), reusing the restored seed. No `continue-on-error`: a failing suite turns the workflow red.
+
+The code-intelligence suites (`tests/test_code_intel_*.js`) need nothing beyond that list: the
+engine is in-process over `node:sqlite`, so CI installs no Python, no `uvx`, and no language
+server to cover it.
 
 `fail-fast` is off: one OS or shard failing never cancels the others, so every run
 reports a per-OS, per-shard result. A `concurrency` group cancels superseded runs on
@@ -56,30 +66,35 @@ The compatibility direction matters: green on 26.04 does not prove a developer m
 on 22.04. It holds today because no addon is compiled at install time; the day one is,
 its artifact would require the runner's glibc and break older hosts. If 22.04 support
 ever becomes a promise, add one unsharded `ubuntu-22.04` leg rather than a ninth shard
-per release — a run is already 27 jobs against a 20-job plan cap.
+per release — a run is already 35 jobs (`3 checks + 3 seed + 29 test shards`) against a 20-job plan cap.
+
 
 ## Duration budget
 
-Targets, wall clock per run: ubuntu < 10 min, macOS < 20 min, Windows < 40 min.
+Targets, wall clock per run: ubuntu < 10 min, macOS < 20 min, Windows < 30 min.
 
 Only one of the two terms in that budget has been measured. Suite work has, on this
-repo's 16-core host with a warm seed: the eight shards run back to back took 941 s of
+repo's 16-core host with a warm seed: eight Linux shards run back to back took 941 s of
 wall clock in total, every shard green, and the slowest single shard took 175 s
-(`[SHARD] 5/8`, 35 suites). In CI the shards run on eight runners, so the wall clock for
+(`[SHARD] 5/8`, 35 suites). In CI the shards run on separate runners, so the wall clock for
 the step is the slowest shard, not the sum.
 
 The split pays for itself beyond the per-job limit. One job running the whole discovered
 list through this harness took 1720 s (288 suites: 285 passed, 3 failed — the run that
 motivated this work). The gate tree is that list minus the six Yamanaka suites, which
 carry 338 s of measured suite time, so one job over the gate tree is roughly 1380 s.
-The eight shards summed to 941 s, because each gets its own four workers and its own
+The eight Linux shards summed to 941 s, because each gets its own four workers and its own
 short tail instead of queueing behind the whole list.
 
-That is why the count is 8. The pre-implementation model — round-robin over the measured
-per-suite durations, 4 greedy workers per shard — predicted a worst shard of 240 s at
-N=8, 316 s at N=6 and 406 s at N=4, from 6245 s of gate suite time. The measurement came
-in under it; the model was conservative because those per-suite durations were taken
-under contention.
+That is why the matrix is asymmetric (within GitHub Free's 256-job matrix cap, 20 total
+concurrent jobs, and 5 concurrent macOS jobs):
+
+- `windows-latest`: **16 shards** (`~18 suites/shard`), cutting the ~17 min 8-shard suite
+  step roughly in half per runner.
+- `ubuntu-latest`: **8 shards** (`~36 suites/shard`, measured worst shard `175 s` against a
+  `< 10 min` budget; finishes first and frees concurrent slots for Windows).
+- `macos-latest`: **5 shards** (`~58 suites/shard`), matching GitHub Free's 5-runner macOS
+  concurrency cap in one wave instead of queueing 4 waves and paying repeated setup overhead.
 
 The other term — install, seed restore, Playwright, web build, ffmpeg — has **not** been
 measured on a runner, and it is what decides the verdict on a cold cache. Locally those
@@ -87,22 +102,17 @@ steps are fast (a seed cache hit is 0.4 s, the web build is seconds), but a host
 is slower and the seed restore pulls ~400 MB out of the cache. Treat it as a minute or
 two, not as a number.
 
-A run is 3 `checks` jobs plus 24 shard jobs. A plan capped at 20 concurrent jobs therefore
-queues the surplus, and a queued job's wall clock includes the wait — so on such a plan the
-per-OS numbers above are job durations, not run durations. The cap has not been observed
-on this repository; if a run looks slower than the sum of its steps, read the queue time
-before reading it as a regression.
+A run is 3 `checks` jobs, 3 `seed` jobs, plus 29 shard jobs (`35` total). A Free plan capped at 20 concurrent
+jobs (and 5 concurrent macOS jobs) queues the surplus beyond 20, though `ubuntu-latest` and
+`macos-latest` complete early and yield slots to the remaining `windows-latest` shards — so
+if a run looks slower than the sum of its steps, read the queue time before reading it as a
+regression.
 
-| OS | Target | Slowest shard (Linux, measured) | Fixed cost | Verdict |
+| OS | Shards | Target | Slowest shard (measured at 8 shards) | Verdict |
 | --- | --- | --- | --- | --- |
-| ubuntu-latest | < 10 min | 175 s (measured) | unmeasured | headroom is large; confirm on the first run |
-| macos-latest | < 20 min | unverified | unmeasured | unverified |
-| windows-latest | < 40 min | 1013 s (shard 8, measured) | unmeasured | under target if fixed cost stays small; one shard observed |
-
-Why the count is uniform rather than smaller on macOS and Windows: their multipliers
-are unmeasured, and Windows is the platform this work exists for. Sizing it down on the
-strength of a number nobody has taken would be guesswork, and the only cost of the
-larger count is runner minutes, which is not the constraint.
+| ubuntu-latest | 8 | < 10 min | 175 s (Linux, measured) | headroom is large; finishes fast and releases slots |
+| macos-latest | 5 | < 20 min | unverified | runs in 1 wave at Free's 5-macOS concurrency cap |
+| windows-latest | 16 | < 30 min | 1013 s (shard 8 at N=8) | doubled to 16 shards (~18 suites/shard) to cut suite time |
 
 **A cache miss adds the seed build to every shard.** The seed is content-addressed by
 `src`/`bin`/`scripts`, so a PR touching any of them misses, and each shard pays its own
@@ -122,7 +132,7 @@ green having executed nothing:
   range, exits 2 with the reason. It used to be ignored and the full suite ran.
 - A shard that selects zero suites exits 2 and says so. It used to exit 0.
 
-That the eight shards partition the suite list exactly once is asserted in
+That any N-shard split partitions the suite list exactly once is asserted in
 `tests/test_test_sharding.js`, together with the size balance and both refusal paths
 above (the refusals are checked by spawning the real harness, so a helper that is
 correct but unused would not pass).
@@ -321,7 +331,16 @@ expectation, and no `continue-on-error` was added anywhere.
   ran `brew install ffmpeg`, and homebrew-core's `ffmpeg` formula is configured
   without `--enable-libwebp`, so the binary it installed still had no
   `libwebp_anim` encoder; the step installs `ffmpeg-full` instead and appends its
-  keg-only bin directory to `PATH`.
+  keg-only bin directory to `PATH`. On Windows the encoder comes from
+  `choco install ffmpeg`, and that step now retries: the community feed answers
+  `504 Gateway Timeout` under load, and `choco` still exits 0 when it cannot
+  resolve the package, so the shard of run `43868450771` died at the encoder
+  verification with a runner ffmpeg that had never been replaced. The probe, not
+  the installer's exit code, decides success, and the step fails itself after
+  three attempts instead of deferring to the verification below it. That
+  verification prints the `ffmpeg -version` banner of the binary it rejected —
+  the same probe runs on three operating systems, so a bare "lacks the encoder"
+  never says which install leg lost.
 - **pnpm resolution (test_agent_browser_provisioning)** — superseded. That suite
   and the `agent-browser` provisioning chain it exercised are deleted; QA now runs
   on the target project's own Playwright, so there is no CLI to resolve and no
@@ -381,14 +400,14 @@ engine instead of weakening the gate.
 
 Open the failed run from the Checks tab of the pull request (or Actions →
 Cross-Platform), pick the failed job, and expand the failed step. Job names carry the
-OS and, for the suite, the shard: `<os> checks` and `<os> shard <n>/8`.
+OS and, for the suite, the shard: `<os> checks` and `<os> shard <n>/<shard_total>`.
 
 - `checks`: Install dependencies, Lint, Fresh-install smoke test. A lint failure names
   the file and rule; a smoke-test failure names the CLI command that exited non-zero.
-- `shard <n>/8`: the setup steps (seed, Playwright, web build, ffmpeg) then
+- `shard <n>/<shard_total>`: the setup steps (seed, Playwright, web build, ffmpeg) then
   `Test (shard)`. A failure there names the failing suite file and the harness log
   shows the first failing assertion. The first line of that step's log,
-  `[SHARD] <n>/8: <k> of <total> suites`, says what this shard was responsible for,
+  `[SHARD] <n>/<shard_total>: <k> of <total> suites`, says what this shard was responsible for,
   which is what distinguishes "this suite broke" from "this shard got the wrong list".
 
 ## How to re-run
@@ -432,19 +451,9 @@ Fidelity limits, read before trusting a green local run:
   ~20 GB image GitHub maintains, so a tool GitHub preinstalls can still be missing
   locally. A distro-only failure is a fidelity gap, not a suite defect — reproduce it on
   GitHub before chasing it.
-- Windows and macOS matrix legs are **not** covered by act. The Windows leg has its own
-  local mirror (see "Local Windows VM" below); the macOS leg remains GitHub-only.
-  That is why `ci:act` passes `--matrix os:ubuntu-latest` — the other two legs would fail
-  on unresolvable platform images, not on a real defect.
-- `ci:act` runs only the `checks` job: it is the cheap half. `ci:act:shard` runs one suite
-  shard, which pulls the seed, the browsers and the web build and is the slow half — pick
-  the shard with `--matrix shard:<n>`.
-- The macOS leg is the one with no local equivalent, so reproduce a macOS-only failure by
-  reasoning about what differs, not by rerunning Linux. The class that has actually bitten
-  this repo: `HOME` and `TMPDIR` on a GitHub macOS runner are under `/var/folders/...`,
-  which is a symlink to `/private/var/folders/...`. Any code that string-compares a
-  resolved path against an unresolved root, or hashes a path string as a cache key, behaves
-  differently there. APFS is also case-insensitive by default. To exercise that locally:
+- Windows and macOS matrix legs are **not** covered by act. The Windows leg has its own local VM mirror (`docker/windows-vm/oem/run-ci.cmd` / `retest.cmd`, see "Local Windows VM" below); on Apple-silicon macOS, `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the clean-room gate via Apple `container` while native `CI=true pnpm test` (or the symlinked-`HOME` proxy on Linux) exercises macOS host semantics (see "Local macOS" below). That is why `ci:act` passes `--matrix os:ubuntu-latest` — the other two legs would fail on unresolvable platform images in act, not on a real defect.
+- `ci:act` runs only the `checks` job: it is the cheap half. `ci:act:shard` runs one suite shard, which pulls the seed, the browsers and the web build and is the slow half — pick the shard with `--matrix shard:<n>`.
+- Reproducing a macOS-only failure on Linux (before reaching `macos-latest` or a real Mac): reason about what differs rather than rerunning Linux blindly. The class that has actually bitten this repo: `HOME` and `TMPDIR` on a GitHub macOS runner are under `/var/folders/...`, which is a symlink to `/private/var/folders/...`. Any code that string-compares a resolved path against an unresolved root, or hashes a path string as a cache key, behaves differently there. APFS is also case-insensitive by default. To exercise that locally on Linux:
 
   ```bash
   R=$(mktemp -d) && mkdir -p "$R/real" && ln -s "$R/real" "$R/link"
@@ -505,9 +514,10 @@ host leaks that state between runs, which is how "passes locally, fails in CI" s
 sandbox runs the same commands inside a container instead:
 
 ```bash
-pnpm test:sandbox            # install + lint + full suite + fresh-install smoke
-pnpm test:sandbox -- --lint  # fast path: install + lint only
-pnpm test:sandbox -- --no-build   # reuse the last built image
+pnpm test:sandbox               # install + lint + full suite + fresh-install smoke
+pnpm test:sandbox -- --lint     # fast path: install + lint only
+pnpm test:sandbox -- --no-build # reuse the last built image
+pnpm test:sandbox -- --shard=1/8 # run a single CI shard inside the container
 ```
 
 **This is the gate on Linux, not an option.** A developer machine usually has a real
@@ -517,10 +527,12 @@ the same thing on every OS. The suite refuses to start on a host at all — see 
 `pnpm test:sandbox` is the only way to run it; `docs/QA-AUTOMATION.md` states which gate each command is.
 
 The guard is code, not a convention: `tests/run_all.js` calls `assertMaintenanceSandbox()` before
-discovery and exits 1 unless `KONOHA_SANDBOX_CONTAINER=1` (set by `scripts/sandbox.js`) or `CI=true`
-(an ephemeral runner) is present. It reads this process's environment, so `rtk node tests/run_all.js`
-refuses exactly like `node tests/run_all.js` — RTK rewrites argv and cannot reach the decision. Setting
-`HOME` to a temp directory is not a substitute either; the runner already does that per suite.
+discovery and permits only `KONOHA_SANDBOX_CONTAINER=1` (set by `scripts/sandbox.js`), `CI=true`
+(an ephemeral runner), or verified **Option H1** `host-isolated` mode (where `tests/run_all.js` verifies
+`apps/web/build/index.js`, constructs a lock/lease-protected golden seed and per-suite `os.tmpdir()/konoha_suite_*`
+snapshots with `HOME`, `USERPROFILE`, `KONOHA_DB_PATH`, `KONOHA_TEST_SANDBOX=1`, and `KONOHA_HOST_ISOLATED=1`).
+Bare host executions and `rtk node` wrappers without full isolation fail closed identically. Setting
+`HOME` manually to a temp directory outside the runner is rejected for maintenance mode.
 
 The engine is Docker by default. `KONOHA_SANDBOX_RUNTIME=container` (or
 `--runtime container`) runs the same image and the same argv through
@@ -654,8 +666,9 @@ missing. The value only gates RDP/console login to the local guest.
   (`your configured RAM_SIZE of 8 GB is too high ... adjusted`). The guest then installs
   and tests in 3 GB, which is slower but works; close other memory hogs for a clean run.
 - `docker/windows-vm/oem/install.bat` runs once during the final install step and provisions
-  what the runner image provides: Node 24, pnpm 12.16.1, Git for Windows, and an ffmpeg
-  build with `libwebp_anim`. Its log is `C:\OEM\provision.log`; it writes
+  what the runner image provides: Node 24, pnpm 12.16.1, Git for Windows, an ffmpeg
+  build with `libwebp_anim`, and the Microsoft Visual C++ 2015–2022 Redistributable (x64)
+  needed by `onnxruntime-node`. Its log is `C:\OEM\provision.log`; it writes
   `C:\OEM\provision.ok` only when every tool landed. The OEM script is baked into the
   setup media at install time, so editing it does not change an existing guest —
   `run-ci.cmd` therefore re-runs it from the share whenever the marker is missing, and
@@ -764,11 +777,7 @@ Operational notes for the local Windows leg:
 
 Coverage gaps, by design:
 
-- The six `tests/test_yamanaka_*.js` suites are not run anywhere: Yamanaka 3D is
-  unreleased, so its suites are not part of the gate on this guest, on GitHub Actions,
-  or in `pnpm test`. The harness names every one it held back in the run banner, so the
-  log states what was not covered, and naming a suite on the command line still runs it:
-  `node tests/run_all.js test_yamanaka_langgraph_pipeline`. Nothing is deleted.
+- The six `tests/test_yamanaka_*.js` suites and Playwright `tests/e2e/yamanaka_3d_studio.spec.js` are skipped across all `2.2.*` versions (`/^2\.2\./`): Yamanaka 3D is planned/unreleased in `2.2.*`, so its suites are not part of the gate on this guest, on GitHub Actions, in `pnpm test`, or in `pnpm test:e2e`. The harness names every held-back suite in the run banner, so the log states what was skipped, and naming a unit suite on the command line still runs it: `node tests/run_all.js test_yamanaka_langgraph_pipeline`. Nothing is deleted.
 - The F42 Akatsuki lab declines to run in the guest: `src/workflow/akatsuki/lab.js` requires
   Docker on Windows, and the guest has no Docker. That is a fail-closed decline, not a suite
   failure.

@@ -95,6 +95,37 @@ function collectCanonicalSkillFiles(templatesRoot) {
   return files;
 }
 
+function _escapeRegexLiteral(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function _hasKonohaAuthoredSkillSignature(raw, sourceItem) {
+  if (!raw || !sourceItem || !CANONICAL_SKILL_NAMES.has(sourceItem.topSkill)) {
+    return false;
+  }
+  const rel = String(sourceItem.relPath || '').replace(/\\/g, '/');
+  if (rel === `${sourceItem.topSkill}/SKILL.md` || rel.endsWith('/SKILL.md')) {
+    if (
+      sourceItem.topSkill === 'konoha' &&
+      (/^#\s*(?:🍃\s*)?Konoha\s+(?:Maintenance|MCP)/m.test(raw) ||
+        raw.includes('Konoha MCP Tools Orchestrator'))
+    ) {
+      return true;
+    }
+    const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (!fmMatch) return false;
+    const nameRegex = new RegExp(`^name:\\s*['"]?${_escapeRegexLiteral(sourceItem.topSkill)}['"]?\\s*$`, 'm');
+    if (!nameRegex.test(fmMatch[1])) return false;
+    return (
+      /konoha/i.test(raw) ||
+      raw.includes('Standard Operating Procedures') ||
+      raw.includes('miqdadbadjuber/anti-slop') ||
+      raw.includes('i-have-adhd')
+    );
+  }
+  return /konoha/i.test(raw) || raw.includes('antislop') || raw.includes('i-have-adhd');
+}
+
 function _isImplicitlyKonohaManagedSkillFile(destPath, sourceItem, existingRecord) {
   if (existingRecord && (existingRecord.created_by_konoha || existingRecord.konoha_baseline_sha256)) {
     return true;
@@ -105,6 +136,7 @@ function _isImplicitlyKonohaManagedSkillFile(destPath, sourceItem, existingRecor
   try {
     const raw = fs.readFileSync(destPath, 'utf8');
     if (computeSha256(raw) === sourceItem.sha256) return true;
+    if (!existingRecord && _hasKonohaAuthoredSkillSignature(raw, sourceItem)) return true;
     return false;
   } catch (_) {
     return false;
@@ -199,16 +231,22 @@ function syncSingleManagedResource(params, manifest, options = {}) {
     Array.isArray(existingRecord.owned_keys) && existingRecord.owned_keys.length === 0 &&
     Array.isArray(existingRecord.owned_sections) &&
     existingRecord.owned_sections.includes('WHOLE_SKILL_RESOURCE');
-  if (existingRecord && (existingRecord.latest_sha256 === currentSha256 || konohaOwnsWholeResource)) {
+  if (!existingRecord || existingRecord.latest_sha256 === currentSha256 || konohaOwnsWholeResource) {
     const backupRes = backupConfigFile(absDest, { ...options, client: meta.client, scope: 'global' });
     fs.writeFileSync(absDest, templateContent, 'utf8');
-    const refreshedRecord = manifest.files[absDest] || existingRecord || { backups: [] };
+    const refreshedRecord = manifest.files[absDest] || existingRecord || {
+      owned_keys: [],
+      owned_sections: ['WHOLE_SKILL_RESOURCE'],
+      backups: []
+    };
     _recordBackup(refreshedRecord, backupRes);
     refreshedRecord.client = meta.client;
     refreshedRecord.scope = 'global';
     refreshedRecord.created_by_konoha = true;
     refreshedRecord.konoha_baseline_sha256 = templateSha256;
     refreshedRecord.latest_sha256 = templateSha256;
+    refreshedRecord.owned_keys = refreshedRecord.owned_keys || [];
+    refreshedRecord.owned_sections = refreshedRecord.owned_sections || ['WHOLE_SKILL_RESOURCE'];
     refreshedRecord.updated_at = new Date().toISOString();
     manifest.files[absDest] = refreshedRecord;
     return { action: 'patched', path: absDest, client: meta.client, hunksApplied: 0, wholesale: true };
@@ -263,6 +301,64 @@ function syncSingleManagedResource(params, manifest, options = {}) {
   };
 }
 
+/** True when an existing SOUL.md already carries the managed block markers. */
+function _isBlockManagedSoul(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8').includes('<!-- KONOHA-START -->');
+  } catch (_) {
+    return false;
+  }
+}
+
+function _tallyAction(stats, res) {
+  if (res.action === 'installed') stats.installed++;
+  else if (res.action === 'patched') stats.patched++;
+  else if (res.action === 'unchanged') stats.unchanged++;
+  else if (res.action === 'skipped_existing_user_file') stats.skippedUserFiles++;
+  else if (res.action === 'conflict_preserved') stats.conflicts.push(res);
+}
+
+function _syncSkillFiles(target, canonicalFiles, manifest, ctx) {
+  for (const item of canonicalFiles) {
+    const res = syncSingleManagedResource(
+      {
+        destPath: path.join(target.skillsDir, item.relPath),
+        templateContent: item.content,
+        templateSha256: item.sha256,
+        meta: { client: target.client, topSkill: item.topSkill, relPath: item.relPath, sha256: item.sha256 }
+      },
+      manifest,
+      ctx.options
+    );
+    _tallyAction(ctx.stats, res);
+  }
+}
+
+/**
+ * SOUL.md is block-managed by deploy_utils.syncSoulAcrossClients, which
+ * preserves everything the user wrote outside the KONOHA-START/END markers.
+ * Writing the plain template here would strip those markers and make the two
+ * writers overwrite each other on every install.
+ */
+function _syncSoul(target, soul, manifest, ctx) {
+  if (!target.soulPath || !soul.content) return;
+  if (_isBlockManagedSoul(target.soulPath)) {
+    ctx.stats.unchanged++;
+    return;
+  }
+  const res = syncSingleManagedResource(
+    {
+      destPath: target.soulPath,
+      templateContent: soul.content,
+      templateSha256: soul.sha256,
+      meta: { client: target.client, topSkill: 'konoha', relPath: 'SOUL.md', sha256: soul.sha256 }
+    },
+    manifest,
+    ctx.options
+  );
+  _tallyAction(ctx.stats, res);
+}
+
 function syncAllGlobalClientSkills(options = {}) {
   const home = getHomeDir(options);
   const templatesRoot = resolveCanonicalTemplatesRoot(options.templatesRoot);
@@ -287,52 +383,15 @@ function syncAllGlobalClientSkills(options = {}) {
     : null;
 
   const soulSrcPath = path.resolve(templatesRoot, '..', 'SOUL.md');
-  const hasSoulTemplate = fs.existsSync(soulSrcPath);
-  const soulContent = hasSoulTemplate ? fs.readFileSync(soulSrcPath, 'utf8') : null;
-  const soulSha256 = soulContent ? computeSha256(soulContent) : null;
+  const soulContent = fs.existsSync(soulSrcPath) ? fs.readFileSync(soulSrcPath, 'utf8') : null;
+  const soul = { content: soulContent, sha256: soulContent ? computeSha256(soulContent) : null };
+  const ctx = { stats, options: { ...options, home } };
 
   for (const target of targets) {
     if (requestedClients && !requestedClients.has(target.client)) continue;
-    if (!stats.clientsSynced.includes(target.client)) {
-      stats.clientsSynced.push(target.client);
-    }
-
-    for (const item of canonicalFiles) {
-      const destFile = path.join(target.skillsDir, item.relPath);
-      const res = syncSingleManagedResource(
-        {
-          destPath: destFile,
-          templateContent: item.content,
-          templateSha256: item.sha256,
-          meta: { client: target.client, topSkill: item.topSkill, sha256: item.sha256 }
-        },
-        manifest,
-        { ...options, home }
-      );
-      if (res.action === 'installed') stats.installed++;
-      else if (res.action === 'patched') stats.patched++;
-      else if (res.action === 'unchanged') stats.unchanged++;
-      else if (res.action === 'skipped_existing_user_file') stats.skippedUserFiles++;
-      else if (res.action === 'conflict_preserved') stats.conflicts.push(res);
-    }
-
-    if (target.soulPath && soulContent && soulSha256) {
-      const soulRes = syncSingleManagedResource(
-        {
-          destPath: target.soulPath,
-          templateContent: soulContent,
-          templateSha256: soulSha256,
-          meta: { client: target.client, topSkill: 'konoha', sha256: soulSha256 }
-        },
-        manifest,
-        { ...options, home }
-      );
-      if (soulRes.action === 'installed') stats.installed++;
-      else if (soulRes.action === 'patched') stats.patched++;
-      else if (soulRes.action === 'unchanged') stats.unchanged++;
-      else if (soulRes.action === 'skipped_existing_user_file') stats.skippedUserFiles++;
-      else if (soulRes.action === 'conflict_preserved') stats.conflicts.push(soulRes);
-    }
+    if (!stats.clientsSynced.includes(target.client)) stats.clientsSynced.push(target.client);
+    _syncSkillFiles(target, canonicalFiles, manifest, ctx);
+    _syncSoul(target, soul, manifest, ctx);
   }
 
   saveOwnershipManifest(manifest, { ...options, home });

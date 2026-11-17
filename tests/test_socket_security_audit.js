@@ -179,6 +179,7 @@ function verifyPnpmAuditMatrix() {
   assert.ok(
     rootAudit.includes('0 vulnerabilities') ||
     rootAudit.includes('No vulnerabilities found') ||
+    rootAudit.includes('No known vulnerabilities found') ||
     rootAudit.includes('All found vulnerabilities were already reviewed'),
     `Unexpected root pnpm audit output:\n${rootAudit}`
   );
@@ -187,6 +188,7 @@ function verifyPnpmAuditMatrix() {
   assert.ok(
     webAudit.includes('0 vulnerabilities') ||
     webAudit.includes('No vulnerabilities found') ||
+    webAudit.includes('No known vulnerabilities found') ||
     webAudit.includes('All found vulnerabilities were already reviewed'),
     `Unexpected apps/web pnpm audit output:\n${webAudit}`
   );
@@ -204,6 +206,19 @@ function verifySocketConfigRules() {
   assert.ok(ymlContent.includes('issueRules:'), 'Must specify issueRules');
   assert.ok(ymlContent.includes('envVars: false'), 'Must safely filter benign envVars capability alerts');
   assert.ok(ymlContent.includes('networkAccess: false'), 'Must safely filter benign networkAccess capability alerts');
+
+  const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'));
+  assert.strictEqual(
+    pkg.overrides && pkg.overrides.globalthis,
+    'npm:@socketregistry/globalthis@1.0.7',
+    'package.json#overrides must override globalthis to @socketregistry/globalthis@1.0.7 for npm/Socket resolution'
+  );
+  const lockContent = fs.readFileSync(path.join(REPO_ROOT, 'pnpm-lock.yaml'), 'utf8');
+  assert.ok(lockContent.includes('@socketregistry/globalthis@1.0.7'), 'pnpm-lock.yaml must resolve @socketregistry/globalthis@1.0.7');
+  for (const legacyPkg of ['define-properties@1.2.1', 'es-define-property@1.0.1', 'globalthis@1.0.4', 'gopd@1.2.0', 'has-property-descriptors@1.0.2', 'object-keys@1.1.1']) {
+    const legacyPattern = new RegExp(`^\\s{2}${legacyPkg.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}:`, 'm');
+    assert.ok(!legacyPattern.test(lockContent), `pnpm-lock.yaml must not resolve ${legacyPkg}`);
+  }
   console.log('✓ socket.yml configuration and issue rules verified');
 }
 
@@ -215,14 +230,16 @@ function verifyDirectDependencyScores() {
 
   const criticalPackages = [
     '@bufbuild/protobuf',
+    '@huggingface/transformers',
     '@langchain/core',
     '@langchain/langgraph',
+    '@socketregistry/globalthis',
     'three',
     'zod',
     'docx',
     'pptxgenjs',
     'xlsx-populate'
-  ].filter(dep => deps.includes(dep));
+  ].filter(dep => deps.includes(dep) || dep === '@socketregistry/globalthis');
 
   for (const dep of criticalPackages) {
     try {

@@ -1,11 +1,10 @@
 'use strict';
 
 const path = require('path');
-const { runMcpAgent } = require('../../src/mcp/memory_subagent_runner');
-const { dispatchParallelSlicesAsync } = require('../../src/mcp/workflow_sannin');
-const { getCanonicalAgentNames, normalizeAgentName } = require('../../src/canonical_agents');
+const { getDeployableAgentNames, normalizeAgentName } = require('../../src/canonical_agents');
 const { getResolvedTaskDir } = require('../../src/mcp/workflow_common');
-const { getActiveSessionId, detectActiveClient } = require('../../src/mcp/client_detection');
+const { getActiveSessionId, detectActiveClient, resolveFirstSpawnClient } = require('../../src/mcp/client_detection');
+const { spawnSubagent, spawnParallelSubagents } = require('../../src/mcp/subagent_spawner');
 const worktree = require('../../src/mcp/worktree_isolation');
 
 function _parseRunAgentArgs(args = []) {
@@ -24,6 +23,10 @@ function _parseRunAgentArgs(args = []) {
     flowHash: null,
     taskId: null,
     client: null,
+    harnessBin: null,
+    execute: false,
+    idle: false,
+    timeoutMs: null,
     autoReport: false,
     dispatchId: null,
     json: false
@@ -37,6 +40,14 @@ function _parseRunAgentArgs(args = []) {
       parsed.agents = args[++i].split(',').map((a) => a.trim()).filter(Boolean);
     } else if (arg === '--parallel') {
       parsed.parallel = true;
+    } else if (arg === '--execute') {
+      parsed.execute = true;
+    } else if (arg === '--idle') {
+      parsed.idle = true;
+    } else if (arg === '--harness-bin' && args[i + 1]) {
+      parsed.harnessBin = args[++i];
+    } else if (arg === '--timeout-ms' && args[i + 1]) {
+      parsed.timeoutMs = Number(args[++i]) || null;
     } else if (arg === '--auto-report') {
       parsed.autoReport = true;
     } else if (arg === '--dispatch-id' && args[i + 1]) {
@@ -77,7 +88,10 @@ function _parseRunAgentArgs(args = []) {
 
 async function cmdRunAgent(args = []) {
   const opts = _parseRunAgentArgs(args);
-  const validAgents = getCanonicalAgentNames().filter((n) => n !== 'sannin');
+  const validAgents = getDeployableAgentNames().filter((n) => n !== 'sannin');
+  if (!opts.task && opts.idle && normalizeAgentName(opts.agent) === 'advisor') {
+    opts.task = 'Idle @advisor supervisor armed at workflow start: monitor all agents against Plan, TODOs, and User Goals, and issue direct [ADVISOR STEER] when drifting.';
+  }
 
   if ((opts.parallel || opts.agents.length > 0) && opts.task) {
     const rawList = opts.agents.length > 0
@@ -95,7 +109,7 @@ async function cmdRunAgent(args = []) {
     }
 
     const projectPath = opts.projectPath ? path.resolve(opts.projectPath) : process.cwd();
-    const client = opts.client || detectActiveClient() || 'cli';
+    const client = resolveFirstSpawnClient([opts.client, detectActiveClient()], 'cli');
     const sessionId = opts.sessionId || getActiveSessionId(projectPath, client);
     const taskDir = opts.taskDir || getResolvedTaskDir(null, projectPath, sessionId);
     const isoState = worktree.getIsolationState(projectPath);
@@ -106,10 +120,10 @@ async function cmdRunAgent(args = []) {
       domain: ag,
       task: `${opts.task} (${ag} slice #${idx + 1})`,
       skills: opts.skills,
-      worktree: opts.cwd || null
+      cwd: opts.cwd || projectPath
     }));
 
-    const results = await dispatchParallelSlicesAsync(workstreams, {
+    const spawnBatch = await spawnParallelSubagents(workstreams, {
       taskId: opts.taskId || path.basename(taskDir),
       flowHash: opts.flowHash,
       sessionId,
@@ -117,16 +131,37 @@ async function cmdRunAgent(args = []) {
       taskDir,
       client,
       context: opts.context,
-      constraints: opts.constraints
+      constraints: opts.constraints,
+      execute: opts.execute,
+      harnessBin: opts.harnessBin,
+      timeoutMs: opts.timeoutMs,
+      autoReport: opts.autoReport,
+      dispatchId: opts.dispatchId
     });
 
+    if (!spawnBatch.ok) {
+      const errPayload = {
+        status: 'error',
+        parallel: true,
+        agents: normalizedList,
+        base_sha: baseSha,
+        task_dir: taskDir,
+        error_code: spawnBatch.error_code || 'PARALLEL_SPAWN_FAILED',
+        error: spawnBatch.error || 'One or more parallel subagent spawns failed.',
+        results: spawnBatch.results || []
+      };
+      process.stdout.write(`${JSON.stringify(errPayload, null, 2)}\n`);
+      process.exitCode = 1;
+      return errPayload;
+    }
+
     const batchPayload = {
-      status: 'parallel_ready',
+      status: 'parallel_completed',
       parallel: true,
       agents: normalizedList,
       base_sha: baseSha,
       task_dir: taskDir,
-      results
+      results: spawnBatch.results
     };
     process.stdout.write(`${JSON.stringify(batchPayload, null, 2)}\n`);
     return batchPayload;
@@ -154,63 +189,38 @@ async function cmdRunAgent(args = []) {
   }
 
   const projectPath = opts.projectPath ? path.resolve(opts.projectPath) : process.cwd();
-  if (opts.projectPath) {
-    process.env.KONOHA_WORKSPACE = projectPath;
-    process.env.WORKSPACE_ROOT = projectPath;
-  }
-  const client = opts.client || detectActiveClient() || 'cli';
+  const client = resolveFirstSpawnClient([opts.client, detectActiveClient()], 'cli');
   const sessionId = opts.sessionId || getActiveSessionId(projectPath, client);
   const taskDir = opts.taskDir || getResolvedTaskDir(null, projectPath, sessionId);
 
-  const rawResult = runMcpAgent(normalizedAgent, {
+  const spawned = await spawnSubagent({
+    agent: normalizedAgent,
     task: opts.task,
     context: opts.context,
     constraints: opts.constraints,
     skills: opts.skills,
     projectPath,
+    cwd: opts.cwd || projectPath,
     taskDir,
     sessionId,
     flowHash: opts.flowHash,
     taskId: opts.taskId || path.basename(taskDir),
     client,
-    worktree: opts.cwd || null
+    execute: opts.execute,
+    harnessBin: opts.harnessBin,
+    timeoutMs: opts.timeoutMs,
+    autoReport: opts.autoReport,
+    dispatchId: opts.dispatchId
   });
 
-  let parsedResult = null;
-  try {
-    parsedResult = JSON.parse(rawResult);
-  } catch (_) {
-    parsedResult = { status: 'ready', agent: normalizedAgent, output: rawResult };
+  if (!spawned.ok) {
+    process.stdout.write(`${JSON.stringify(spawned)}\n`);
+    process.exitCode = 1;
+    return spawned;
   }
 
-  parsedResult.child_pid = process.pid;
-  parsedResult.client = client;
-  parsedResult.task_context_received = Boolean(opts.task);
-  parsedResult.executed_at = new Date().toISOString();
-
-  if (opts.autoReport) {
-    try {
-      const { reportFromAgent } = require('../../src/mcp/memory_project_context');
-      const reportRaw = reportFromAgent({
-        agent_name: normalizedAgent,
-        summary: `Child specialist @${normalizedAgent} completed task on client=${client}: ${opts.task.slice(0, 120)}`,
-        status: 'completed',
-        validation: [`child_spawn_verified:${normalizedAgent}:${client}:pid_${process.pid} (exit 0)`],
-        task_dir: taskDir,
-        task_id: opts.taskId || path.basename(taskDir),
-        dispatch_id: opts.dispatchId || undefined,
-        project_path: projectPath
-      });
-      parsedResult.report_evidence = JSON.parse(reportRaw);
-      parsedResult.auto_reported = true;
-    } catch (_) {
-      parsedResult.auto_reported = false;
-    }
-  }
-
-  const finalOut = JSON.stringify(parsedResult);
-  process.stdout.write(`${finalOut}\n`);
-  return parsedResult;
+  process.stdout.write(`${JSON.stringify(spawned)}\n`);
+  return spawned;
 }
 
 module.exports = {

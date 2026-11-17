@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const { SEMBLE_PACKAGE, AISLOP_PACKAGE } = require('./semble_manager');
+const { AISLOP_PACKAGE } = require('./uvx_runtime');
 const { spawnSync } = require('child_process');
-const { getCanonicalAgentNames } = require('./canonical_agents');
+const { getDeployableAgents, getDeployableAgentNames } = require('./canonical_agents');
 
 const {
   HOME,
@@ -16,7 +16,7 @@ const {
   SKILLS_DB_DIR,
   
   SERVER_PATH
-} = require('../bin/lib/paths');
+} = require('./config_access').loadBinLib('paths');
 
 const {
   fileExists,
@@ -31,7 +31,8 @@ const {
   buildMainAgentContract,
 } = require('./agent_contract');
 
-const { assertNoWildcardGrants } = require('./mcp_clients/common');
+const { assertNoWildcardGrants, resolveRtkRuleTemplate } = require('./mcp_clients/common');
+const { writeAgentFileSafe, isKonohaOwnedAgentFile, writeManagedFileSafe } = require('./agent_file_safety');
 
 const VALID_AGENT_NAME = /^[a-zA-Z0-9_-]+$/;
 
@@ -138,7 +139,7 @@ function writeCodexConfig(content, options = {}) {
       client: 'codex',
       scope: 'global',
       format: 'toml',
-      ownedSections: ['[mcp_servers.konoha]', '[mcp_servers.semble]', '[mcp_servers.aislop]']
+      ownedSections: ['[mcp_servers.konoha]', '[mcp_servers.aislop]', '[mcp_servers.semble]']
     }, options);
   } catch (_) { /* best-effort */ }
 }
@@ -172,7 +173,6 @@ function getKonohaToolNames() {
 
 const KONOHA_TOOLS = getKonohaToolNames();
 
-const SEMBLE_TOOLS = ['search', 'find_related'];
 const AISLOP_TOOLS = ['aislop_scan', 'aislop_fix', 'aislop_why', 'aislop_baseline'];
 
 function _filterExistingCodexToml(existingToml) {
@@ -184,7 +184,7 @@ function _filterExistingCodexToml(existingToml) {
   let hasSeenSection = false;
   let inFeaturesTable = false;
 
-  const AGENT_NAME_ALTERNATION = getCanonicalAgentNames()
+  const AGENT_NAME_ALTERNATION = getDeployableAgentNames()
     .map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .join('|');
   const MANAGED_SECTION_PATTERNS = [
@@ -252,7 +252,7 @@ function _resolveAislopCommand(npxExecutable) {
 }
 
 function _buildCodexMcpSection(cfg) {
-  const { pythonExecutable, serverEntryPoint, uvxExecutable, npxExecutable, userFeatureLines } = cfg;
+  const { pythonExecutable, serverEntryPoint, npxExecutable, userFeatureLines } = cfg;
   const tomlStr = (v) => `"${String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
   const normPython = normalizeCommand(pythonExecutable);
   const konohaArgs = [...normPython.prefixArgs, serverEntryPoint];
@@ -278,17 +278,8 @@ function _buildCodexMcpSection(cfg) {
   const konohaToolBlocks = KONOHA_TOOLS.map(t => `[mcp_servers.konoha.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
   const aislopToolBlocks = AISLOP_TOOLS.map(t => `[mcp_servers.aislop.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
 
-  const sembleBlock = [
-    '[mcp_servers.semble]',
-    `command = ${tomlStr(uvxExecutable)}`,
-    `args = ["--from", "${SEMBLE_PACKAGE}", "semble", "--content", "all"]`,
-    'startup_timeout_sec = 30', 'tool_timeout_sec = 60', 'default_tools_approval_mode = "auto"'
-  ].join('\n');
-  const sembleToolBlocks = SEMBLE_TOOLS.map(t => `[mcp_servers.semble.tools.${t}]\napproval_mode = "auto"`).join('\n\n');
-
   return [
     konohaBlock, '', konohaToolBlocks,
-    '', sembleBlock, '', sembleToolBlocks,
     '', aislopBlock, '', aislopToolBlocks, '', featuresBlock
   ].join('\n');
 }
@@ -297,7 +288,7 @@ function _buildCodexMcpSection(cfg) {
  * Codex subagent tool parity.
  *
  * The main agent is governed by `[mcp_servers.<srv>.tools.<tool>]
- * approval_mode = "auto"` (konoha/semble/aislop, every canonical tool named
+ * approval_mode = "auto"` (konoha/aislop, every canonical tool named
  * explicitly — see _buildCodexMcpSection). A Codex `[agents.*]` subagent does
  * NOT automatically inherit those per-tool tables. This repo documents only
  * the server-level `[mcp_servers.*]` form, so no invented per-agent tool table
@@ -307,31 +298,47 @@ function _buildCodexMcpSection(cfg) {
  */
 function _buildCodexAgentApprovalKeys() {
   assertNoWildcardGrants(KONOHA_TOOLS, 'codex konoha tool names');
-  assertNoWildcardGrants(SEMBLE_TOOLS, 'codex semble tool names');
   assertNoWildcardGrants(AISLOP_TOOLS, 'codex aislop tool names');
   return 'approval_mode = "auto"';
 }
 
+function _escapeTomlBasicMultiline(text) {
+  return String(text || '').replace(/"""/g, '\\"\\"\\"');
+}
+
+function generateCodexSubagentToml(agent) {
+  const { TOML_OWNERSHIP_MARKER, getRoleDescription, isReadOnlyAgent } = require('./agent_file_safety');
+  const { buildSubagentContract } = require('./agent_contract');
+  const desc = getRoleDescription(agent).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, ' ').trim();
+  const sandboxMode = isReadOnlyAgent(agent) ? 'read-only' : 'workspace-write';
+  const rawBody = [
+    String(agent.instructions || `Execute ${agent.name} tasks using Konoha MCP tools.`).trim(),
+    '',
+    buildSubagentContract('codex')
+  ].join('\n');
+
+  const lines = [
+    TOML_OWNERSHIP_MARKER,
+    `name = "${String(agent.name).replace(/"/g, '\\"')}"`,
+    `description = "${desc}"`,
+    `sandbox_mode = "${sandboxMode}"`
+  ];
+  if (agent.model) {
+    lines.push(`model = "${String(agent.model).replace(/"/g, '\\"')}"`);
+  }
+  lines.push('', 'developer_instructions = """', _escapeTomlBasicMultiline(rawBody), '"""', '');
+  return lines.join('\n');
+}
+
 function _buildCodexAgentBlocks(userOwnedAgentNames) {
+  const { getRoleDescription } = require('./agent_file_safety');
   let agents = [];
   try {
     const { loadAgents } = require('./agent_manager');
-    agents = loadAgents();
+    agents = getDeployableAgents(loadAgents());
   } catch {
-    agents = [];
+    agents = getDeployableAgents([]);
   }
-
-  const DEFAULT_ROLE_DESCRIPTIONS = {
-    'sannin': 'Sannin router agent for task triage, subagent selection, and orchestration',
-    'genin': 'Scout for read-only codebase exploration, symbol search, and dependency mapping',
-    'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
-    'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
-    'jonin': 'Elite builder for premium UI/frontend across 4 frameworks with Tailwind v4',
-    'anbu': 'Backend, DevOps, and bug-fixing specialist for APIs, databases, CI/CD, infrastructure deployment, and QA automation',
-    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
-    'akatsuki': 'Red-Team and Blue-Team security specialist for authorized penetration testing, defensive audits, and final security gate',
-    'yamanaka': 'Generative 3D and spatial specialist for Three.js/Manifold synthesis, live Blender editing, and PBR asset delivery'
-  };
 
   const emittedAgentNames = new Set();
   return agents
@@ -344,25 +351,25 @@ function _buildCodexAgentBlocks(userOwnedAgentNames) {
       return true;
     })
     .map(a => {
-      const desc = (DEFAULT_ROLE_DESCRIPTIONS[a.name] || a.description || a.purpose || a.role || `${a.name} ninja agent`).replace(/"/g, '\\"').replace(/\n/g, ' ').trim();
+      const desc = getRoleDescription(a).replace(/"/g, '\\"').replace(/\n/g, ' ').trim();
       const approval = _buildCodexAgentApprovalKeys();
-      return `[agents.${a.name}]\ndescription = "${desc}"\n${approval}\nprompt = "file:~/.codex/agents/${a.name}.md"`;
+      return `[agents.${a.name}]\ndescription = "${desc}"\n${approval}\nconfig_file = "agents/${a.name}.toml"`;
     })
     .join('\n\n');
 }
 
 /**
- * Injects or replaces [mcp_servers.konoha], [mcp_servers.semble], and [mcp_servers.aislop] in TOML content.
+ * Injects or replaces [mcp_servers.konoha] and [mcp_servers.aislop] in TOML content,
+ * and strips the legacy [mcp_servers.semble] block an older Konoha wrote.
  */
-function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
+function updateCodexTomlMcp(existingToml, pythonCmd, serverPath) {
   const pythonExecutable = pythonCmd || 'python3';
   const serverEntryPoint = serverPath || SERVER_PATH;
-  const uvxExecutable = uvxCmd || 'uvx';
   const npxExecutable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
   const { cleaned, userOwnedAgentNames, userFeatureLines } = _filterExistingCodexToml(existingToml);
   const mcpSection = _buildCodexMcpSection({
-    pythonExecutable, serverEntryPoint, uvxExecutable, npxExecutable, userFeatureLines
+    pythonExecutable, serverEntryPoint, npxExecutable, userFeatureLines
   });
   const agentBlocks = _buildCodexAgentBlocks(userOwnedAgentNames);
 
@@ -378,31 +385,18 @@ function updateCodexTomlMcp(existingToml, pythonCmd, serverPath, uvxCmd) {
 
 // MCP Server Registration
 
-function _resolveUvxPath(uvxCmd) {
-  let resolvedUvx = uvxCmd || 'uvx';
-  try {
-    const whichCmd = process.platform === 'win32' ? 'where.exe' : 'which';
-    const whichUvx = spawnSync(whichCmd, [resolvedUvx], { encoding: 'utf-8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    if (whichUvx.status === 0 && whichUvx.stdout.trim()) {
-      return whichUvx.stdout.trim().split('\n')[0].trim();
-    }
-  } catch { /* best-effort */ }
-  return resolvedUvx;
-}
-
-function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true, options = {}) {
+function registerCodexMcp(pythonCmd, serverPath, silent = true, options = {}) {
   if (typeof silent === 'object' && silent !== null) {
     options = silent;
     silent = options.silent !== false;
   }
   try {
     const existing = readCodexConfig(options);
-    const resolvedUvx = _resolveUvxPath(uvxCmd);
-    const updated = updateCodexTomlMcp(existing, pythonCmd, serverPath, resolvedUvx);
+    const updated = updateCodexTomlMcp(existing, pythonCmd, serverPath);
     writeCodexConfig(updated, options);
 
     if (!silent) {
-      process.stderr.write('  ✓ Codex MCP servers configured (konoha, semble, aislop) in config.toml\n');
+      process.stderr.write('  ✓ Codex MCP servers configured (konoha, aislop) in config.toml\n');
     }
 
     return { ok: true };
@@ -415,6 +409,20 @@ function registerCodexMcp(pythonCmd, serverPath, uvxCmd, silent = true, options 
   }
 }
 
+function _deployCodexAgentProfile(agentsDir, resolvedAgentsDir, agent, silent) {
+  if (!agent || !agent.name || !VALID_AGENT_NAME.test(agent.name)) return;
+  if (agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) return;
+  const tomlPath = path.resolve(path.join(agentsDir, `${agent.name}.toml`));
+  if (!tomlPath.startsWith(resolvedAgentsDir)) return;
+  writeAgentFileSafe(tomlPath, generateCodexSubagentToml(agent), agent.name, { silent });
+
+  const legacyMdPath = path.resolve(path.join(agentsDir, `${agent.name}.md`));
+  if (!fileExists(legacyMdPath) || !isKonohaOwnedAgentFile(legacyMdPath)) return;
+  try {
+    fs.unlinkSync(legacyMdPath);
+  } catch (_) { /* best effort cleanup */ }
+}
+
 function deployCodexRules(silent = true, options = {}) {
   const opts = typeof silent === "object" && silent !== null ? silent : options;
   const _isSilent = typeof silent === "boolean" ? silent : (opts.silent !== false);
@@ -422,7 +430,6 @@ function deployCodexRules(silent = true, options = {}) {
   const codexDir = (opts && opts.home) ? path.join(home, ".codex") : CODEX_DIR;
   const codexRulesDir = (opts && opts.home) ? path.join(codexDir, "rules") : CODEX_RULES_DIR;
   const { loadAgents, generateAgentsMd } = require("./agent_manager");
-  const { generateGenericSubagentMd } = require("./agent_contract");
 
   let agents = [];
   try {
@@ -445,19 +452,19 @@ function deployCodexRules(silent = true, options = {}) {
     fs.writeFileSync(codexMdPath, agentMgr.injectManagedConfig(codexMdPath, fullInstructions, "KONOHA", { client: "codex", scope: "global", ...opts }), "utf8");
     fs.writeFileSync(instructionsMdPath, agentMgr.injectManagedConfig(instructionsMdPath, fullInstructions, "KONOHA", { client: "codex", scope: "global", ...opts }), "utf8");
 
-    // Deploy rules/konoha.md
-    fs.writeFileSync(path.join(codexRulesDir, "konoha.md"), buildMainAgentContract("codex") + "\n", "utf8");
+    // Deploy rules/konoha.md without clobbering user-authored rules
+    writeManagedFileSafe(
+      path.join(codexRulesDir, "konoha.md"),
+      buildMainAgentContract("codex") + "\n",
+      { silent: _isSilent }
+    );
 
-    // Deploy subagents (skip test/internal agents and validate names)
-    for (const agent of agents) {
-      if (!agent || !agent.name || !VALID_AGENT_NAME.test(agent.name) || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
-      const subagentMd = generateGenericSubagentMd(agent, 'codex');
-      const targetPath = path.resolve(path.join(agentsDir, `${agent.name}.md`));
-      if (!targetPath.startsWith(path.resolve(agentsDir))) continue;
-      fs.writeFileSync(targetPath, subagentMd, 'utf8');
+    const resolvedAgentsDir = path.resolve(agentsDir);
+    for (const agent of getDeployableAgents(agents)) {
+      _deployCodexAgentProfile(agentsDir, resolvedAgentsDir, agent, _isSilent);
     }
 
-    if (!silent) process.stderr.write(`  ✓ Deployed Konoha instructions, rules & agents to Codex\n`);
+    if (!_isSilent) process.stderr.write(`  ✓ Deployed Konoha instructions, rules & agents to Codex\n`);
     return { ok: true };
   } catch (error) {
     if (error && /backup/i.test(error.message)) throw error;
@@ -465,25 +472,32 @@ function deployCodexRules(silent = true, options = {}) {
   }
 }
 
-function deployCodexRtkRule(silent = true) {
-  // The rule template is static, so it deploys with or without `rtk` on PATH.
-  // Note: rtk init has no codex agent support; the rule is deployed via
-  // copyFileSync below instead of `rtk init`.
+function deployCodexRtkRule(silent = true, options = {}) {
+  const opts = typeof silent === 'object' && silent !== null ? silent : options;
+  const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
+  const home = opts.home || process.env.HOME || process.env.USERPROFILE;
+  const codexRulesDir = opts.home
+    ? path.join(opts.home, '.codex', 'rules')
+    : (home && home !== HOME ? path.join(home, '.codex', 'rules') : CODEX_RULES_DIR);
+  const dest = opts.dest || (opts.home || (home && home !== HOME) ? path.join(codexRulesDir, 'rtk.md') : CODEX_RTK_RULE);
 
-  let src = path.join(__dirname, '..', '.claude', 'rules', 'rtk.md');
-  const fallback = path.join(HOME, '.claude', 'rules', 'rtk.md');
-  if (!fileExists(src) && fileExists(fallback)) {
-    src = fallback;
+  let src = resolveRtkRuleTemplate();
+  if (!src || !fileExists(src)) {
+    const repoCandidate = path.join(__dirname, '..', '.claude', 'rules', 'rtk.md');
+    const homeCandidate = path.join(HOME, '.claude', 'rules', 'rtk.md');
+    src = fileExists(repoCandidate) ? repoCandidate : (fileExists(homeCandidate) ? homeCandidate : null);
   }
-  if (!fileExists(src)) {
+  if (!src || !fileExists(src)) {
     return { ok: false, reason: 'rtk-rule-template-missing' };
   }
 
   try {
-    ensureDir(CODEX_RULES_DIR);
-    fs.copyFileSync(src, CODEX_RTK_RULE);
-    if (!silent) process.stderr.write(`  ✓ Deployed RTK rule to ${CODEX_RTK_RULE}\n`);
-    return { ok: true };
+    const content = fs.readFileSync(src, 'utf8');
+    const writeRes = writeManagedFileSafe(dest, content, { silent: isSilent });
+    if (writeRes.status !== 'conflict' && !isSilent) {
+      process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
+    }
+    return { ok: true, status: writeRes.status };
   } catch (e) {
     return { ok: false, reason: 'copy-failed', error: e.message };
   }
@@ -497,7 +511,6 @@ function getCodexStatus() {
     configExists: fileExists(CODEX_CONFIG),
     configPath: CODEX_CONFIG,
     mcpKonoha: false,
-    mcpSemble: false,
     rtkRuleDeployed: fileExists(CODEX_RTK_RULE)
   };
 
@@ -506,7 +519,6 @@ function getCodexStatus() {
       const content = readCodexConfig();
       const parsed = parseCodexToml(content);
       status.mcpKonoha = !!(parsed.mcp_servers && parsed.mcp_servers['konoha']);
-      status.mcpSemble = !!(parsed.mcp_servers && parsed.mcp_servers['semble']);
       status.mcpAislop = !!(parsed.mcp_servers && parsed.mcp_servers['aislop']);
     } catch { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
   }
@@ -556,7 +568,6 @@ function ensureCodexSetup(options = {}) {
   const {
     pythonCmd = 'python3',
     serverPath = SERVER_PATH,
-    uvxCmd = 'uvx',
     silent = true,
     force = false,
     skipDetection = false
@@ -580,7 +591,7 @@ function ensureCodexSetup(options = {}) {
     return { ok: false, reason: 'konoha-server-not-installed' };
   }
 
-  const mcpResult = registerCodexMcp(targetCmd, launcherJs, uvxCmd, silent, options);
+  const mcpResult = registerCodexMcp(targetCmd, launcherJs, silent, options);
   if (!mcpResult.ok) {
     return { ok: false, reason: mcpResult.reason || 'codex-mcp-registration-failed' };
   }
@@ -591,7 +602,7 @@ function ensureCodexSetup(options = {}) {
   const projectRoot = options.projectRoot || null;
   const projToml = projectRoot ? path.join(projectRoot, '.codex', 'config.toml') : null;
   if (projToml && (options.appendProject || (options.deployProject && fileExists(projToml)))) {
-    registerCodexMcp(targetCmd, launcherJs, uvxCmd, silent, { ...options, configPath: projToml });
+    registerCodexMcp(targetCmd, launcherJs, silent, { ...options, configPath: projToml });
   }
 
   return { ok: true, contractRule, rtkRule };
@@ -603,6 +614,7 @@ module.exports = {
   getCodexConfigPath,
   parseCodexToml,
   updateCodexTomlMcp,
+  generateCodexSubagentToml,
   readCodexConfig,
   writeCodexConfig,
   readCodexInstructions,

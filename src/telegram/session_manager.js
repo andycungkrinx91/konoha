@@ -14,9 +14,7 @@ const personaMemory = require('../persona_memory');
 
 const CLIENT_DISPLAY_NAMES = {
   antigravity: 'Antigravity IDE/CLI',
-  agy: 'Antigravity IDE/CLI',
   claudecode: 'Claude Code',
-  claude: 'Claude Code',
   cursor: 'Cursor',
   codex: 'Codex',
   opencode: 'OpenCode',
@@ -234,7 +232,7 @@ function isSessionAlive(sess, maxIdleMs = 45 * 60 * 1000) {
   }
 
   const clientNorm = (sess.client || '').toLowerCase();
-  if (clientNorm === 'antigravity' || clientNorm === 'agy') {
+  if (clientNorm === 'antigravity') {
     return _isAntigravitySessionAlive(sess, lastActiveMs, now, maxIdleMs);
   }
 
@@ -247,7 +245,7 @@ function isSessionAlive(sess, maxIdleMs = 45 * 60 * 1000) {
   }
 
   // For Claude Code sessions, check transcript freshness if path exists
-  if (clientNorm === 'claudecode' || clientNorm === 'claude') {
+  if (clientNorm === 'claudecode') {
     if (sess.transcript_path && fs.existsSync(sess.transcript_path)) {
       try {
         const mtime = fs.statSync(sess.transcript_path).mtimeMs;

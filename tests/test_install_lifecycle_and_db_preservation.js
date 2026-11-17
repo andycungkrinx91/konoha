@@ -43,7 +43,7 @@ function runTests() {
       assert.strictEqual(res.stages[1].name, 'install_or_upgrade');
       assert.strictEqual(res.stages[2].name, 'konoha_init');
       assert.strictEqual(res.stages[3].name, 'konoha_embed_and_db_migration');
-      assert.strictEqual(res.stages[4].name, 'konoha_ui_build_and_restart');
+      assert.strictEqual(res.stages[4].name, 'konoha_ui_build');
       assert.deepStrictEqual(stageOrder, ['install', 'init']);
 
       const dbMig = runTransactionalDatabaseMigration({ konohaRoot });

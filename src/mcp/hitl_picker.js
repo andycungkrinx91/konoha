@@ -85,7 +85,7 @@ function verifyTaskDirSignature(taskDir, signature, secrets) {
 const PICKER_BINDINGS = Object.freeze({
   // Harnesses with a documented structured-question tool.
   omp: { transport: 'native_tool', tool: 'ask' },
-  claude: { transport: 'native_tool', tool: 'AskUserQuestion' },
+  claudecode: { transport: 'native_tool', tool: 'AskUserQuestion' },
   // Harnesses Konoha drives through a file/config surface with no question tool
   // of its own; the Konoha picker page is the control.
   antigravity: { transport: 'web_picker' },
@@ -107,17 +107,49 @@ function resolvePickerBinding(client) {
 }
 
 /**
- * The arguments a harness needs to raise its own control. For `native_tool`
- * this is the option list in the shape a question tool expects; the free-text
- * escape hatch is a separate option so "type your own instruction" stays
- * reachable without the human editing the prompt.
+ * OMP's `ask` takes a semantic HTML form, not a question array: `{ html, i }`.
+ * Radios carry the option label as their value so the submitted field maps
+ * straight onto the verdict without a translation table. Nothing is
+ * pre-selected: a gate that submits itself is not a human decision.
  */
-function buildNativeToolCall(prompt) {
+function renderInlineForm(prompt) {
+  const options = prompt.options || [];
+  const gateName = prompt.gate_name || prompt.title || 'HITL Gate';
+  const radios = options.map((opt) => {
+    const description = opt.description ? ` — ${escapeHtml(opt.description)}` : '';
+    return `<label><input type="radio" name="choice" value="${escapeHtml(opt.label)}"> ${escapeHtml(opt.label)}${description}</label>`;
+  }).join('\n');
+  const refinement = options.some((opt) => opt.accepts_text)
+    ? '<label>Custom instruction <textarea name="refinement"></textarea></label>'
+    : '';
+  return `<form>
+<fieldset>
+<legend>${escapeHtml(gateName)}: ${escapeHtml(prompt.question || '')}</legend>
+${radios}
+</fieldset>
+${refinement}
+</form>`;
+}
+
+/** `AskUserQuestion` rejects a header longer than 12 characters. */
+function gateHeader(prompt) {
+  return prompt.gate === 'gate_2' ? 'Gate 2' : 'Gate 1';
+}
+
+/**
+ * The arguments a harness needs to raise its own control, in that tool's own
+ * schema. The free-text escape hatch is a separate option so "type your own
+ * instruction" stays reachable without the human editing the prompt.
+ */
+function buildNativeToolCall(prompt, tool) {
+  if (tool === 'ask') {
+    return { html: renderInlineForm(prompt), i: `${prompt.gate_name || 'HITL gate'} verdict` };
+  }
   return {
     questions: [
       {
         question: prompt.question,
-        header: prompt.gate_name,
+        header: gateHeader(prompt),
         multiSelect: false,
         options: (prompt.options || []).map((opt) => ({
           label: opt.label,
@@ -128,14 +160,36 @@ function buildNativeToolCall(prompt) {
   };
 }
 
+/**
+ * The link is only worth emitting if something answers it. The dashboard is
+ * manual-only, so the MCP process serves the two capability routes itself.
+ *
+ * It binds the port above `ui_port`, not `ui_port`: holding the dashboard's own
+ * port for the life of the MCP process makes `konoha ui` exit with "already
+ * running" and no terminal to Ctrl+C. Both listeners answer with the same token
+ * and the same checks, so the offset costs nothing.
+ */
 function buildPickerUrl({ baseUrl, taskDir }) {
   const root = String(baseUrl || '').replace(/\/+$/, '');
+  let pageRoot = root;
+  try {
+    const target = new URL(root);
+    target.port = String((Number(target.port) || 80) + 1);
+    pageRoot = target.origin;
+    const server = require('./hitl_picker_server').ensurePickerServer({ port: Number(target.port), host: target.hostname });
+    if (!server) throw new Error(`cannot bind ${target.host}`);
+  } catch (err) {
+    // stdout is MCP framing, so the diagnosis goes to stderr. The signed link is
+    // still emitted: a human who opens a dead page sees the failure, which beats
+    // a gate that pretends it has no picker at all.
+    process.stderr.write(`[konoha picker] ${err.message}\n`);
+  }
   const query = new URLSearchParams();
   if (taskDir) query.set('task_dir', taskDir);
   const signature = signTaskDir(taskDir);
   if (signature) query.set('sig', signature);
   const suffix = query.toString();
-  return `${root}/api/v1/hitl/picker${suffix ? `?${suffix}` : ''}`;
+  return `${pageRoot}/api/v1/hitl/picker${suffix ? `?${suffix}` : ''}`;
 }
 
 /**
@@ -154,15 +208,19 @@ function buildPickerBinding(prompt, options = {}) {
 
   if (binding.transport === 'native_tool') {
     picker.tool = binding.tool;
-    picker.call = buildNativeToolCall(prompt);
+    picker.call = buildNativeToolCall(prompt, binding.tool);
   } else {
     picker.url = buildPickerUrl(options);
     picker.open_when = 'A gate is pending and this harness has no question tool.';
   }
 
-  picker.instruction = binding.transport === 'native_tool'
-    ? `Call ${binding.tool} with picker.call; do not print a numbered list for the human to retype.`
-    : 'Raise the picker; do not print a numbered list for the human to retype.';
+  if (binding.transport !== 'native_tool') {
+    picker.instruction = 'Raise picker.url; the page posts the verdict itself. Do not print a numbered list for the human to retype.';
+  } else if (binding.tool === 'ask') {
+    picker.instruction = 'Call ask with picker.call; it returns {choice, refinement}. Pass both to sannin({task_dir, choice, refinement}); do not print a numbered list for the human to retype.';
+  } else {
+    picker.instruction = `Call ${binding.tool} with picker.call; do not print a numbered list for the human to retype.`;
+  }
 
   return picker;
 }
@@ -190,7 +248,7 @@ function renderPickerPage(prompt, options = {}) {
   const cards = choices.map((opt, index) => {
     const id = `opt-${index}`;
     return `<label class="card" for="${id}">
-  <input type="radio" id="${id}" name="choice" value="${escapeHtml(opt.label)}"${index === 0 ? ' checked' : ''}>
+  <input type="radio" id="${id}" name="choice" value="${escapeHtml(opt.label)}">
   <span class="label">${escapeHtml(opt.label)}</span>
   <span class="desc">${escapeHtml(opt.description || '')}</span>
 </label>`;
@@ -266,6 +324,7 @@ module.exports = {
   signTaskDir,
   verifyTaskDirSignature,
   buildNativeToolCall,
+  renderInlineForm,
   buildPickerUrl,
   buildPickerBinding,
   renderPickerPage

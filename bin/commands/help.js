@@ -29,6 +29,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}akatsuki${C.reset}          ⚔️  Manage Red-Team/Blue-Team security lab operations, sandboxes, and tooling.
   ${C.cyan}auth${C.reset}              🔐 Manage web console authentication credentials and password reset.
   ${C.cyan}bridge${C.reset}            🌉 Manage Konoha Bridge Router (status, list, create, delete, enable, disable).
+  ${C.cyan}browser${C.reset}           🖥️  Manage isolated live headed Docker browser workspaces and QA execution.
   ${C.cyan}clean${C.reset}             🧹 Clean stale backups, dead PIDs, and reclaim disk space in ~/.konoha.
   ${C.cyan}config${C.reset}            ⚙️  View and manage CLI configurations (list, get, set, unset).
   ${C.cyan}data${C.reset}              🧠 Manage SQLite active session history, persona memories, and database size.
@@ -55,7 +56,7 @@ ${C.bold}CORE COMMANDS${C.reset}
   ${C.cyan}telegram${C.reset}          ✈️  Manage Telegram bot task reporting and two-way remote prompting.
   ${C.cyan}test${C.reset}              🧪 Perform verification tests on the MCP server.
   ${C.cyan}tui${C.reset}               🥷 Launch interactive Terminal User Interface (TUI) for subagents and skills.
-  ${C.cyan}ui, web${C.reset}           🌐 Manage local Web Configuration UI (start, stop, restart, status; port ${UI_PORT}).
+  ${C.cyan}ui${C.reset}                 🌐 Run the local Web Configuration UI in the foreground (start, build; port ${UI_PORT}).
   ${C.cyan}uninstall${C.reset}         🗑️  Safely remove Konoha MCP server (leaves custom skill files intact).
   ${C.cyan}upgrade${C.reset}          🔄 Upgrade Konoha CLI to the latest version from npm registry.
   ${C.cyan}version, -v${C.reset}       ✨ Display current version and check for updates from npm registry.

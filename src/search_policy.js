@@ -1,38 +1,42 @@
-// Shared Konoha code-search policy — semble MCP replaces grep/glob/find everywhere.
+// Shared Konoha code-search policy — native Tree-sitter AST, FTS5, and semantic vector code intelligence.
 
-const SEMBLE_SEARCH_CONSTRAINT =
-  'NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use semble MCP search/find_related only (always pass repo with absolute project path).';
+const CODE_SEARCH_CONSTRAINT =
+  'NEVER use grep, glob, find, rg/ripgrep, or built-in Grep/Glob/SemanticSearch for codebase discovery — use the konoha code_* tools (code_search, code_symbol, code_context, code_impact, code_related) only.';
 
 const FILE_TOOLS_CONSTRAINT =
-  'NEVER use built-in Read/Grep/Glob or shell cat/head/tail/less for project files — use konoha MCP (read_file_head, read_file_range, file_info, token_efficient_grep, get_file_structure, find_files_clean) after Semble locates targets.';
+  'NEVER use built-in Read/Grep/Glob or shell cat/head/tail/less for project files — use konoha MCP (read_file_head, read_file_range, file_info, token_efficient_grep, get_file_structure, find_files_clean) after code_search locates targets.';
 
-function buildSembleSearchPolicy() {
-  return `### Default Code Search — Semble MCP Only
+function buildCodeSearchPolicy() {
+  return `### Default Code Search — Konoha Native Code Intelligence
 
-Konoha installs **semble** as the default search, find, and grep replacement on Antigravity and Cursor.
+Konoha indexes repositories into its own SQLite database using Tree-sitter WASM AST parsing, FTS5 lexical search, Granite 97M embeddings, and MiniLM L-6 cross-encoder reranking. No external server, no Python runtime, no network round trip.
 
 | Instead of | Use |
 |------------|-----|
-| \`grep\`, \`rg\`, \`ripgrep\`, \`find\`, \`ag\`, \`ack\` (shell) | \`semble.search(query="...", repo="<absolute-project-path>")\` |
-| glob, filename patterns, "find file named …" | \`semble.search\` with filename/symbol keywords, or \`semble.find_related\` |
-| Antigravity built-in grep / glob / search tools | \`semble\` MCP \`search\` / \`find_related\` |
-| Cursor \`Grep\`, \`Glob\`, \`SemanticSearch\` tools | \`semble\` MCP \`search\` / \`find_related\` |
+| \`grep\`, \`rg\`, \`ripgrep\`, \`find\`, \`ag\`, \`ack\` (shell) | \`konoha.code_search(query="...", root="<absolute-project-path>")\` |
+| glob, filename patterns, "find file named …" | \`konoha.code_search\` with filename/symbol keywords, or \`code_symbol\` |
+| Related-file discovery / architecture neighbors | \`konoha.code_related(file="...", root="<absolute-project-path>")\` |
+| Antigravity built-in grep / glob / search tools | \`konoha.code_search\` |
+| Cursor \`Grep\`, \`Glob\`, \`SemanticSearch\` tools | \`konoha.code_search\` |
 
 **Mandatory rules:**
-- All project code discovery MUST use \`semble.search\` or \`semble.find_related\` first.
-- Always pass \`repo\` with the absolute path to the project root.
-- Do NOT use \`konoha\` for codebase/file search — konoha is for skills and bounded file reads only.
-- Do NOT use \`semble\` for skill lookup — use \`konoha.find_skill\` / \`get_skill\`.
-- **Fallback only:** If semble MCP is unavailable after retry, you may use \`rg\` once and note the fallback. Never default to grep/glob.
+- All project code discovery MUST use \`konoha.code_search\`, \`code_symbol\`, or \`code_related\` first.
+- Always pass \`root\` with the absolute path to the project root.
+- Run \`code_index\` once per root; re-run it (\`force: true\`) after large changes.
+- \`code_impact\` answers "who calls this" — use it instead of chaining grep for references.
+- \`code_related\` finds structurally and semantically related files for a file or symbol.
+- Do NOT use the code_* tools for skill lookup — use \`konoha.find_skill\` / \`get_skill\`.
+- **Fallback only:** If the response carries \`degraded: true\` (FTS5 unavailable), say so once and use \`rg\` for that lookup. Never default to grep/glob.
 
 **Examples:**
-- Find a symbol: \`semble.search(query="function detect_active_agent", repo="/path/to/project")\`
-- Trace usages: \`semble.find_related(query="src/server.py", repo="/path/to/project")\`
-- Locate config: \`semble.search(query="mcp_config.json semble registration", repo="/path/to/project")\``;
+- Find a symbol: \`code_search(query="function detect_active_agent", root="/path/to/project")\`
+- Locate config: \`code_search(query="mcp config registration", root="/path/to/project")\`
+- Blast radius: \`code_impact(name="registerMcp", root="/path/to/project")\`
+- Related files: \`code_related(file="src/server.js", root="/path/to/project")\``;
 }
 
-function buildSembleSearchPolicyCompact() {
-  return `- **Code search default**: Use \`semble\` MCP (\`search\`, \`find_related\`) for ALL codebase discovery. Do NOT use grep/glob/find/rg, Antigravity search tools, or Cursor \`Grep\`/\`Glob\`/\`SemanticSearch\`. Always pass absolute \`repo\`. Skills: \`konoha.find_skill\` only — never semble for skills.`;
+function buildCodeSearchPolicyCompact() {
+  return `- **Code search default**: Use \`konoha\` \`code_search\` / \`code_symbol\` / \`code_impact\` / \`code_related\` (native AST + FTS5 + Granite/MiniLM SQLite index) for ALL codebase discovery. Do NOT use grep/glob/find/rg, Antigravity search tools, or Cursor \`Grep\`/\`Glob\`/\`SemanticSearch\`. Always pass absolute \`root\`; run \`code_index\` first. Skills: \`konoha.find_skill\` only.`;
 }
 
 function buildFileToolsPolicy() {
@@ -44,26 +48,25 @@ Konoha installs **konoha** as the token-efficient replacement for built-in file 
 |------------|-----|
 | Cursor \`Read\` tool, Antigravity \`view_file\`, shell \`cat\`/\`head\`/\`tail\`/\`less\` | \`konoha.read_file_head\` (preview) or \`read_file_range\` (targeted window) |
 | Loading an entire large file into context | \`file_info\` (size + line count) → \`get_file_structure\` (signatures) → \`read_file_range\` (≤500 lines) |
-| Cursor \`Grep\` / shell \`grep\`/\`rg\` for line matches | \`semble.search\` / \`semble.find_related\` |
-| Cursor \`Glob\` / shell \`find\` for filenames | \`semble.search\` / \`semble.find_related\` with filename keywords |
+| Cursor \`Grep\` / shell \`grep\`/\`rg\` for line matches | \`konoha.code_search\` |
+| Cursor \`Glob\` / shell \`find\` for filenames | \`konoha.code_search\` / \`code_symbol\` |
 
 **Mandatory rules:**
-- After \`semble\` locates a file, use **konoha MCP** for all reads and line-level grep — never built-in Read/Grep/Glob.
+- After \`code_search\` locates a file, use **konoha MCP** for all reads and line-level grep — never built-in Read/Grep/Glob.
 - Start with \`file_info\` or \`read_file_head\` when file size is unknown.
 - Use \`read_file_range\` for edits; max span is **500 lines** per call.
-- Do NOT use \`semble\` for raw file line dumps — use konoha MCP.
 - **Fallback only:** If konoha MCP is unavailable after retry, note the fallback and use the smallest possible read window.`;
 }
 
 function buildFileToolsPolicyCompact() {
-  return `- **File I/O default**: Use \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`). Use \`semble\` MCP (\`search\`, \`find_related\`) for all code discovery. Do NOT use Cursor \`Read\`/\`Grep\`/\`Glob\` or shell \`cat\`/\`head\`/\`grep\`. Workflow: semble → konoha.`
+  return `- **File I/O default**: Use \`konoha\` MCP (\`read_file_head\`, \`read_file_range\`, \`file_info\`, \`token_efficient_grep\`, \`get_file_structure\`, \`find_files_clean\`). Use \`code_search\` / \`code_symbol\` for all code discovery. Do NOT use Cursor \`Read\`/\`Grep\`/\`Glob\` or shell \`cat\`/\`head\`/\`grep\`. Workflow: code_search → konoha read tools.`;
 }
 
 module.exports = {
-  SEMBLE_SEARCH_CONSTRAINT,
+  CODE_SEARCH_CONSTRAINT,
   FILE_TOOLS_CONSTRAINT,
-  buildSembleSearchPolicy,
-  buildSembleSearchPolicyCompact,
+  buildCodeSearchPolicy,
+  buildCodeSearchPolicyCompact,
   buildFileToolsPolicy,
   buildFileToolsPolicyCompact
 };

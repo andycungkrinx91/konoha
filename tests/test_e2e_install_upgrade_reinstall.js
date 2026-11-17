@@ -74,10 +74,10 @@ async function testFreshInstall(sandboxDir) {
   for (const client of allClients) {
     const mainContract = agentContract.buildMainAgentContract(client);
     assert.ok(mainContract.includes('Konoha is mandatory'), `${client} contract must include Konoha is mandatory`);
-    assert.ok(mainContract.includes('Semble is mandatory'), `${client} contract must include Semble is mandatory`);
+    assert.ok(mainContract.includes('Code intelligence is mandatory'), `${client} contract must include Code intelligence is mandatory`);
     assert.ok(mainContract.includes('RTK is mandatory'), `${client} contract must include RTK is mandatory`);
-    assert.ok(mainContract.includes('Zero-AI-Slop & Kage Gate'), `${client} contract must include Zero-AI-Slop & Kage Gate`);
-    assert.ok(mainContract.includes('On-Demand Full Contract'), `${client} contract must include On-Demand Full Contract`);
+    assert.ok(mainContract.includes('Zero-AI-Slop & Kage gate'), `${client} contract must include the zero-AI-slop gate`);
+    assert.ok(mainContract.includes("get_skill('konoha/contract')"), `${client} contract must point at the on-demand full contract`);
     const fullContract = agentContract.getClientContract(client);
     assert.ok(fullContract.includes('Website & UI scaffolding invariant'), `${client} full contract must include Website scaffolding invariant`);
     assert.ok(fullContract.includes('Review token hygiene & strict changed-files scoping'), `${client} full contract must include token hygiene invariant`);
@@ -288,6 +288,11 @@ async function testWorkflowTokenBurnPrevention() {
   console.log(`  ✓ runSannin routing payload is compact (${JSON.stringify(sanninRes).length} bytes, < 3KB)`);
 
   // Subagents Unified Token-Bounded Prompts
+  // The assertions are about the prompt itself. `status` depends on whether the
+  // host's harness can spawn natively (a bare `pi` cannot), so pin one that can
+  // instead of inheriting the machine — the same pattern as
+  // tests/test_auto_compaction.js.
+  server.ACTIVE_CLIENT = 'claude';
   const agents = ['genin', 'kage', 'anbu', 'chunin', 'tokubetsu-jonin', 'jonin', 'akatsuki'];
   for (const agent of agents) {
     server.SESSION_TURNS.clear();

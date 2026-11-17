@@ -166,7 +166,7 @@ function run() {
   const spawnCodex = router.buildSpawnDirective({ client: 'codex', agent: 'anbu' });
   const spawnOmp = router.buildSpawnDirective({ client: 'omp', agent: 'anbu' });
   check('builds client-specific spawn directives', () => {
-    assert.ok(spawnCodex.includes('spawn_agent(agent="anbu"'));
+    assert.ok(spawnCodex.includes('spawn_agent(agent_type="anbu"'));
     assert.ok(spawnOmp.includes('tasks=[{name:"anbu"'));
   });
 

@@ -1,22 +1,22 @@
 # Konoha — Operator's Manual
 
-**Version of record: 2.2.21**
+**Version of record: 2.2.22**
 
 | Field | Value |
 |---|---|
-| Manual version | 2.2.21 |
-| Code reference | tag `v2.2.21` (`master`), `package.json` version `2.2.21` |
-| Distribution status | **unpublished** — npm `konoha-mcp` latest is 2.2.19; the latest GitHub release is v2.2.19 |
+| Manual version | 2.2.22 |
+| Code reference | `package.json` version `2.2.22` on `feature/issue-13-native-code-intelligence`, tagged `v2.2.22` when the release is cut |
+| Distribution status | **2.2.22 unreleased** — npm `konoha-mcp` latest is 2.2.21 and the latest GitHub release is v2.2.21 |
 | Verified on | Linux x86_64, Node.js 24.22.2, non-root user, isolated `HOME`; Windows via dockur/QEMU VM and the `windows-latest` CI leg |
 | Audience | developers installing and operating Konoha on their own machine |
 
 The command transcripts in this manual were collected against a clean 2.2.20 installation, which is the same operator
-surface; 2.2.21 adds the cross-platform, configuration, and QA-automation work recorded in `CHANGELOG.md`, and its full
+surface; 2.2.22 adds the cross-platform, configuration, and QA-automation work recorded in `CHANGELOG.md`, and its full
 suite passes (`docs/CI.md`), but the transcripts below were not re-run for the bump. Whenever a statement rests on source
 inspection rather than live execution, or when a platform constraint prevented exercising a path directly, the text names
 the exact file, line, and substitute evidence.
 
-Because 2.2.21 is not on the registry, the install path in this manual is *from source*, not `npm install -g`.
+Because 2.2.22 is not on the registry, the install path in this manual is *from source*, not `npm install -g`.
 Section 2.6 gives the exact commands.
 
 ## Surfaces and their legend
@@ -66,21 +66,20 @@ the section a task needs. Measured on the shipped skill set, cold-start client i
 `docs/architecture/TOKEN-BASELINE.md`, metric 7 and metric 2). Chapter 11 breaks the numbers down and explains what
 the "83–98%" figure in the CLI banner actually covers.
 
-### 1.2 The three MCP servers
+### 1.2 The two MCP servers
 
-`konoha init` writes three stdio MCP servers into each harness config:
+`konoha` init writes two stdio MCP servers into each harness config. Code search runs in-process rather than as a separate server: `konoha` indexes repositories into its SQLite `code_*` tables (added in schema v6/v7; current DB schema is v8) using 10 Tree-sitter WASM grammars across 9 AST languages (JS, TS/TSX, Python, Go, Rust, C, C++, Bash/Shell, SQL) with lexical fallback for 7 additional languages (PHP, Ruby, Kotlin, Swift, Dart, Elixir, Zig) plus 4 structured document/config formats (Markdown, JSON, YAML, TOML; excluding Java, C#, and Lua), combined with FTS5, Granite 97M / MiniLM L-6 semantic retrieval, and complementary stdio JSON-RPC LSP enrichment. The 8 native code tools (`code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove`, `code_related`) and async `@genin` / `@sannin` dispatch paths surface provenance (`parser`, `heuristic`, `lsp`, `unresolved`), extraction confidence, content hashes, and root snapshot consistency.
 
 | Server | Launched as | Role |
 |---|---|---|
 | `konoha` | the installed `konoha` binary | skills, subagents, workflows, bounded file tools, docs artefact generation |
-| `semble` | `uvx --from semble[mcp]@latest semble --content all` | instant code search (`search`, `find_related`) |
 | `aislop` | `npx -y --prefer-offline -p aislop@latest aislop-mcp` | zero-AI-slop scanning (`aislop_scan`, `aislop_fix`, `aislop_why`, `aislop_baseline`) |
 
-The `konoha` server exposes 48 canonical tools with 2 deprecated aliases hidden from dispatch — 50 manifest entries in
-total (`src/file_tools_router.js`, locked by `tests/test_canonical_api_sync.js`). Chapter 10 lists them by group.
+The `konoha` server exposes 56 canonical tools with 2 deprecated aliases hidden from dispatch — 58 manifest entries in
+total (`src/file_tools_router.js`, checked by `scripts/sync_canonical_api.js --check` and `tests/test_tool_count_repo_wide_sync.js`). Chapter 10 lists them by group.
 
-`uvx` comes from `uv`; `konoha doctor` reports whether it is present, because the `semble` server cannot start
-without it. The `aislop` server needs no install — `npx` fetches it on first use.
+`uvx` comes from `uv`; `konoha doctor` reports whether it is present, because the `aislop` server prefers it. The
+`aislop` server needs no install — `npx` fetches it on first use.
 
 ### 1.3 The eight harnesses
 
@@ -119,15 +118,15 @@ Ten roots, seventeen skills each — visible with `konoha status`.
 | `~/.konoha/backups/` | timestamped, SHA-256-verified copies of harness configs taken before every write |
 | `~/.konoha/tmp/<harness>/<session>/` | per-task working directories: `plan.md`, `findings.md`, `kage_review.json`, prompts |
 | `~/.agents/` | harness-neutral skills and `agents.yaml` |
-| systemd user unit / launchd agent | optional boot-time daemon for the Web UI, created only by `konoha ui service install`; absent on a default install |
+| systemd user unit / launchd agent | optional boot-time daemon for the Web UI, created only by `konoha service install`; absent on a default install |
 
 All state stays on your machine. Outbound network traffic occurs only when you explicitly trigger registry lookups, web searches, Telegram alerts, or initial package downloads for auxiliary MCP servers.
 
 ### 1.5 What this manual does not cover
 
-- The Web UI `/3d` route. It exists in the router but is excluded from the documented route set for 2.2.21.
+- The Web UI `/3d` route. It exists in the router but is excluded from the documented route set for 2.2.22.
 - 3D asset generation (Yamanaka) beyond its CLI surface.
-- Anything released after 2.2.21.
+- Anything released after 2.2.22.
 - Fixes for defects found during verification. Chapter 13 records the defects; the manual documents behaviour as it
   is, not as it should be.
 
@@ -139,14 +138,14 @@ All state stays on your machine. Outbound network traffic occurs only when you e
 |---|---|---|---|
 | Node.js | **>= 24.0.0** (hard `engines` gate) | everything | `node -v` |
 | npm | any version bundled with Node 24 | installing the package, launching the `aislop` server via `npx` | `npm -v` |
-| `uv` / `uvx` | current | the `semble` MCP server (its launcher is `uvx`) | `uvx --version` |
-| git | any | installing 2.2.21 from source | `git --version` |
+| `uv` / `uvx` | current | optional; the `aislop` server prefers `uvx` when present | `uvx --version` |
+| git | any | installing 2.2.22 from source | `git --version` |
 | disk | ~600 MB free | 386 MB installed package + 193 MB `~/.konoha` after `init` | `df -h ~` |
 
-Measured on a clean 2.2.21 install: unpacked package **386 MB**, `~/.konoha` after `init` **193 MB** (16.3 MB of that
+Measured on a clean 2.2.22 install: unpacked package **386 MB**, `~/.konoha` after `init` **193 MB** (16.3 MB of that
 is the SQLite database), packed tarball **114.3 MB**.
 
-Node 23 or older fails the engine gate at install time. There is no shim for older runtimes in 2.2.21.
+Node 23 or older fails the engine gate at install time. There is no shim for older runtimes in 2.2.22.
 
 ### 2.2 The install rule
 
@@ -155,14 +154,14 @@ and `i -g` inside it is a mistake that npm happens to tolerate poorly. The two c
 
 ```bash
 # published release, no global install, runs once
-npx konoha-mcp@2.2.19 init
+npx konoha-mcp@2.2.21 init
 
 # real installation
 npm install -g konoha-mcp@<version>
 konoha init
 ```
 
-For 2.2.21 specifically neither form works from the registry: `konoha-mcp@2.2.21` is not published — only `2.2.19` is.
+For 2.2.22 specifically neither form works from the registry: `konoha-mcp@2.2.22` is not published — only `2.2.21` is.
 Use section 2.6.
 
 ### 2.3 Linux (non-root)
@@ -188,7 +187,7 @@ install with `sudo`. This manual's verification install used an isolated `HOME` 
 is the same mechanism without touching an existing npm setup:
 
 ```bash
-HOME=/tmp/knh/home npm i -g --prefix /tmp/knh/prefix konoha-mcp-2.2.21.tgz
+HOME=/tmp/knh/home npm i -g --prefix /tmp/knh/prefix konoha-mcp-2.2.22.tgz
 # added 39 packages in 12s
 # /tmp/knh/prefix/bin/konoha -> ../lib/node_modules/konoha-mcp/bin/cli.js
 ```
@@ -201,7 +200,7 @@ Identical to Linux, with one difference in packaging: Apple Silicon and Intel bo
 no native build step, so no Xcode command line tools are required. If npm's default prefix (`/usr/local` or
 `/opt/homebrew`) is not writable, use the same `npm config set prefix "$HOME/.local"` pattern.
 
-The Web UI daemon option uses launchd instead of systemd; `konoha ui service install` selects the platform
+The Web UI service option uses launchd instead of systemd; `konoha service install` selects the platform
 automatically (6.5).
 
 ### 2.5 Windows
@@ -214,32 +213,30 @@ npm install -g konoha-mcp@<version>
 konoha version
 ```
 
-Verification scope, stated plainly: **this manual's 2.2.21 evidence comes from Linux x86_64 on a host, plus Windows
+Verification scope, stated plainly: **this manual's 2.2.22 evidence comes from Linux x86_64 on a host, plus Windows
 inside the dockur/QEMU VM and the `windows-latest` CI leg.** The Windows commands above were executed there, not on
 physical Windows hardware and not on Docker Desktop for Windows, so confirm with `konoha status` after installing and
 report anything that differs.
 
-What does back those two platforms is the CI matrix, not this manual: `.github/workflows/cross-platform.yml` runs the
-install, lint, suite, and fresh-install smoke step on `windows-latest` and `macos-latest` for every push and pull
-request, and `scripts/windows-ci.ps1` reproduces the Windows job in a local VM. The macOS leg is GitHub-only, so a
-macOS-specific defect is confirmed there rather than locally (see `docs/CI.md`).
+What does back those platforms is the CI matrix, not this manual alone: `.github/workflows/cross-platform.yml` runs the
+install, lint, sharded suite (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 5 shards), and fresh-install smoke step on `ubuntu-latest`, `windows-latest`, and `macos-latest` for every push and pull
+request, on manual dispatch, and nightly at 02:00 UTC. Locally, all three environments have a verification path: Linux (`pnpm test:sandbox` / `pnpm ci:act`), Windows (`docker/windows-vm/oem/run-ci.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` for the clean-room container gate on Apple silicon, plus native replay on a Mac or the symlinked-`HOME` proxy on Linux; see `docs/CI.md`).
 
-### 2.6 Installing 2.2.21 from source
+### 2.6 Installing 2.2.22 from source
 
-The published registry stops at 2.2.19, so 2.2.21 must be built and installed locally. From a clone:
+The published registry stops at 2.2.21, so 2.2.22 must be built and installed locally. From a clone:
 
 ```bash
 git clone <repo> konoha && cd konoha
-git checkout v2.2.21                  # the tree this manual describes
-npm pack                              # produces konoha-mcp-2.2.21.tgz, ~114 MB
-npm install -g ./konoha-mcp-2.2.21.tgz
-konoha version                        # Current Version: 2.2.21
+git checkout v2.2.22                  # the tree this manual describes
+pnpm pack                             # produces konoha-mcp-2.2.22.tgz, ~114 MB
+npm install -g ./konoha-mcp-2.2.22.tgz
+konoha version                        # Current Version: 2.2.22
 ```
 
-`npm pack` uses the package's own `files` list (27 entries) and bundles `pptxgenjs`, which is why the tarball is large
-and why an offline `npm install -g` of the tarball works without a further fetch.
+`pnpm pack` uses the package's own `files` list (27 entries) and bundles `cfb`, `pptxgenjs`, and `xlsx-populate` (so the patched `cfb` ships inside the tarball rather than falling back to an unpatched top-level copy), which is why the tarball is large and why an offline `npm install -g` of the tarball works without a further fetch (`npm pack` fails on a pnpm-installed workspace once `bundleDependencies` is set).
 
-`konoha upgrade` cannot help you here: it resolves from the registry, finds no 2.2.21, and aborts without touching the
+`konoha upgrade` cannot help you here: it resolves from the registry, finds no 2.2.22, and aborts without touching the
 existing install (12.1 documents the exact output).
 
 ### 2.7 Verify the install
@@ -254,7 +251,7 @@ konoha test          # exercises the MCP tool surface end to end
 `All tests passed`.
 
 One caveat about `konoha version`: it also performs a registry freshness check, and on an unpublished build the
-message "You are already running the latest version" is misleading — 2.2.21 is newer than the registry, not equal to
+message "You are already running the latest version" is misleading — 2.2.22 is newer than the registry, not equal to
 it. Do not use it as proof of freshness (13.1).
 
 ## 3. First run
@@ -268,12 +265,20 @@ The installer performs seven steps, in its own words:
 3. Copies runtime and migration files.
 4. Discovers skills directories (`~/.agents/skills`).
 5. Seeds canonical subagent skills and builds their vector embeddings (`~/.konoha/konoha.db`).
-6. Registers Konoha and Semble MCP tools with your AI coding assistants.
+6. Registers Konoha and Aislop MCP tools with your AI coding assistants.
 7. Configures multi-agent team rules (Antigravity, Cursor, Claude Code, OpenCode, Codex, Pi, OMP).
 
 Step 5 is the slow one on first run: embedding the seeded skill corpus into SQLite is most of the wall time.
+Embedding uses one thread per physical core, so a full rebuild uses the machine without oversubscribing it.
+There is no flag or environment variable for this, and the thread count does not depend on whether stdout is a
+terminal — ONNX Runtime would otherwise take one thread per logical core, and on an SMT chip those hyperthreads
+compete for the same execution units. Measured on a 16-thread Ryzen 9 5900HX over 600 real skill chunks, 4
+threads embedded at 204 chunks/s, 8 at 243, 12 at 227 and 16 at 202, so the physical core count is both the
+fastest and the politest setting. The ratio comes from /proc/cpuinfo on Linux, so a 4-vCPU virtual machine
+without SMT still gets all four threads instead of half of them; macOS and Windows have no cheap topology
+query and are capped at eight.
 
-Re-running `init` on an existing install does the same work against the runtime it finds, plus two things that only matter the second time: it runs the migration pass, so a legacy opt-in cyber pack from an earlier release is purged rather than left behind, and it restarts a running Web UI daemon so the build it serves is the one just installed. `KONOHA_UI_AUTOSTART=0` suppresses starting a daemon; it does not suppress refreshing one that is already up.
+Re-running `init` on an existing install does the same work against the runtime it finds, plus one thing that only matters the second time: it runs the migration pass, so a legacy opt-in cyber pack from an earlier release is purged rather than left behind. It never starts or restarts the Web UI — that is `konoha ui start`, always by hand.
 
 ### 3.2 Options
 
@@ -299,11 +304,11 @@ konoha init --yes
 Measured on a clean install: **166.82 s** end to end. What it produced:
 
 - ten skill roots, seventeen skills each, plus `~/.agents/agents.yaml`
-- `~/.konoha/konoha.db`, 16.3 MB, FTS5 schema v1.1.0
+- `~/.konoha/konoha.db`, 16.3 MB, measured in that 2.2.20 install (`CURRENT_SCHEMA_VERSION = 9` on the current v2.2.22 tree adds `memory_audit_events` and `memory_relations` for `45` base tables: `33` declared + `12` FTS5 shadow tables, including native code intelligence)
 - harness configs for Antigravity, Cursor and OMP among others, each written with a SHA-256-verified backup of the
   previous file
 - the prebuilt Web UI extracted to `~/.konoha/apps/web`
-- a Web UI listener started at `http://127.0.0.1:1404/`
+- a Web UI listener started at `http://127.0.0.1:1404/` (in that 2.2.20 run; in 2.2.22, `konoha ui start` is strictly manual per Section 5.6)
 
 If you want a narrow install that touches only one harness:
 
@@ -366,7 +371,7 @@ Eight ideas carry the rest of this manual. Each maps to a table in `~/.konoha/ko
 A **skill** is a named, versioned set of instructions. A **reference** is a document that belongs to a skill — the
 material the skill points at when it needs detail.
 
-A fresh 2.2.21 database contains 17 skills and 213 references, stored in one `skills` table discriminated by `type`.
+A fresh 2.2.22 database contains 17 skills and 213 references, stored in one `skills` table discriminated by `type`.
 References are addressed hierarchically, `<skill>/<reference>`:
 
 ```
@@ -412,25 +417,29 @@ Gate 1 (`src/mcp/workflow_runner.js:380`). If a harness cannot render the prompt
 proceeding.
 
 **The gate is a picker, not a numbered list.** Each gate payload carries a `picker` block naming the control the active
-harness actually has. OMP gets a native `ask` call and Claude Code gets `AskUserQuestion`, both built from the gate's own
-options. Every other harness gets `transport: web_picker` with a loopback URL to `/api/v1/hitl/picker`, which serves a
-self-contained HTML form — one card per option plus a custom-instruction field — that posts its own verdict to
-`/api/v1/hitl/verdict`. No tool name is invented for a harness that has no question tool, because a call to a
-non-existent tool fails at runtime; those harnesses get the form instead. Both routes authenticate with a per-gate
-signature — an HMAC of the task directory keyed by the session token — because a human opening a link has no cookie jar,
-and handing them the master token would put it in every transcript. The signature is scoped to one directory, so one
-gate's link cannot approve another, and the page only renders for a task directory that actually holds a `status.json`.
+harness actually has. OMP gets a native `ask` call carrying an HTML form built from the gate's own options — `ask` takes
+`{ html, i }`, so the options are rendered as radios rather than handed over as a questions array — and [CC] gets
+`AskUserQuestion`. Every other harness gets `transport: web_picker` with a loopback URL to `/api/v1/hitl/picker`, which
+serves a self-contained HTML form — one card per option plus a custom-instruction field — that posts its own verdict to
+`/api/v1/hitl/verdict`. The MCP process serves those two routes itself (`src/mcp/hitl_picker_server.js`), so the link
+works without `konoha ui` running. It listens on the port above `ui_port` rather than on `ui_port` itself, so a pending
+gate never makes the dashboard report a phantom instance; both answer with the same token and the same checks. No tool
+name is invented for a harness that has no question tool, because a call to a non-existent tool
+fails at runtime; those harnesses get the form instead. Both routes authenticate with a per-gate signature — an HMAC of
+the task directory keyed by the session token — because a human opening a link has no cookie jar, and handing them the
+master token would put it in every transcript. The signature is scoped to one directory, so one gate's link cannot
+approve another, and the page only renders for a task directory that actually holds a `status.json`.
 Every transport lands on `sannin({ task_dir, choice, refinement })`, the same resume path a typed reply takes, so a harness
 that ignores the picker loses the control but cannot bypass the gate.
 
-Each workflow gets a task directory:
+Each workflow gets an isolated task directory:
 
 ```
 ~/.konoha/tmp/<client>/<session>/scratch/tasks/<task_id>/
-  prompt.md  findings.md  plan.md  result.md  final_docs.md  kage_review.json
+  status.json  findings.md  plan.md  final_docs.md  kage_review.json  final_report.md
 ```
 
-These are the artefacts the workflow reads and writes. Chapter 11 explains why the *terminal* artefact
+Legacy file-based IPC (`prompt.md`, `delegate.md`, `delegated.md`, `result.md`) is retired. Task inputs arrive via `<USER_REQUEST>`, JSONL transcripts, and structured MCP arguments, while agent completions report through `report_from_agent` into `status.json` and SQLite `sdlc_tasks`. Chapter 11 explains why the *terminal* artefact
 (`final_report.md`) was replaced with path references: it was 61% of the disk-token footprint.
 
 ### 4.4 Tasks, telemetry and savings
@@ -504,10 +513,11 @@ Global options, valid anywhere: `--force` (clean re-installation, used with `ini
 | `agent` | configure ninja subagents | `list`, `create`, `delete`, `status`, `skill`, `models`, `--tui` |
 | `akatsuki` | red-team / blue-team lab | `status`, `init`, `tools` |
 | `auth` | web console credentials | `konoha auth reset` |
-| `bridge` | bridge router to local and remote models | `status`, `list`, `create`, `delete`, `enable`, `disable` |
+| `bridge` | bridge router to local and remote models | `status`, `list`, `create`, `delete`, `enable`, `disable`, `start`, `stop`, `restart`, `models` |
+| `browser` | live headed Docker browser workspace | `start`, `status`, `logs`, `stop`, `cleanup`, `qa` |
 | `clean` | reclaim `~/.konoha` space | removes stale backups and dead PIDs |
-| `config` | CLI configuration | `list`, `get`, `set`, `unset` |
-| `data` | session history, persona memories, DB size | `view` |
+| `config` | CLI configuration | `list`, `get`, `set`, `unset`, `backup`, `backups`, `restore` |
+| `data` | session history, knowledge brain, DB size | `view`, `memory`, `add`, `search`, `delete`, `correct`, `withdraw`, `history`, `graph`, `maintain`, `revert`, `export`, `prune`, `vacuum`, `backup`, `rebuild-fts`, `check`, `restore` |
 | `db` | integrity and recovery | `check`, `restore` |
 | `detect-ai` | AI fingerprints in a site or project | `konoha detect-ai <target> [--json]` |
 | `detect-docs` | AI markers in prose and documents | `konoha detect-docs <file_path> [--json]` |
@@ -531,9 +541,9 @@ Global options, valid anywhere: `--force` (clean re-installation, used with `ini
 | `telegram` | bot reporting and remote prompting | see chapter 8 |
 | `test` | verify the MCP server | — |
 | `tui` | full-screen interface | chapter 6 |
-| `ui` / `web` | local Web UI on port 1404 | `start`, `stop`, `restart`, `status` |
+| `ui` | local Web UI on port 1404 | `start`, `build` |
 | `uninstall` | remove Konoha | keeps custom skill files |
-| `upgrade` / `update` | upgrade from the npm registry | `--yes`, `--force` |
+| `upgrade` | upgrade from the npm registry | `--yes`, `--force` |
 | `version` / `-v` | version, plus a registry freshness check | — |
 | `webhook` / `webhooks` | outbound notifications | Bearer, API Key, JWT |
 
@@ -595,29 +605,28 @@ authoritative".
 ### 5.6 `ui` and `service`
 
 ```bash
-konoha ui start
-konoha ui status
-konoha ui stop
-konoha ui restart
-konoha ui service install        # optional boot-time daemon
-konoha ui service status
+konoha ui start                  # foreground; Ctrl+C stops it
+konoha ui build                  # compile the SvelteKit bundle
+konoha service install           # optional boot-time OS service
+konoha service status
 ```
 
-`ui` and `web` are the same command. Port defaults to 1404 and follows the `ui_port` config value. Observed service
-status on a working install with no OS daemon registered:
+Port defaults to 1404 and follows the `ui_port` config value. `konoha ui` has exactly two subcommands, `start` and
+`build`: the server runs in the foreground and the terminal owns its lifetime. A second `start` on a port that is
+already listening exits 1 rather than running a duplicate.
+Observed `konoha service status` on a working install with no OS service registered:
 
 ```
 ○ NOT INSTALLED  OS daemon service unit is not registered.
   Supported platform: Linux (systemd --user)
-  Port 1404 listener: ACTIVE (manual/detached daemon)
+  Port 1404 listener: ACTIVE (started by `konoha ui start`)
 ```
 
-That combination is normal: the UI can be running detached while no boot-time unit exists.
+That combination is normal: the UI can be running manually while no boot-time unit exists.
 
-The daemon serves the SvelteKit handler it loaded at startup, so replacing the runtime under it does not change what it
-serves. `konoha init --yes` therefore restarts a daemon that is already listening on the port instead of treating it as
-"already started" — otherwise `npm install -g konoha-mcp` followed by `init` left the previous build being served.
-`KONOHA_UI_AUTOSTART=0` only suppresses *starting* a daemon; a running one is still restarted.
+The server holds the SvelteKit handler in memory, so replacing the runtime under it does not change what it serves.
+After `konoha ui build` or an upgrade, Ctrl+C and `konoha ui start` again. Nothing starts it implicitly — not `init`,
+not `upgrade`.
 
 ### 5.7 `savings`, `search`, `clean`
 
@@ -735,11 +744,11 @@ Port 1404 serves a prebuilt SvelteKit single-page console. Beyond exposing the s
 
 ```bash
 konoha ui start
-konoha ui status
+konoha ui build
 ```
 
-`konoha init` starts it for you. `http://127.0.0.1:1404/` binds to loopback only; there is no remote exposure
-without a bridge or tunnel (chapter 10 covers `/remote` and Telegram).
+Nothing starts it for you: run `konoha ui start` in a terminal and leave it running. `http://127.0.0.1:1404/` binds to
+loopback only; there is no remote exposure without a bridge or tunnel (chapter 10 covers `/remote` and Telegram).
 
 Before login, `GET /` answers `307` — a redirect to the login page, not an empty dashboard. The app also polls a
 health endpoint every 10 seconds and holds an SSE connection for live updates, so a running UI shows database and
@@ -760,7 +769,7 @@ agent state changing without a manual refresh.
 | `/persona` | Persona & Memory | per-agent memories, searchable |
 | `/context` | Workspace Context | per-project invariants and stacked detection |
 | `/search` | Web Search (SearXNG) | keyless web search from the browser |
-| `/semble` | Semble MCP | semantic code search over a repository path |
+| `/code` | Code Intelligence | native WASM AST, FTS5, and Granite/MiniLM hybrid code search over a repository path |
 | `/detector` | AI Detector (Web & Docs) | scan a site or document for AI fingerprints |
 | `/tasks` | SDLC Tasks | workflow tasks, gate state, readiness |
 | `/doctor` | Health & Doctor | diagnostics, the same checks as `konoha doctor` |
@@ -951,14 +960,13 @@ do not want modified — including this one, which is why this manual's own veri
 
 ### 9.6 The MCP servers
 
-`konoha status` reports two registrations per client — `konoha` and `semble`. Claude Code's `~/.claude.json`
-additionally carries `aislop`, and Antigravity receives 50 tool schemas under `~/.gemini/antigravity-cli/mcp/konoha/`.
-Those three play different roles:
+`konoha status` reports two registrations per client — `konoha` and `aislop`. [CC]'s `~/.claude.json`
+carries both, and Antigravity receives 58 tool schemas (56 canonical + 2 deprecated aliases) under `~/.gemini/antigravity-cli/mcp/konoha/`.
+They play different roles:
 
 | Server | Role |
 |---|---|
 | `konoha` | agents, skills, task dirs, file tools, documents, diagrams |
-| `semble` | semantic code search over a repository path |
 | `aislop` | lint and AI-slop scoring, called by the review gate |
 
 If a client shows fewer than expected, the missing entry failed its own binary check during install; `konoha status`
@@ -1005,8 +1013,8 @@ Calls before `initialize` are rejected with JSON-RPC error `-32002`. Supported p
 `src/mcp_tool_manifest.json`: `2024-11-05`, `2024-10-07`, `2025-03-26`, `2025-11-25`, `2025-06-18`, plus `0.1.0` and
 `1.0.0`.
 
-The manifest declares 50 tools; `tools/list` filters out `find_skills` and `build_with_image_design`, so a client sees
-**48**. Both retired names still resolve if an old prompt calls them.
+The manifest declares 58 tools; `tools/list` filters out `find_skills` and `build_with_image_design`, so a client sees
+**56**. Both retired names still resolve if an old prompt calls them.
 
 ### 10.3 Dispatch
 
@@ -1032,9 +1040,32 @@ That is why a tool can exist, appear in `tools/list`, and still fail with a mess
 | `src/file_tools/` | 7 | 36 KB | bounded read/grep/info |
 | `src/queue/` | 2 | 23 KB | ingest queue for client tasks |
 
-Sizes are from a 2.2.21 checkout and are here to set expectations, not as a contract.
+Sizes are from a 2.2.22 checkout and are here to set expectations, not as a contract.
 
 ```mermaid
+---
+title: Konoha Runtime Process & MCP Dispatch Topology
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#f0fdf4'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
+  flowchart:
+    nodeSpacing: 45
+    rankSpacing: 55
+    padding: 24
+    wrappingWidth: 380
+---
 flowchart LR
   C["8 clients<br/>stdio JSON-RPC"] --> P["protocol.js<br/>initialize · tools/list · tools/call"]
   P --> D["tool_dispatch.js<br/>validate · classify · gate"]
@@ -1048,11 +1079,23 @@ flowchart LR
   T["Telegram poller"] --> A
   B["bridge/"] --> L["LLM endpoints"]
   B --> DB
+
+  linkStyle default stroke:#334155,stroke-width:2px;
+
+  classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+  classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+  classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+  classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+  class C,U,T,L blueShape;
+  class P,M,F,A,B orangeShape;
+  class DB greenShape;
+  class D,W redShape;
 ```
 
 ### 10.5 Data layer
 
-`node:sqlite` from Node 24, no native module to compile. WAL mode, 33 tables in a fresh install, and three storage
+`node:sqlite` from Node 24, no native module to compile. WAL mode, 45 base tables (33 declared + 12 FTS5 shadow tables, excluding extension-owned `_sqliteai_vector` when loaded) in a fresh v8 install, and three storage
 patterns you will meet:
 
 - **Relational tables** — persistent state (`skills`, `skill_chunks`, `agents`, `soul_archetypes`, `projects`, `persona_memories`, `sdlc_tasks`, `tool_calls`, `telegram_config`)
@@ -1129,16 +1172,16 @@ konoha agent models config kage --model <model-id>
 ```
 
 Without a TTY this is the only form that works; in a TTY `konoha agent models` opens a picker. Two rough edges exist in
-2.2.21 and are recorded rather than worked around:
+2.2.22 and are recorded rather than worked around:
 
 - `konoha agent models --help` tries to resolve `--help` as an agent name and prints `✗ Subagent "@--help" not found.`
 - model changes apply to the database record; a client already running with a fixed model is not retargeted mid-session.
 
 ### 11.4 Routing
 
-Task routing starts with the `sannin` orchestrator. Given a prompt, `sannin` matches `delegateWhen` and `delegationKeywords` to select the target specialist, and `lazy_subagent.js` returns a lightweight Markdown directive — task, context, constraints, and attached skills — rather than spawning a child OS process.
+Task routing starts with the `sannin` orchestrator. Given a prompt, `sannin` matches `delegateWhen` and `delegationKeywords` to select the target specialist, and `lazy_subagent.js` returns a harness-native subagent spawn directive — task, context, constraints, worktree isolation, and attached skills — rather than relying on retired `prompt.md` / `result.md` files. When native spawning is unavailable in a harness (for instance Pi without `pi-subagents`), it fails closed with an explicit `UNSUPPORTED_NATIVE_SPAWN` error instead of silently emulating it.
 
-Nine specialist tools appear in the MCP manifest (`sannin`, `kage`, `jonin`, `anbu`, `akatsuki`, `yamanaka`, `chunin`, `tokubetsu_jonin`, `genin`) alongside `report_from_agent` for recording task outcomes in the ledger. Outside MCP, the only shell entry point that dispatches subagents directly is `konoha run-agent --agents <list>`.
+Nine agent tools appear in the MCP manifest (`sannin` router + eight spawnable specialists: `kage`, `jonin`, `anbu`, `akatsuki`, `yamanaka`, `chunin`, `tokubetsu_jonin`, `genin`) alongside `report_from_agent` for recording task outcomes in the ledger. Outside MCP, `konoha run-agent --agent <agent>` (or `--parallel --agents <list>`) spawns real child processes directly (`src/mcp/subagent_spawner.js`) with workspace `cwd`, permission guards (`KONOHA_READONLY=1`), timeout termination (`SIGTERM`/`SIGKILL`), cancellation cleanup, and concurrent fan-out.
 
 ### 11.5 Editing an agent
 
@@ -1155,22 +1198,22 @@ YAML is what the next command reads, and the database catches up on the next sav
 
 ### 11.6 What a delegation looks like on the wire
 
-Subagent dispatch never forks background daemon processes. Instead, `buildSpawnDirective` returns a Markdown instruction tailored to the calling harness, pairing the native subagent tool call with a CLI fallback:
+`buildSpawnDirective` pairs the active harness's native subagent invocation with the CLI process fallback, failing closed with `UNSUPPORTED_NATIVE_SPAWN` if the harness lacks native subagent support:
 
 | Client | Tool call it emits |
 |---|---|
 | OMP | `task(context="…", tasks=[{name:"<agent>", task:"…", agent:"<agent>"}])` |
 | Cursor | `Task(subagent_type="<agent>", description="…", prompt="…")` |
-| Claude Code | `Task(subagent_type="<agent>", description="…", prompt="…")` |
+| Claude Code | `Agent(subagent_type="<agent>", description="…", prompt="…")` |
 | Command Code | `Task(subagent_type="<agent>", description="…", prompt="…")` |
 | OpenCode | `task(subagent_type="<agent>", description="…", prompt="…")` |
-| Codex | `spawn_agent(agent="<agent>", task="…")` |
-| Pi | `task(agent="<agent>", prompt="…")` |
-| Antigravity | `invoke_subagent({ TypeName: "self", Role: "<agent> specialist", Prompt: "…" })` |
+| Codex | `spawn_agent(agent_type="<agent>", message="…")` |
+| Pi | `subagent(agent="<agent>", task="…")` *(only when `pi-subagents` is installed; otherwise `UNSUPPORTED_NATIVE_SPAWN`)* |
+| Antigravity | `invoke_subagent({ TypeName: "<agent>", Role: "<agent> specialist", Prompt: "…", Workspace: "share"\|"inherit" })` *(`inherit` for read-only `@genin`/`@kage`)* |
 
-Every form is followed by the same sentence: wait for the structured report via `konoha.report_from_agent`. The
-fallback for a client with no known descriptor is
-`rtk node ~/.konoha/bin/cli.js run-agent --agent <agent> --task "…"`, and `--cwd` is added when a worktree path exists.
+Every form is followed by the same sentence: report structured outcomes via `konoha.report_from_agent`. The
+CLI fallback is
+`rtk node ~/.konoha/bin/cli.js run-agent --agent <agent> --task "…"` (and `--cwd <worktree>` when a worktree path exists), which spawns an isolated OS child process with timeout and abort cleanup.
 
 Three rules constrain what can be delegated:
 
@@ -1238,12 +1281,9 @@ konoha savings
 | Konoha MCP Savings | calls, bytes, percent, tokens per period |
 | By Call Type | which tools carried the saving (top 10) |
 | Tiktoken Accuracy | bytes-per-token health check for the estimator |
-| Semble | separate tool; `unverified by Konoha` until it has telemetry |
-| Combined Total | both sources side by side |
 
-The combined block deliberately does not blend ratios across sources: Konoha's ratio is measured from `tool_calls`, Semble's
-is external. On a fresh install Semble reports `CLI not available or no telemetry recorded yet`, and the combined total is
-just the Konoha line.
+Every ratio comes from `tool_calls`, so the numbers are measured rather than estimated. Code search savings are part of
+the `code_search` / `code_symbol` / `code_context` rows — there is no second, unverified source to reconcile.
 
 ### 12.4 The numbers worth quoting
 
@@ -1322,15 +1362,14 @@ Doctor checks, in order:
 | Group | What it verifies | Repair |
 |---|---|---|
 | Runtime files | 13 scripts in `~/.konoha` (`db.js`, `vector_search.js`, `server.js`, `migrate.js`, `db_stats.js`, `db_savings.js`, `agent_stats.js`, `prompt_hook.js`, `antigravity_subagent_hook.js`, `file_tools_mcp.js`, `file_tools_router.js`, `file_tools_launcher.js`, `platform_utils.js`) plus `konoha.db` | restores from package templates |
-| MCP config | `mcp_config.json` parses and registers `konoha`, `semble`, `aislop` | re-registers via the Antigravity manager |
+| MCP config | `mcp_config.json` parses and registers `konoha`, `aislop` | re-registers via the Antigravity manager |
 | Client integrations | `GEMINI.md`, `agents.yaml`, Cursor, Claude Code, Command Code, OpenCode, Codex, OMP, Antigravity, Pi | reports only |
 | 3D toolchain | the Yamanaka toolchain: Blender binary, `dcc-mcp-blender`, Three.js, Manifold-3D | reports only; install from `/3d/setup`, which installs each component independently and returns per-component errors |
 | RTK | `rtk` binary on `PATH` | reports only |
 | SDLC governance | enabled bridges for cross-provider review; `antislop` attached to `kage` | restores the skill |
 
 Verdicts are `HEALTHY`, `REPAIRED`, `WARNING`, `FAILED`, `NOT INSTALLED`, `INFO`, `ACTIVE`. One `FAILED` sets exit code 1;
-`NOT INSTALLED` for a client you do not use is normal and does not. When repairs happen, doctor runs `konoha test`
-afterwards as a self-check, and a failing self-check also sets exit code 1 — so `konoha doctor && echo ok` is a usable gate.
+`NOT INSTALLED` for a client you do not use is normal and does not. When runtime repairs happen, doctor verifies the MCP startup smoke test inline (setting exit code 1 if it fails); run `konoha test` afterwards for full suite verification — so `konoha doctor && echo ok` stays fast and reliable as a health gate.
 
 Two behaviours to know before relying on it:
 
@@ -1343,19 +1382,19 @@ Two behaviours to know before relying on it:
 `GET /api/v1/health` is public — the only data surface reachable before login.
 
 ```
-{"status":"healthy","version":"2.2.21","uptime":7703,"node":"v24.22.2","platform":"linux"}
+{"status":"healthy","version":"2.2.22","uptime":7703,"node":"v24.22.2","platform":"linux"}
 ```
 
 Authenticated callers get the same object plus skill and agent counts. Content served while the UI is still at the
 password gate therefore tells you the version and nothing else.
 
-One observation, not a defect you can trigger normally: the handler falls back to the packaged version (`2.2.21`) when
-the server version is unset. A correctly deployed 2.2.21 server reports `2.2.21`.
+One observation, not a defect you can trigger normally: the handler falls back to the packaged version (`2.2.22`) when
+the server version is unset. A correctly deployed 2.2.22 server reports `2.2.22`.
 
 ### 13.4 A diagnostic sequence that answers most questions
 
 ```bash
-konoha version              # 2.2.21 — trusts the local tree, not the registry
+konoha version              # 2.2.22 — trusts the local tree, not the registry
 konoha status               # per-client registration and skill counts
 konoha test                 # protocol + file tools + suites
 konoha doctor               # config and file repairs
@@ -1384,7 +1423,7 @@ container system start                                  # once per boot
 KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox
 ```
 
-That still runs a **Linux** guest, so it reproduces the clean room but not macOS host behaviour — the `/var` → `/private/var` symlink, case-insensitive APFS, the `.dmg` Blender branch. There is no host fallback: the suite refuses to start outside a sandbox, so macOS-native behaviour is covered by the `macos-latest` leg. Details in `docs/CI.md`.
+That still runs a **Linux** guest, so it reproduces the clean room (including `--shard=I/N` slices) but not macOS host behaviour — the `/var` → `/private/var` symlink, case-insensitive APFS, the `.dmg` Blender branch. Native macOS host semantics require either a real Mac running `CI=true pnpm test` or the `macos-latest` CI leg (`docs/CI.md`).
 
 The runner discovers every `tests/test_*.js` (plus `*.test.js` and `verify_*.js`), builds one golden seed, and copies it per suite with `HOME`, `USERPROFILE`, and `KONOHA_DB_PATH` redirected at the copy — `USERPROFILE` matters because `os.homedir()` ignores `HOME` on Windows. A suite that needs your real `~/.konoha` is a defect in the suite. Details and the isolation contract are in `docs/QA-AUTOMATION.md` and `docs/CI.md`.
 
@@ -1395,35 +1434,35 @@ Symptom first. Every entry names the observed message, the cause, and the recove
 | Symptom | Cause | Fix |
 |---|---|---|
 | `You are already running the latest version` on a newer checkout | the check compares against the npm registry, and your build is ahead of it | nothing to fix; compare `package.json` to the registry instead |
-| `Couldn't find any versions for "konoha-mcp" that matches "2.2.21"` | upgrade targets an unpublished version and fails closed | `npm install -g konoha-mcp@2.2.21` still works from a local tarball |
+| `Couldn't find any versions for "konoha-mcp" that matches "2.2.22"` | upgrade targets an unpublished version and fails closed | `npm install -g konoha-mcp@2.2.22` still works from a local tarball |
 | `konoha` not on `PATH` after global install | prefix directory not exported | add the prefix's `bin` to `PATH`; verify with `command -v konoha` |
 | `~/.konoha/bin/konoha` is a dangling symlink | older installer left the link after the target moved | remove the link, run `konoha reinstall` |
-| `Total indexed: undefined entries` | 2.2.21 formatting defect in the `list_skills` summary | ignore; the call succeeded |
+| `Total indexed: undefined entries` | 2.2.22 formatting defect in the `list_skills` summary | ignore; the call succeeded |
 | `konoha doctor --help` starts a full run | argument parsing treats `--help` as no-op (D5) | expect a run; use 13.2 to interpret output |
 | Antigravity shows `NOT INSTALLED` in doctor but works | doctor reads `~/.gemini/config/mcp_config.json`, init writes `~/.gemini/antigravity-ide/mcp_config.json` | check the file init actually wrote (D11) |
 | Client shows no tools, `status` healthy | client caches the tool list per process | restart the client |
 | `Server is not initialized` (`-32002`) | a call arrived before `initialize` | restart the client; a raw JSON-RPC probe must send `initialize` first |
-| `semble` tools missing right after init | `uv` was not on `PATH`, so install deferred | install `uv` and reconnect; it installs lazily on first use |
+| `code_search` returns `degraded: true` | FTS5 is unavailable/missing, or semantic search is enabled (`KONOHA_SEMANTIC_SEARCH != 0`) and offline/uncached (`semantic_status: 'degraded'`) | inspect `reason`, `semantic_status`, and `semantic_applied` in the response: upgrade Node to >= 24 (or run `setupSchema` to repair `code_chunks_fts`), pre-populate `HF_HOME` cache if offline, or set `KONOHA_SEMANTIC_SEARCH=0` for intentional lexical mode (`semantic_status: 'disabled'`, `degraded: false`) |
 | Embedding generation stalls or burns bandwidth | first run downloads ONNX models | `konoha migrate --skip-embeddings`, or `KONOHA_SEMANTIC_SEARCH=0` |
 | `EACCES` on global install | installing into a root-owned prefix | use a user-owned prefix, never `sudo` |
 | Web UI unreachable | different port configured or process died | read `ui_port` from `~/.konoha/config.json`; `curl 127.0.0.1:<port>/api/v1/health` |
-| Web UI serves an old build after `init` | the daemon cached the previous handler at startup | `konoha ui restart`; `init` now does this for you |
+| Web UI serves an old build after `konoha ui build` | the server cached the previous handler at startup | Ctrl+C the terminal, then `konoha ui start` again |
 | 3D toolchain install ends at stage `Manual Install Required` on macOS | Blender is published there only as a `.dmg`, which the installer does not mount | `brew install --cask blender`, then re-run the toolchain check; `dcc-mcp-blender` needs a working Blender, so it reports `Blender must be installed first` until then, and both failures appear in the response's `errors[]` |
 | Web UI redirects `307` to the gate | unauthenticated request, by design | log in; first run uses the bootstrap password |
 
 ### 14.1 Upgrade that refuses to run
 
-Observed on 2.2.21, upgrade aborts before touching anything and prints:
+Observed on 2.2.22, upgrade aborts before touching anything and prints:
 
 ```
-Couldn't find any versions for "konoha-mcp" that matches "2.2.21"
+Couldn't find any versions for "konoha-mcp" that matches "2.2.22"
 ```
 
 Cause: the version you are running is not published, so the registry lookup resolves nothing. The command is fail-closed —
 configs were already backed up, nothing was modified — which is why the recovery is simply to install the exact version:
 
 ```bash
-npm install -g konoha-mcp@2.2.21
+npm install -g konoha-mcp@2.2.22
 konoha version
 ```
 
@@ -1455,18 +1494,17 @@ that never opens the UI stays usable. Set the password.
 
 Deleting `konoha-mcp/` is safe; deleting the config backups removes your restore path.
 
-### 14.4 When semantic search is unavailable
+### 14.4 When semantic search is disabled or offline
 
-The system degrades rather than fails. Without the ONNX models, FTS5 lexical search still answers `find_skill`; what is
-lost is synonym recall. To make that explicit and skip the download:
+Semantic embeddings (`onnx-community/granite-embedding-97m-multilingual-r2-ONNX`) and cross-encoder reranking (`Xenova/ms-marco-MiniLM-L-6-v2`) run through `@huggingface/transformers` and use its native Hugging Face `FileCache` rather than a Konoha-managed model directory.
+
+If `KONOHA_SEMANTIC_SEARCH` is enabled (the default) and the ONNX runtime or model weights cannot load, low-level embedding helpers raise `EmbeddingRuntimeUnavailableError` instead of fabricating hash vectors. `src/vector_pipeline.js#getRuntimeStatus()` exposes runtime readiness so code-intelligence queries (`code_search`, `code_related`, and `/api/v1/code/{search,related}`) degrade cleanly to FTS5/lexical and structural graph results (`degraded: true`, `semantic_applied: false`, and `reason`), while `code_index` marks `semantic_skipped: true` and keeps the indexed root `fresh`. To opt out explicitly and run pure FTS5 / lexical retrieval with zero model downloads:
 
 ```bash
 export KONOHA_SEMANTIC_SEARCH=0
 ```
 
-Model candidates, in order: `<repo>/assets/models`, `~/.konoha/assets/models`, `~/.konoha/models`,
-`~/.konoha/transformers_cache`. A network-restricted host can be seeded by copying a populated `transformers_cache`
-directory into any of those locations.
+In air-gapped or metered environments where pre-populated Hugging Face cache weights exist, point standard Hugging Face environment variables at that cache (`HF_HOME` or `HF_HUB_CACHE` / `HUGGINGFACE_HUB_CACHE`) and enable offline loading (`HF_HUB_OFFLINE=1` or `TRANSFORMERS_OFFLINE=1`).
 
 ### 14.5 Windows
 
@@ -1554,7 +1592,7 @@ session, and reproducing them here would mean reproducing your data. That is a d
 
 ### 15.7 Scope
 
-This is an operator's description of the mechanisms in 2.2.21, not a security audit. The audit artefact for the release
+This is an operator's description of the mechanisms in 2.2.22, not a security audit. The audit artefact for the release
 lives in `docs/SecurityCompliance/`, and the interesting findings there concern dependencies rather than this design.
 
 ## 16. Appendix
@@ -1564,7 +1602,7 @@ lives in `docs/SecurityCompliance/`, and the interesting findings there concern 
 | Path | Contents |
 |---|---|
 | `~/.konoha/` | runtime: scripts, `server.js`, `migrate.js`, `migrations/`, `apps/web/`, `assets/`, `patches/` |
-| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 33 tables |
+| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 45 base tables (33 declared) in schema v8 |
 | `~/.konoha/config.json` | overrides for 16.2 |
 | `~/.konoha/web_auth.json` | password hash, mode `0600` |
 | `~/.konoha/.vault_key` | AES key for stored secrets, mode `0600` |
@@ -1597,7 +1635,6 @@ from code, and `konoha config get <key>` shows which of the two answered.
 | `git_timeout_ms` | `30000` | git operations |
 | `url_timeout_ms` | `20000` | URL probes |
 | `probe_timeout_ms` | `1500` | liveness probe |
-| `ui_ready_timeout_ms` | `180000` | Web UI startup wait |
 | `aislop_gate_timeout_ms` | `180000` | anti-slop scan |
 | `live_glb_poll_timeout_ms` | `15000` | 3D live preview |
 | `sqlite_busy_timeout_ms` | `5000` | lock wait |
@@ -1624,7 +1661,6 @@ Inspect and change with `konoha config list`, `konoha config get <key>`, `konoha
 | `KONOHA_DISABLE_RATE_LIMIT` | `1` disables login lockout — tests only |
 | `KONOHA_MASTER_KEY` | vault key override, scrypt-stretched |
 | `KONOHA_SEMANTIC_SEARCH` | `0` disables vector search, leaving FTS5 |
-| `KONOHA_UI_AUTOSTART` | `0` stops `konoha init` from starting a UI daemon; an already-running daemon is still restarted so it serves the refreshed build |
 | `KONOHA_HOME` | alternate runtime root |
 | `KONOHA_CLIENT` | forces client identity for setup paths |
 | `NODE_ENV` | `test` disables rate limiting |
@@ -1632,7 +1668,7 @@ Inspect and change with `konoha config list`, `konoha config get <key>`, `konoha
 
 ### 16.4 Defect register
 
-Observed in 2.2.21, recorded rather than fixed. None blocks normal operation.
+Observed in 2.2.22, recorded rather than fixed. None blocks normal operation.
 
 | ID | Defect |
 |---|---|
@@ -1666,17 +1702,15 @@ Observed in 2.2.21, recorded rather than fixed. None blocks normal operation.
 
 ### 16.6 Version provenance
 
-This manual describes **2.2.21** as tagged at `v2.2.21` on `master`, one patch ahead of the newest npm release
-(`2.2.19`) at the time of writing. The per-command evidence was produced on Linux against a fresh global install under a
-scratch prefix, on the 2.2.20 tree; 2.2.21's own evidence is the full suite and the CI matrix (`docs/CI.md`).
+This manual describes **2.2.22**, one patch ahead of the newest npm release (`2.2.21`) and the newest GitHub
+release (`v2.2.21`) at the time of writing. The per-command evidence was produced on Linux against a fresh global install under a
+scratch prefix, on the 2.2.20 tree; 2.2.22's own evidence is the full suite and the CI matrix (`docs/CI.md`).
 
 Known limitations, stated rather than papered over:
 
 - Windows is verified on a local dockur/QEMU VM and by the `windows-latest` CI leg (`scripts/windows-ci.ps1` mirrors the
   latter); it is not verified on physical Windows hardware or on Docker Desktop for Windows.
-- macOS is exercised only by the `macos-latest` CI leg. No macOS host was available, so the defects that leg surfaced
-  were reproduced through their Linux-observable cause (a symlinked `HOME`) and fixed, but no green macOS run has been
-  observed here. Treat macOS support as CI-backed, not locally proven.
+- macOS is exercised by the `macos-latest` CI leg (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the clean-room container gate on Apple silicon). No macOS host was available here, so the defects that leg surfaced were reproduced through their Linux-observable cause (a symlinked `HOME`) and fixed, and `macos-latest` CI is the real host confirmation. Treat native macOS behaviour as CI-backed rather than locally executed on Apple hardware.
 - Authenticated Web UI page contents are described from routes and navigation, not screenshots.
 - Benchmark percentages are quoted from `docs/architecture/TOKEN-BASELINE.md` and the live `konoha savings` output; read
   12.1 before quoting them.

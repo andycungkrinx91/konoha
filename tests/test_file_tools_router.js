@@ -32,7 +32,7 @@ assert.strictEqual(platform.stripWinExtendedPrefix('//?/D:/konoha/src'), 'D:/kon
 
 // Test dispatching token_efficient_grep (cwd-independent: resolve repo src)
 const repoSrc = path.join(__dirname, '..', 'src');
-const grepRes = router.dispatchTool('token_efficient_grep', { pattern: 'buildSembleSearchPolicy', dir: repoSrc });
+const grepRes = router.dispatchTool('token_efficient_grep', { pattern: 'buildCodeSearchPolicy', dir: repoSrc });
 assert.ok(!grepRes.isError, 'token_efficient_grep should succeed: ' + (grepRes.text || ''));
 assert.ok(grepRes.text.includes('search_policy.js'), 'token_efficient_grep should find search_policy.js');
 

@@ -15,8 +15,8 @@ test("Available MCP Tools configuration has zero cloudrun rows and maintains lig
   assert.doesNotMatch(amContent, /cloudrun|cloud-run/i, "src/agent_manager.js must not contain cloudrun hint");
   assert.doesNotMatch(tmContent, /cloudrun|cloud-run/i, "src/templates/AGENTS.md must not contain cloudrun hint");
 
-  // Both must mandate konoha and semble without legacy table bloat
+  // Both must mandate konoha code intelligence without legacy table bloat
   assert.ok(tmContent.includes("Konoha is mandatory"), "template must mandate konoha");
-  assert.ok(tmContent.includes("Semble is mandatory"), "template must mandate semble");
+  assert.ok(tmContent.includes("Code intelligence is mandatory"), "template must mandate code intelligence");
   assert.ok(Buffer.byteLength(tmContent, 'utf8') < 1600, "template must be lightweight (< 1.6KB)");
 });

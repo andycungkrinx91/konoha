@@ -39,13 +39,13 @@ const RUNNER_PATH = path.join(ROOT, 'src', 'mcp', 'workflow_runner.js');
 assert(fs.existsSync(RUNNER_PATH), 'src/mcp/workflow_runner.js must exist');
 const workflowContent = fs.readFileSync(RUNNER_PATH, 'utf-8');
 
-// Assert workflow.js actually implements findings bounding at 500 chars
+// Assert workflow_runner.js implements 500-char bounding on findingsRaw (head+middle+tail or slice)
 assert(
-  workflowContent.includes('findingsRaw.length > 500'),
-  'workflow.js must contain 500-character bounding on findingsRaw'
+  workflowContent.includes('slicePreservingHeadMiddleTail(findingsRaw, 500') || workflowContent.includes('findingsRaw.length > 500'),
+  'workflow_runner.js must bound findingsRaw at 500 characters'
 );
 assert(
-  workflowContent.includes('findingsRaw.slice(0, 500)'),
+  workflowContent.includes('slicePreservingHeadMiddleTail(findingsRaw, 500') || workflowContent.includes('findingsRaw.slice(0, 500)'),
   'workflow_runner.js must truncate findings at 500 characters'
 );
 

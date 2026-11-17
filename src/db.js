@@ -127,6 +127,10 @@ function setupSchema(conn) {
   return dbSchema.setupSchema(conn, backupDatabase);
 }
 
+function ensureSchema(conn) {
+  return dbSchema.ensureSchema(conn, backupDatabase);
+}
+
 function validateCanonicalSchema(conn) {
   return dbSchema.validateCanonicalSchema(conn);
 }
@@ -211,6 +215,10 @@ function rebuildAllFts(conn = null) {
       conn.exec("INSERT INTO persona_memories_fts(persona_memories_fts) VALUES('rebuild')");
       rebuiltTables.push('persona_memories_fts');
     } catch (_) { /* persona_memories_fts may not exist yet */ }
+    try {
+      conn.exec("INSERT INTO code_chunks_fts(code_chunks_fts) VALUES('rebuild')");
+      rebuiltTables.push('code_chunks_fts');
+    } catch (_) { /* code_chunks_fts may not exist yet */ }
     return { rebuilt: rebuiltTables.length > 0, tables: rebuiltTables };
   } finally {
     if (shouldClose && conn) {
@@ -295,5 +303,7 @@ module.exports = {
   sanitize_fts5_query: sanitizeFts5Query,
   setupSchema,
   setup_schema: setupSchema,
+  ensureSchema,
+  ensure_schema: ensureSchema,
   validateCanonicalSchema
 };

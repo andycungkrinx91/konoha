@@ -174,14 +174,14 @@ function buildSavingsOverview(report, toolRows) {
     '- **Core Bounded Retrieval (83%–98%)**: Primary file reading and skill search (`read_file_range` at ~94%, `find_skill` at ~86%, `read_file_head` at ~88%) operate strictly within the headline 83%–98% range.',
     '- **Aggressive Pruning Tools (> 98%)**: High-selectivity structural tools (`token_efficient_grep` at ~99.4%, `find_files_clean` at ~99.8%, `list_skills` at ~55%–99%, `file_info` at ~99.0%) eliminate vast portions of boilerplate context.',
     '- **Bounded Section Retrieval (55%–82%)**: `get_skill` yields ~72% savings when retrieving budgeted sections against full skill files, and `list_skills` achieves ~55% savings comparing concise JSON summaries (~15.7 KB) against unpruned raw frontmatter parsing (~35 KB).',
-    '- **Operational Routers (0.0%)**: Subagents (`anbu`, `sannin`, `jonin`, `kage`, `tokubetsu_jonin`, `genin`) and specification tools are execution routers whose directives are preserved as-is (`baseline == returned_bytes`), intentionally sanitized to 0% to prevent artificial telemetry inflation.',
+    '- **Operational Routers (0.0%)**: Subagents (`anbu`, `sannin`, `jonin`, `kage`, `tokubetsu_jonin`, `genin`, `chunin`, `akatsuki`, `yamanaka`) and specification tools are execution routers whose directives are preserved as-is (`baseline == returned_bytes`), intentionally sanitized to 0% to prevent artificial telemetry inflation.',
     '',
     '---'
   );
   return lines;
 }
 
-function buildVerificationAndSembleSection(drift, rtk) {
+function buildVerificationAndCodeIntelSection(drift, rtk) {
   return [
     '',
     '## 2. 🔬 Wire-Level Verification & Tiktoken Tokenization Accuracy',
@@ -198,17 +198,27 @@ function buildVerificationAndSembleSection(drift, rtk) {
     '',
     '---',
     '',
-    '## 3. 🔍 Semble (Semantic Code Search) Savings',
+    '## 3. 🔍 Native Code Intelligence (Hybrid AST + FTS5 + Granite) Savings',
     '',
-    'Semble provides semantic vector search and line-range previews, replacing direct full-repository context dumps:',
+    '`code_search` and `code_related` serve ranked, bounded snippets from Konoha\'s own schema v7 index (Tree-sitter WASM AST + SQLite FTS5 + IBM Granite 97M + MiniLM L-6 reranker) instead of dumping whole files or the repository:',
     '',
-    '| Period | Search Queries | Cumulative Tokens Saved | Average Reduction |',
-    '|:---|:---:|:---:|:---:|',
-    '| **Today** | 72 | **~4.7M tokens** | 99% |',
-    '| **Last 7 Days** | 261 | **~12.3M tokens** | 99% |',
-    '| **All Time** | 3,200 | **~158.4M tokens** | 98% |',
+    '| Surface | Hard Bound | Worst-Case Payload |',
+    '|:---|:---|:---:|',
+    '| Snippet per hit | 40 lines / 2,000 chars | ~500 tokens |',
+    '| Hits per query | 20 | ~10,000 tokens |',
+    '| `code_context` chunk | 2,000 chars | ~500 tokens |',
+    '| Indexed file | 1 MiB / 20,000 files per root | — |',
     '',
-    '*Source: `uvx --from semble[mcp]@latest semble savings` (3.2k queries, 98% efficiency).*',
+    '*Measured pure-Node baseline (`node scripts/bench_code_intel.js`, Node v24.22.2, linux-x64, 16 CPUs, 3,000 synthetic files / 0.36 MB, `semantic_active: true`):*',
+    '',
+    '| Stage | Workload / Result | Latency / Quality |',
+    '|:---|:---|:---|',
+    '| Stage A (`walk + sha256`) | 3,000 files | 75.4 ms total (0.013 ms p50, 0.02 ms p95 per file) |',
+    '| Stage B (`wasm parse sample200`) | 200 symbols, 300 chunks | 0.236 ms p50, 0.464 ms p95 per file |',
+    '| Stage C (`indexing`) | Cold (3,000 files, 5,403 embedded chunks) / No-op (3,000 skipped) / Incremental (1 reindexed) | 52,443 ms / 328 ms / 252 ms |',
+    '| Stage D (`retrieval`) | Lexical FTS5 / Hybrid Vector+Rerank / `related` | 0.91 ms p50 (1.04 ms p95) / 149.371 ms p50 (396.035 ms p95; MRR@5 0.667, nDCG@5 0.667) / 18.89 ms p50 (350.636 ms p95) |',
+    '',
+    '*Source: `src/code_intel/config.js` (`SEARCH_MAX_HITS`, `SEARCH_SNIPPET_MAX_CHARS`, `CHUNK_MAX_CHARS`, `MAX_FILE_BYTES`, `MAX_FILES_PER_ROOT`) and `scripts/bench_code_intel.js`. No external process, no network round trip.*',
     '',
     '---',
     '',
@@ -280,7 +290,7 @@ function buildTelemetryAndAppendix(sys) {
     '|---|---|---|',
     '| Full Test Suite | `rtk node tests/run_all.js` | 100% test suites pass (every `tests/test_*.js`, auto-discovered) |',
     '| Zero-AI-Slop Gate | `rtk aislop scan --changes` | 100/100 Healthy, 0 errors, 0 warnings |',
-    '| Canonical API Sync | `rtk node scripts/sync_canonical_api.js --check` | Exit 0 (all 48 tools in sync) |',
+    '| Canonical API Sync | `rtk node scripts/sync_canonical_api.js --check` | Exit 0 (all 56 canonical tools in sync) |',
     '| Benchmark Sync | `rtk node scripts/generate_benchmark.js --check` | Exit 0 (structure & telemetry in sync) |',
     '',
     '---',
@@ -324,7 +334,7 @@ function generateBenchmarkMarkdown() {
 
   const lines = [
     ...buildSavingsOverview(report, toolRows),
-    ...buildVerificationAndSembleSection(drift, rtk),
+    ...buildVerificationAndCodeIntelSection(drift, rtk),
     ...buildTelemetryAndAppendix(sys)
   ];
 
@@ -337,7 +347,7 @@ function validateBenchmarkContent(current) {
     '## 🏆 Combined Optimization Impact',
     '## 1. ⚡ Konoha MCP',
     '## 2. 🔬 Wire-Level Verification & Tiktoken Tokenization Accuracy',
-    '## 3. 🔍 Semble (Semantic Code Search) Savings',
+    '## 3. 🔍 Native Code Intelligence (Hybrid AST + FTS5 + Granite) Savings',
     '## 4. 🦀 RTK (Rust Token Killer) Empirical Savings',
     '## 5. ⚡ Real CPU & Memory Usage Telemetry',
     '## Appendix — Superseded Historical Snapshot',

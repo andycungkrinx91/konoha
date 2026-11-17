@@ -4,6 +4,7 @@ const fs = require('fs');
 const { loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_common');
 const { globalCircuitRegistry } = require('../../../circuit_breaker');
 const { finalizeNodeResult } = require('../budget');
+const { syncTodoAndWalkthrough } = require('../../todo_walkthrough_sync');
 
 async function remediateNode(state, config) {
   const taskDir = state.taskDir || '';
@@ -48,6 +49,7 @@ async function remediateNode(state, config) {
       }
     }
   }
+  const todoSync = syncTodoAndWalkthrough(status, { client: state.client || status.client || '', taskDir });
   if (taskDir) saveWorkflowStatus(taskDir, status);
 
   const payload = {
@@ -55,6 +57,9 @@ async function remediateNode(state, config) {
     phase: 'execute',
     circuitOpen: false,
     remediationCount: currentCycles,
+    todos: todoSync.todos,
+    walkthrough_steps: todoSync.walkthrough_steps,
+    client_todo_directive: todoSync.client_todo_directive,
   };
   return finalizeNodeResult(state, payload, 'node_dispatch', {
     source: { remediationCycle: currentCycles },

@@ -81,6 +81,8 @@ When scaffolding a fresh project or interface from text descriptions:
 7. **Automatic Project Frontend Maintenance Skill (`project_skill_generator.js`)**: After frontend generation, run `generateAndIndexProjectFrontendSkill` (`src/workflow/jonin-builder/project_skill_generator.js`) to generate `<project_path>/.agents/skills/<project-slug>-frontend-maintenance/SKILL.md` and index it into `konoha.db` (`skills`, `skills_fts`, `skill_chunks`) isolated by `project_hash`.
 8. **Zero Errors & Zero Warnings Completion Gate**: Do not claim completion until every framework validation command (`pnpm run build`, `pnpm run lint`, `pnpm run test`, `pnpm run check`) passes cleanly with 0 errors and 0 warnings.
 
+7. **Isolated Live Docker Browser Mode (`workspaceMode: 'docker-headed'`)**: When a live interactive browser workspace is requested, pass `workspaceMode: 'docker-headed'` to `live_browser_monitor.js` (or `konoha browser start`) to serve headed Chromium inside `docker/browser-workspace.Dockerfile` with SwiftShader WebGL, responsive viewport/collision probing, and `build_id` / `fresh` reload verification at `127.0.0.1` without touching host profiles or secrets.
+
 ### Mode 3: Build from Source Website (`build_from_source` with Live URL or Multi-File Source)
 When cloning, migrating, or reconstructing a live website URL or multi-file web source:
 1. **Multi-Route Browser Inspection**: Perform systematic multi-route inspection (Playwright / `konoha.build_from_source`) capturing all primary routes, subpages, navigation flows, interactive states, responsive breakpoints (`375px`, `768px`, `1440px`), scroll/hover choreography, and computed design tokens.

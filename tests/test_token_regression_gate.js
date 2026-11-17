@@ -22,7 +22,6 @@ const ROOT = path.resolve(__dirname, '..');
 const BASELINE_DOC = path.join(ROOT, 'docs', 'architecture', 'TOKEN-BASELINE.md');
 
 // Thresholds with +10% regression margin
-const LIMIT_SEMBLE = 550;
 const LIMIT_AISLOP = 350;
 const LIMIT_QUERY_PERSONA = 200;
 const LIMIT_LIST_PERSONA = 350;
@@ -35,7 +34,7 @@ console.log('Running test_token_regression_gate.js...');
 // Verify TOKEN-BASELINE.md exists and contains canonical thresholds
 assert(fs.existsSync(BASELINE_DOC), 'TOKEN-BASELINE.md must exist');
 const baselineText = fs.readFileSync(BASELINE_DOC, 'utf-8');
-assert(baselineText.includes('Semble MCP'), 'TOKEN-BASELINE.md must document Semble MCP');
+assert(baselineText.includes('code-intelligence'), 'TOKEN-BASELINE.md must document native code intelligence');
 assert(baselineText.includes('Aislop MCP'), 'TOKEN-BASELINE.md must document Aislop MCP');
 
 // Schemas — the catalog only exists on a host where Antigravity is deployed.
@@ -48,13 +47,6 @@ const readSchemaPayload = (serverName) => {
   const parsed = files.map((name) => JSON.parse(fs.readFileSync(path.join(dir, name), 'utf-8')));
   return JSON.stringify(parsed);
 };
-
-const sembleSchemas = readSchemaPayload('semble');
-if (sembleSchemas) {
-  const tokens = tokenCount(sembleSchemas);
-  assert(tokens <= LIMIT_SEMBLE, `Semble schema regressed: ${tokens} > ${LIMIT_SEMBLE}`);
-  console.log(`  ✓ Semble MCP schema tokens: ${tokens} <= ${LIMIT_SEMBLE}`);
-}
 
 const aislopSchemas = readSchemaPayload('aislop');
 if (aislopSchemas) {

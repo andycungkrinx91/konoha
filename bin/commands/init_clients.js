@@ -8,7 +8,6 @@ const codexManager = require('../../src/codex_manager');
 const piManager = require('../../src/pi_manager');
 const ompManager = require('../../src/omp_manager');
 const agentManager = require('../../src/agent_manager');
-const { getUvxCommand } = require('../lib/extension');
 const { registerMcp, registerHooks } = require('../lib/runtime_mcp');
 const { SERVER_PATH, FILE_TOOLS_LAUNCHER_JS } = require('../lib/paths');
 const { header, info } = require('../lib/format');
@@ -58,11 +57,9 @@ function configureCursor(context) {
   if (!allowCursor) return;
   header('🖱️  Configuring Cursor IDE/CLI');
   const spinner = startSpinner('Registering Cursor MCP, subagents, and permissions...');
-  const uvxCmd = getUvxCommand();
   const cursorSetup = cursorManager.ensureCursorSetup({
     pythonCmd: python,
     serverPath: SERVER_PATH,
-    uvxCmd,
     agents: setupAgents,
     projectRoot: currentCwd,
     deployProject: Boolean(deployProject),
@@ -84,7 +81,6 @@ function configureClaudeCode(context) {
     const claudeSetup = mcpClientsManager.ensureClaudeCodeSetup({
       pythonCmd: python,
       serverPath: SERVER_PATH,
-      uvxCmd: getUvxCommand(),
       ruleContent: agentManager.generateClaudeCodeMd(setupAgents),
       silent: true,
       agents: setupAgents,
@@ -106,7 +102,6 @@ function _buildStandardClientSetupOptions(context) {
   return {
     pythonCmd: context.python,
     serverPath: SERVER_PATH,
-    uvxCmd: getUvxCommand(),
     projectRoot: context.currentCwd,
     deployProject: Boolean(context.deployProject),
     appendProject: Boolean(context.appendProject),
@@ -160,7 +155,6 @@ function configureOmp(context) {
   const ompSetup = ompManager.ensureOmpSetup({
     nodeCmd: process.execPath,
     launcherPath: FILE_TOOLS_LAUNCHER_JS,
-    uvxCmd: getUvxCommand(),
     projectRoot: context.currentCwd,
     deployProject: Boolean(context.deployProject),
     appendProject: Boolean(context.appendProject),

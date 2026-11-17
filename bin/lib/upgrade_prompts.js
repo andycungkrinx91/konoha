@@ -9,7 +9,7 @@ const { confirmPrompt } = require('./prompt');
  * @param {string[]} args CLI arguments
  * @param {object} [options]
  * @param {(msg: string, def?: boolean) => Promise<boolean>} [options.probe] Prompt function (defaults to confirmPrompt)
- * @returns {Promise<{ injectConfigs: boolean, rtk: boolean, aislop: boolean, semble: boolean }>}
+ * @returns {Promise<{ injectConfigs: boolean, rtk: boolean, aislop: boolean }>}
  */
 async function collectUpgradeChoices(args = [], { probe } = {}) {
   const autoYes = Boolean(
@@ -21,8 +21,7 @@ async function collectUpgradeChoices(args = [], { probe } = {}) {
     return {
       injectConfigs: false,
       rtk: true,
-      aislop: true,
-      semble: true
+      aislop: true
     };
   }
 
@@ -36,16 +35,10 @@ async function collectUpgradeChoices(args = [], { probe } = {}) {
     'Enable aislop MCP (npx aislop-mcp) for the quality gate?',
     true
   );
-  const semble = await promptFn(
-    'Enable semble MCP (uvx semble) for semantic code search?',
-    true
-  );
-
   return {
     injectConfigs: Boolean(injectConfigs),
     rtk: Boolean(rtk),
-    aislop: Boolean(aislop),
-    semble: Boolean(semble)
+    aislop: Boolean(aislop)
   };
 }
 

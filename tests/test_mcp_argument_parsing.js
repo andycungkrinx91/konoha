@@ -20,14 +20,20 @@ process.env.KONOHA_DB_PATH = tempDb;
 const { parseToolArguments, handleToolCall } = require('../src/file_tools_mcp.js');
 
 let failures = 0;
+// Checks run in registration order; the chain keeps the synchronous ones from
+// racing ahead of `handleToolCall`, which is async because the workflow is.
+let chain = Promise.resolve();
 function check(label, fn) {
-  try {
-    fn();
-    console.log(`  PASS ${label}`);
-  } catch (err) {
-    failures++;
-    console.log(`  FAIL ${label}: ${err.message}`);
-  }
+  chain = chain.then(async () => {
+    try {
+      await fn();
+      console.log(`  PASS ${label}`);
+    } catch (err) {
+      failures++;
+      console.log(`  FAIL ${label}: ${err.message}`);
+    }
+  });
+  return chain;
 }
 
 check('object arguments pass through unchanged', () => {
@@ -82,16 +88,16 @@ check('numeric arguments are rejected', () => {
   assert.match(result.error, /must be a JSON object, got number/);
 });
 
-check('handleToolCall returns invalid_arguments with isError', () => {
-  const response = handleToolCall(99, { name: 'list_skills', arguments: '{bad json' });
+check('handleToolCall returns invalid_arguments with isError', async () => {
+  const response = await handleToolCall(99, { name: 'list_skills', arguments: '{bad json' });
   assert.strictEqual(response.result.isError, true);
   const payload = JSON.parse(response.result.content[0].text);
   assert.strictEqual(payload.error, 'invalid_arguments');
   assert.strictEqual(payload.tool, 'list_skills');
 });
 
-check('handleToolCall parses a JSON string before dispatch', () => {
-  const response = handleToolCall(100, { name: 'token_efficient_grep', arguments: JSON.stringify({ pattern: 'require', dir: 'tests/helpers', max_matches: 1 }) });
+check('handleToolCall parses a JSON string before dispatch', async () => {
+  const response = await handleToolCall(100, { name: 'token_efficient_grep', arguments: JSON.stringify({ pattern: 'require', dir: 'tests/helpers', max_matches: 1 }) });
   assert.strictEqual(response.result.isError, false);
   assert.ok(response.result.content[0].text.length > 0);
 });
@@ -121,10 +127,12 @@ check('glob with no matches still reports zero rather than throwing', () => {
 // Release the sqlite handle before deleting its directory: Windows refuses to
 // remove a file that is still open, and the handle is what kept this teardown
 // green on Linux and red on the guest leg.
-try { require('../src/db').getConnection().close(); } catch (_) { /* never opened */ }
-try {
-  fs.rmSync(path.dirname(tempDb), { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
-} catch (_) { /* best-effort: the OS temp dir is reaped anyway */ }
+chain.then(() => {
+  try { require('../src/db').getConnection().close(); } catch (_) { /* never opened */ }
+  try {
+    fs.rmSync(path.dirname(tempDb), { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  } catch (_) { /* best-effort: the OS temp dir is reaped anyway */ }
 
-console.log(failures === 0 ? '\nmcp argument parsing: OK' : `\nmcp argument parsing: ${failures} failure(s)`);
-process.exit(failures === 0 ? 0 : 1);
+  console.log(failures === 0 ? '\nmcp argument parsing: OK' : `\nmcp argument parsing: ${failures} failure(s)`);
+  process.exit(failures === 0 ? 0 : 1);
+});

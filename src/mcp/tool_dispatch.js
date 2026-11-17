@@ -26,13 +26,12 @@ function _wrapDeprecatedWarning(raw, oldName, newName) {
 
 const path = require('path');
 const { spawnSync } = require('child_process');
-const personaMemory = require('../persona_memory');
 const { getWorkspaceRoot } = require('./runtime_state');
 const { detectActiveAgent, getActiveSessionId } = require('./client_detection');
 const { findSkill, listSkills, getSkill, useSkills, optimizeReport, logToolCall } = require('./skills');
 const { runAntiSlopAudit } = require('./anti_slop');
 const { buildFromSource, buildFromText } = require('./build_spec');
-const { getResolvedTaskDir, runSannin } = require('./workflow');
+const { getResolvedTaskDir, runSannin, runSanninAsync } = require('./workflow');
 const { runWebSearch } = require('./web_search');
 const { runWebsiteAiDetector, runWebsiteAiDetectorSync } = require('./ai_detector');
 const { runDocsAiDetector, runDocsAiDetectorSync } = require('./docs_ai_detector');
@@ -41,12 +40,26 @@ const {
   saveProjectContext,
   queryProjectMemory,
   runMcpAgent,
+  runMcpAgentAsync,
   reportFromAgent
 } = require('./memory_reporting');
 
 const { BOUNDED_FILE_TOOL_NAMES } = require('../file_tools_router');
 
 const FILE_TOOLS = new Set(BOUNDED_FILE_TOOL_NAMES);
+
+/**
+ * Tools whose real work is the async LangGraph workflow. They only produce
+ * gates, pickers, confidence and the Akatsuki pre-gate on `executeTool`; the
+ * sync `executeToolSync` path returns routing metadata alone. Every MCP
+ * transport must therefore await `executeTool` for these names.
+ */
+const WORKFLOW_GRAPH_TOOLS = Object.freeze(['sannin']);
+
+// A single MCP call may have to spend several per-turn budgets before the
+// workflow parks on a gate or finishes. Bounded so a pathological loop still
+// returns something the caller can act on.
+const MAX_GRAPH_TURNS = 6;
 
 function annotateWorkflowFileHint(text) {
   return text;
@@ -57,6 +70,12 @@ function boundPersonaMemories(mems) {
     id: m.id,
     agent_name: m.agent_name,
     memory_type: m.memory_type,
+    domain: m.domain || 'persona',
+    verification_status: m.verification_status || 'confirmed',
+    lifecycle_status: m.lifecycle_status || 'active',
+    confidence: m.confidence ?? 1.0,
+    source_type: m.source_type || 'agent',
+    source_ref: m.source_ref || '',
     title: m.title,
     content: m.content && m.content.length > 300 ? m.content.substring(0, 300) + '...' : m.content,
     updated_at: m.updated_at
@@ -182,7 +201,7 @@ function _resolveFlowHash(args, taskDir) {
   return flowHash;
 }
 
-function _dispatchAgentDelegation(toolName, args, callerIdentity) {
+function _dispatchAgentDelegation(toolName, args, callerIdentity, agentRunner = runMcpAgent) {
   if (toolName === 'akatsuki') {
     const akatsukiExplicitLab = Boolean(
       args.workflow_type || args.standalone || args.authorized !== undefined || args.execute_workflow || args.run_workflow
@@ -196,31 +215,21 @@ function _dispatchAgentDelegation(toolName, args, callerIdentity) {
   }
 
   const delegatable = getCanonicalAgentNames().filter(n => n !== 'sannin');
-  const requested = normalizeAgentName(toolName);
-  if (!delegatable.includes(requested)) {
-    return null;
-  }
+  if (!delegatable.includes(normalizeAgentName(toolName))) return null;
 
-  const task = args.task || args.prompt || args.instructions;
-  const projectPath = args.project_path || getWorkspaceRoot();
-  const taskDir = args.task_dir;
-  const sessId = args.session_id || args.sessionId;
-  const flowHash = _resolveFlowHash(args, taskDir);
-  const worktree = args.worktree || args.worktree_path || null;
-
-  return runMcpAgent(toolName, {
-    task,
+  return agentRunner(toolName, {
+    task: args.task || args.prompt || args.instructions,
     context: args.context,
     constraints: args.constraints,
     skills: args.skills,
     tasteDials: args.taste_dials || args.tasteDials,
-    projectPath,
-    taskDir,
-    sessionId: sessId,
-    flowHash,
+    projectPath: args.project_path || getWorkspaceRoot(),
+    taskDir: args.task_dir,
+    sessionId: args.session_id || args.sessionId,
+    flowHash: _resolveFlowHash(args, args.task_dir),
     taskId: args.task_id || args.taskId || null,
     client: args.client || null,
-    worktree
+    worktree: args.worktree || args.worktree_path || null
   });
 }
 
@@ -260,22 +269,69 @@ function _dispatchWorkflowCore(toolName, args, agent) {
   return null;
 }
 
+/** The graph parks on a gate with the prompt envelope as a JSON string. */
+function _parseGateEnvelope(raw) {
+  if (raw && typeof raw === 'object') return raw;
+  if (typeof raw !== 'string') return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function _mergeSanninGraphResponse(parsedSannin, graphInitRes, threadId) {
   if (!parsedSannin || typeof graphInitRes !== 'object' || graphInitRes === null) {
     return graphInitRes;
   }
+  const checkpoint = {
+    thread_id: threadId,
+    graph_phase: graphInitRes.phase,
+    hitl_stage: graphInitRes.hitlStage || null,
+    flow_hash: graphInitRes.flowHash || parsedSannin.flow_hash
+  };
+  // LangGraph only carries channels declared in KonohaWorkflowState, so the
+  // Akatsuki verdict never survives as a top-level node key. It is persisted on
+  // the workflow status, which `formatGraphOutput` exposes as `workflow_status`.
+  const wfStatus = (graphInitRes.workflow_status && typeof graphInitRes.workflow_status === 'object')
+    ? graphInitRes.workflow_status
+    : (graphInitRes.status && typeof graphInitRes.status === 'object' ? graphInitRes.status : null);
+
+  // A parked gate IS the answer to this call. Merging the routing envelope over
+  // it would leave `instructions: spawn a subagent` on top of a paused workflow,
+  // so the agent never raises the picker and the gate is never answered.
+  // The envelope itself is the proof: a turn that stopped on the token budget
+  // also carries `hitlPending` from the checkpoint, but has no gate to answer.
+  const gateEnvelope = _parseGateEnvelope(graphInitRes.result);
+  if (gateEnvelope && gateEnvelope.hitl_gate && gateEnvelope.picker) {
+    return {
+      ...gateEnvelope,
+      status: 'awaiting_human',
+      phase: graphInitRes.phase,
+      task_id: parsedSannin.task_id,
+      task_dir: parsedSannin.task_dir,
+      flow_hash: parsedSannin.flow_hash,
+      session_id: parsedSannin.session_id,
+      client: parsedSannin.client,
+      selected_agent: parsedSannin.selected_agent,
+      confidence: graphInitRes.confidence ?? wfStatus?.confidence,
+      akatsukiPassed: wfStatus?.blue_mode_before_kage_verified,
+      akatsuki_gate: wfStatus?.akatsuki_gate || wfStatus?.akatsuki_final_gate,
+      hitlPending: true,
+      hitlStage: graphInitRes.hitlStage || null,
+      next_action: 'answer_hitl_gate',
+      langgraph_checkpoint: checkpoint
+    };
+  }
+
   if (parsedSannin.status === 'routed') {
     return {
       ...graphInitRes,
       ...parsedSannin,
       status: 'routed',
       phase: parsedSannin.phase || 'delegation',
-      langgraph_checkpoint: {
-        thread_id: threadId,
-        graph_phase: graphInitRes.phase,
-        hitl_stage: graphInitRes.hitlStage || null,
-        flow_hash: graphInitRes.flowHash || parsedSannin.flow_hash
-      },
+      langgraph_checkpoint: checkpoint,
       workflow_state: typeof graphInitRes.status === 'object' ? graphInitRes.status : undefined,
       selected_agent: parsedSannin.selected_agent || graphInitRes.assigned_agent || (graphInitRes.status && graphInitRes.status.assigned_agent),
     };
@@ -293,12 +349,12 @@ function _mergeSanninGraphResponse(parsedSannin, graphInitRes, threadId) {
 }
 
 async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
-  if (toolName === 'sannin') {
+  if (WORKFLOW_GRAPH_TOOLS.includes(toolName)) {
     const prompt = args.prompt || args.task || args.instructions;
     const projPath = args.project_path || getWorkspaceRoot();
     const sessId = args.session_id || args.sessionId;
 
-    const sanninRes = runSannin(prompt, args.task_dir, projPath, sessId, args);
+    const sanninRes = await runSanninAsync(prompt, args.task_dir, projPath, sessId, args);
     let parsedSannin = null;
     try {
       parsedSannin = JSON.parse(sanninRes);
@@ -309,18 +365,36 @@ async function _dispatchWorkflowGraphAsync(toolName, args, _agent) {
     }
 
     const resolvedTaskDir = (parsedSannin && parsedSannin.task_dir) || getResolvedTaskDir(args.task_dir, projPath, sessId);
-    const threadId = args.thread_id || args.threadId || (parsedSannin && parsedSannin.task_id) || (resolvedTaskDir ? path.basename(resolvedTaskDir) : 'default-thread');
+    const dirTaskId = resolvedTaskDir ? path.basename(resolvedTaskDir) : '';
+    const dirScopeHash = resolvedTaskDir
+      ? require('crypto').createHash('sha256').update(path.resolve(resolvedTaskDir)).digest('hex').slice(0, 8) : '';
+    const threadId = (dirTaskId && dirScopeHash) ? `${dirTaskId}-${dirScopeHash}` : ((parsedSannin && parsedSannin.task_id) || dirTaskId || 'default-thread');
     const tokenBudget = args.token_budget || args.tokenBudget;
-    const autoSignoff = Boolean(args.auto_signoff);
+    const _sdlcCfg = require('../workflow/kage-reviewer/sdlc_manager').getProjectSdlcConfig(projPath);
+    const autoSignoff = Boolean(args.auto_signoff && ((_sdlcCfg && _sdlcCfg.hitl_mode) || 'enabled') === 'disabled');
 
     try {
       const { sanninWorkflowInit } = require('./workflow');
-      const graphInitRes = await sanninWorkflowInit(resolvedTaskDir, {
+      // Gate answers and client identity must reach the graph state: without
+      // `client` the picker degrades to the web picker, and without `choice` a
+      // resumed gate is re-raised instead of applied.
+      const graphOptions = {
         prompt: prompt || (parsedSannin && parsedSannin.prompt),
         tokenBudget,
         threadId,
         autoSignoff,
-      });
+        choice: args.choice || args.gate_choice || args.gateChoice || args.hitl_choice || args.action,
+        refinement: args.refinement || args.feedback || args.notes,
+        client: (parsedSannin && parsedSannin.client) || args.client,
+        sessionId: (parsedSannin && parsedSannin.session_id) || sessId,
+      };
+      let graphInitRes = await sanninWorkflowInit(resolvedTaskDir, graphOptions);
+      // The per-turn token budget halts the graph mid-flight. A client that made
+      // one tool call expects a gate or a result, not a resume instruction, so
+      // keep turning until the workflow is parked or done.
+      for (let turn = 1; turn < MAX_GRAPH_TURNS && graphInitRes.status === 'paused_budget_exceeded'; turn++) {
+        graphInitRes = await sanninWorkflowInit(resolvedTaskDir, { ...graphOptions, choice: null, refinement: null });
+      }
       return _mergeSanninGraphResponse(parsedSannin, graphInitRes, threadId);
     } catch (graphErr) {
       if (typeof logToolCall === 'function') {
@@ -362,73 +436,7 @@ function _dispatchMemory(toolName, args, agent) {
   return null;
 }
 
-function _dispatchPersonaMemory(toolName, args, agent) {
-  if (toolName === 'save_persona_memory') {
-    const targetAgent = args.agent_name || agent;
-    const content = args.content || '';
-    if (!targetAgent || !content) return JSON.stringify({ error: 'agent_name and content are required.' });
-    try {
-      const mid = personaMemory.saveMemory({
-        agentName: targetAgent, content, title: args.title || '', memoryType: args.memory_type || 'rule',
-        tags: args.tags || '', importance: parseInt(args.importance || 1, 10),
-        projectPath: args.project_path || getWorkspaceRoot(), sessionId: args.session_id
-      });
-      return JSON.stringify({ status: 'saved', id: mid, agent: targetAgent });
-    } catch (e) {
-      return JSON.stringify({ error: `Failed to save memory: ${e.message}` });
-    }
-  }
-  if (toolName === 'query_persona_memory') {
-    const targetAgent = args.agent_name || agent;
-    const projectPath = args.project_path || getWorkspaceRoot();
-    try {
-      const mems = personaMemory.queryMemories({
-        agentName: targetAgent, query: args.query || '', memoryType: args.memory_type,
-        projectPath, sessionId: args.session_id || getActiveSessionId(projectPath),
-        allSessions: Boolean(args.all_sessions || args.allSessions), limit: Math.min(Math.max(parseInt(args.limit || 5, 10), 1), 10)
-      });
-      const boundedMems = boundPersonaMemories(mems);
-      return JSON.stringify({ agent: targetAgent, count: boundedMems.length, memories: boundedMems });
-    } catch (e) {
-      return JSON.stringify({ error: `Failed to query memories: ${e.message}` });
-    }
-  }
-  if (toolName === 'list_persona_memories') {
-    const projectPath = args.project_path || getWorkspaceRoot();
-    try {
-      const mems = personaMemory.listMemories({
-        agentName: args.agent_name, memoryType: args.memory_type, projectPath,
-        sessionId: args.session_id || getActiveSessionId(projectPath),
-        allSessions: Boolean(args.all_sessions || args.allSessions), limit: Math.min(Math.max(parseInt(args.limit || 10, 10), 1), 20)
-      });
-      const boundedMems = boundPersonaMemories(mems);
-      return JSON.stringify({ count: boundedMems.length, memories: boundedMems });
-    } catch (e) {
-      return JSON.stringify({ error: `Failed to list memories: ${e.message}` });
-    }
-  }
-  if (toolName === 'delete_persona_memory') {
-    if (!args.id) return JSON.stringify({ error: 'Memory id is required.' });
-    try {
-      const deleted = personaMemory.deleteMemory(args.id);
-      return JSON.stringify({ status: deleted ? 'deleted' : 'not_found', id: args.id });
-    } catch (e) {
-      return JSON.stringify({ error: `Failed to delete memory: ${e.message}` });
-    }
-  }
-  if (toolName === 'get_soul') {
-    const agentName = args.agent_name || args.agent || null;
-    const projectPath = args.project_path || getWorkspaceRoot();
-    const raw = Boolean(args.raw);
-    try {
-      const soul = personaMemory.getSoul({ agentName, projectPath, raw });
-      return raw ? (soul.raw_markdown || '') : JSON.stringify(soul);
-    } catch (e) {
-      return JSON.stringify({ error: `Failed to load soul: ${e.message}` });
-    }
-  }
-  return null;
-}
+const { dispatchPersonaMemory } = require('./persona_memory_dispatch');
 
 function _dispatchAuditAndDetectors(toolName, args, agent) {
   if (toolName === 'get_task_evidence' || toolName === 'get_slop_findings') {
@@ -492,7 +500,7 @@ function _executeToolInternal(toolName, args, agent) {
   const memRes = _dispatchMemory(toolName, args, agent);
   if (memRes !== null) return memRes;
 
-  const personaRes = _dispatchPersonaMemory(toolName, args, agent);
+  const personaRes = dispatchPersonaMemory(toolName, args, agent, boundPersonaMemories);
   if (personaRes !== null) return personaRes;
 
   const auditRes = _dispatchAuditAndDetectors(toolName, args, agent);
@@ -502,27 +510,29 @@ function _executeToolInternal(toolName, args, agent) {
 }
 
 /**
- * Identity resolution rule: an explicitly supplied agent is authoritative.
- * Detection only applies when no agent was supplied — a caller cannot borrow
- * the detected identity (e.g. @akatsuki) by passing a different agent name.
+ * Identity resolution rule: an active @genin session is pinned to strict
+ * read-only mode even if args override agent; otherwise an explicit agent
+ * is respected and detection applies when no agent was supplied.
  */
+const {
+  checkGeninToolAccess,
+  applyGeninCodeIndexBounds,
+  resolveAgentIdentity
+} = require('./genin_guard');
+
 function _resolveAgentIdentity(args) {
-  const explicit = args.agent || args.agent_name;
-  if (explicit) return normalizeAgentName(String(explicit));
-  const detected = detectActiveAgent();
-  return detected ? normalizeAgentName(String(detected)) : '';
+  return resolveAgentIdentity(args, detectActiveAgent);
 }
 
 function executeToolSync(toolName, args = {}) {
-  let agent = _resolveAgentIdentity(args);
-  const GENIN_BLOCKED_MUTATION_TOOLS = [
-    'document_create', 'spreadsheet_create', 'presentation_create',
-    'diagram_create', 'animation_export'
-  ];
-  if (agent === 'genin' && GENIN_BLOCKED_MUTATION_TOOLS.includes(toolName)) {
-    return JSON.stringify({
-      error: `Permission denied: @genin is in strict read-only mode and cannot call '${toolName}'. Use read-only exploration or delegate to anbu/tokubetsu-jonin.`
-    });
+  const agent = _resolveAgentIdentity(args);
+  const geninCheck = checkGeninToolAccess(toolName, args, () => agent);
+  if (!geninCheck.allowed) {
+    return JSON.stringify({ error: geninCheck.error });
+  }
+  const boundedArgs = applyGeninCodeIndexBounds(toolName, args, agent);
+  if (toolName.startsWith('code_')) {
+    return require('../file_tools_router').dispatchTool(toolName, boundedArgs).text;
   }
 
   if (['web_search', 'document_create', 'spreadsheet_create', 'presentation_create', 'diagram_create', 'animation_export'].includes(toolName)) {
@@ -546,25 +556,16 @@ async function _executeHeavyToolAsync(toolName, args, agent) {
     const searchDepth = ['standard', 'deep'].includes(args.search_depth) ? args.search_depth : 'standard';
     return await runWebSearch(query, numResults, searchDepth, agent);
   }
-  if (toolName === 'document_create') {
-    const { documentCreate } = require('../workflow/tokubetsu-scribe/document_engine');
-    return JSON.stringify(await documentCreate(args));
-  }
-  if (toolName === 'spreadsheet_create') {
-    const { spreadsheetCreate } = require('../workflow/tokubetsu-scribe/document_engine');
-    return JSON.stringify(await spreadsheetCreate(args));
-  }
-  if (toolName === 'presentation_create') {
-    const { presentationCreate } = require('../workflow/tokubetsu-scribe/document_engine');
-    return JSON.stringify(await presentationCreate(args));
-  }
-  if (toolName === 'diagram_create') {
-    const { diagramCreate } = require('../workflow/tokubetsu-scribe/document_engine');
-    return JSON.stringify(await diagramCreate(args));
-  }
-  if (toolName === 'animation_export') {
-    const { animationExport } = require('../workflow/tokubetsu-scribe/document_engine');
-    return JSON.stringify(await animationExport(args));
+  const docEngineMethod = {
+    document_create: 'documentCreate',
+    spreadsheet_create: 'spreadsheetCreate',
+    presentation_create: 'presentationCreate',
+    diagram_create: 'diagramCreate',
+    animation_export: 'animationExport'
+  }[toolName];
+  if (docEngineMethod) {
+    const docEngine = require('../workflow/tokubetsu-scribe/document_engine');
+    return JSON.stringify(await docEngine[docEngineMethod](args));
   }
   if (toolName === 'website_ai_detector') {
     const target = args.target || args.path || args.url || args.site;
@@ -581,16 +582,30 @@ async function _executeHeavyToolAsync(toolName, args, agent) {
 
 async function executeTool(toolName, args = {}) {
   const agent = _resolveAgentIdentity(args);
+  const geninCheck = checkGeninToolAccess(toolName, args, () => agent);
+  if (!geninCheck.allowed) {
+    return JSON.stringify({ error: geninCheck.error });
+  }
+  const boundedArgs = applyGeninCodeIndexBounds(toolName, args, agent);
+  if (toolName.startsWith('code_')) {
+    const dispatched = await require('../file_tools_router').dispatchToolAsync(toolName, boundedArgs);
+    return dispatched.text;
+  }
 
-  const heavyRes = await _executeHeavyToolAsync(toolName, args, agent);
+  const heavyRes = await _executeHeavyToolAsync(toolName, boundedArgs, agent);
   if (heavyRes !== null) return heavyRes;
 
-  const graphRes = await _dispatchWorkflowGraphAsync(toolName, args, agent);
+  const graphRes = await _dispatchWorkflowGraphAsync(toolName, boundedArgs, agent);
   if (graphRes !== null) {
     return typeof graphRes === 'object' ? JSON.stringify(graphRes) : graphRes;
   }
 
-  const res = _executeToolInternal(toolName, args, agent);
+  const delegationRes = await _dispatchAgentDelegation(toolName, boundedArgs, agent, runMcpAgentAsync);
+  if (delegationRes !== null) {
+    return typeof delegationRes === 'object' ? JSON.stringify(delegationRes) : delegationRes;
+  }
+
+  const res = _executeToolInternal(toolName, boundedArgs, agent);
   if (typeof res === 'object' && res !== null) {
     return JSON.stringify(res);
   }
@@ -609,6 +624,7 @@ function validateManifestArguments(toolName, args) {
 }
 
 module.exports = {
+  WORKFLOW_GRAPH_TOOLS,
   _executeToolInternal,
   executeToolSync,
   executeTool,

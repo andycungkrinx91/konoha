@@ -14,17 +14,12 @@ const {
   setActiveClient,
   uriToPath,
   isIdeInstallationDir,
-  HOME,
-  GEMINI_DIR
+  HOME
 } = require('./runtime_state');
 const { detectActiveClient } = require('./client_detection');
 const { autoMigrateProjectSkills } = require('./skills');
-const { executeTool } = require('./tool_dispatch');
-
-const ANTIGRAVITY_CLI = path.join(GEMINI_DIR, 'antigravity-cli');
-const ANTIGRAVITY_IDE = path.join(GEMINI_DIR, 'antigravity-ide');
-const ANTIGRAVITY_CLI_BRAIN = path.join(ANTIGRAVITY_CLI, 'brain');
-const ANTIGRAVITY_IDE_BRAIN = path.join(ANTIGRAVITY_IDE, 'brain');
+const { executeTool, WORKFLOW_GRAPH_TOOLS, validateManifestArguments } = require('./tool_dispatch');
+const { createRequestScheduler } = require('./request_scheduler');
 
 function getServerVersion() {
   const candidates = [
@@ -57,14 +52,6 @@ const SUPPORTED_PROTOCOL_VERSIONS = MCP_MANIFEST.protocol_versions || ['2024-11-
 let MCP_INITIALIZED = false;
 
 
-function resolveAntigravityClient(isCli, convId) {
-  if (!convId) return isCli ? 'agy' : 'antigravity';
-  if (isCli) return 'agy';
-  if (fs.existsSync(path.join(ANTIGRAVITY_CLI_BRAIN, convId))) return 'agy';
-  if (fs.existsSync(path.join(ANTIGRAVITY_IDE_BRAIN, convId))) return 'antigravity';
-  return 'agy';
-}
-
 function resolveClientFromInfo(clientInfo) {
   const clientName = (clientInfo?.name || '').toLowerCase();
   if (clientName.includes('cursor')) return 'cursor';
@@ -74,12 +61,10 @@ function resolveClientFromInfo(clientInfo) {
   if (clientName.includes('codex')) return 'codex';
   if (clientName.includes('pi')) return 'pi';
   if (clientName.includes('omp')) return 'omp';
-  if (clientName.includes('antigravity-cli') || clientName.includes('agy')) return 'agy';
-  if (clientName.includes('antigravity') || clientName.includes('ide')) {
-    const convId = process.env.ANTIGRAVITY_CONVERSATION_ID;
-    const isCli = (process.env.ANTIGRAVITY_LS_VERSION || '').startsWith('cli') || (process.env.ANTIGRAVITY_AGENTAPI_EXE || '').includes('agy');
-    return resolveAntigravityClient(isCli, convId);
-  }
+  if (clientName.includes('antigravity-cli') || clientName.includes('agy')) return 'antigravity';
+  // `agy` is the CLI binary name, not a client identity: CLI and IDE are one
+  // harness, so both spellings resolve here and the database never sees two.
+  if (clientName.includes('antigravity') || clientName.includes('ide')) return 'antigravity';
   return detectActiveClient();
 }
 
@@ -131,7 +116,7 @@ function _normalizeToolArgs(rawArgs, toolName) {
   try {
     return JSON.parse(args);
   } catch (_) {
-    const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki'];
+    const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki', 'yamanaka'];
     if (AGENT_DELEGATION_TOOLS.includes(toolName)) {
       return { task: args.trim() };
     }
@@ -145,6 +130,19 @@ async function _handleToolsCall(p, rid) {
   const knownTools = new Set((MCP_MANIFEST.tools || []).map(t => t.name));
   if (!toolName || !knownTools.has(toolName)) {
     return { jsonrpc: '2.0', id: rid, error: { code: -32601, message: `Unknown tool: ${toolName}` } };
+  }
+
+  try {
+    validateManifestArguments(toolName, args);
+  } catch (err) {
+    return {
+      jsonrpc: '2.0',
+      id: rid,
+      result: {
+        content: [{ type: 'text', text: JSON.stringify({ error: 'invalid_arguments', message: err.message, tool: toolName }) }],
+        isError: true
+      }
+    };
   }
 
   let resultText;
@@ -219,20 +217,18 @@ async function main() {
     input: process.stdin,
     terminal: false
   });
+  let resolveDone;
+  const done = new Promise((resolve) => { resolveDone = resolve; });
+  const scheduler = createRequestScheduler({
+    serializedTools: WORKFLOW_GRAPH_TOOLS,
+    handleRequest,
+    writeLine: (obj) => console.log(JSON.stringify(obj)),
+    onIdleClose: resolveDone
+  });
 
-  for await (const line of rl) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      const req = JSON.parse(trimmed);
-      const resp = await handleRequest(req);
-      if (resp !== null) {
-        console.log(JSON.stringify(resp));
-      }
-    } catch (e) {
-      console.log(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message: `Parse error: ${e.message}` } }));
-    }
-  }
+  rl.on('line', (line) => scheduler.enqueueLine(line));
+  rl.on('close', () => scheduler.markClosing());
+  await done;
 }
 
 module.exports = {

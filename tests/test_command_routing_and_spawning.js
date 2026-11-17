@@ -68,13 +68,24 @@ function runTests() {
     assert.strictEqual(wfStep2.phase, 'review', 'Direct subagent completion must transition immediately to mandatory Kage review');
     assert.strictEqual(wfStep2.agent, 'kage', 'Mandatory review after direct subagent must be assigned to kage');
 
-    const clients = ['antigravity', 'cursor', 'claude', 'commandcode', 'opencode', 'codex', 'pi', 'omp'];
+    const clients = ['antigravity', 'cursor', 'claude', 'commandcode', 'opencode', 'codex', 'omp'];
     for (const c of clients) {
       const desc = resolveSpawnDescriptor(c);
       assert.ok(desc && desc.tool, `Client ${c} must have a valid subagent spawn descriptor`);
       const directive = buildSpawnDirective({ client: c, agent: 'anbu', prompt: 'test' });
       assert.ok(directive.includes('anbu'), `Spawn directive for ${c} must reference target agent`);
     }
+
+    // Bare Pi ships no native subagent tool, so it must fail closed with
+    // UNSUPPORTED_NATIVE_SPAWN instead of silently emulating native spawning.
+    const piDirective = buildSpawnDirective({ client: 'pi', agent: 'anbu', prompt: 'test', piSubagentSupported: false });
+    const piErr = JSON.parse(piDirective);
+    assert.strictEqual(piErr.ok, false, 'Bare Pi spawn must fail closed');
+    assert.strictEqual(piErr.error_code, 'UNSUPPORTED_NATIVE_SPAWN', 'Bare Pi must return UNSUPPORTED_NATIVE_SPAWN');
+    assert.ok(piErr.action.includes('pi-subagents'), 'Bare Pi error must explain installing pi-subagents');
+
+    const piExtDirective = buildSpawnDirective({ client: 'pi', agent: 'anbu', prompt: 'test', piSubagentSupported: true });
+    assert.ok(piExtDirective.includes('subagent(agent="anbu"'), 'Pi with pi-subagents must emit subagent(...) directive');
 
     const cliPath = path.resolve(__dirname, '..', 'bin', 'cli.js');
     const runAgentRes = spawnSync(process.execPath, [

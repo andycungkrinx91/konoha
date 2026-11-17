@@ -38,10 +38,58 @@ async function runTests() {
   };
 
   for (const [client, expectedTool] of Object.entries(clientExpectedTools)) {
-    const dir = buildClientTodoDirective(client, sampleTodos, sampleWalkthrough);
+    const dir = buildClientTodoDirective(client, sampleTodos, sampleWalkthrough, { taskDir: tmpTaskDir });
     assert.strictEqual(dir.native_tool, expectedTool, `Expected ${expectedTool} for ${client}, got ${dir.native_tool}`);
     assert.ok(dir.markdown_checklist.includes('step_1'));
+    assert.ok(dir.native_payload && typeof dir.native_payload === 'object', `Expected native_payload object for ${client}`);
   }
+
+  const liveSynced = syncTodoAndWalkthrough({
+    phase: 'execute',
+    prompt: 'Fix authentication token refresh race condition',
+    tasks: sampleTodos
+  }, {
+    taskDir: tmpTaskDir,
+    client: 'claudecode'
+  });
+  assert.ok(fs.existsSync(path.join(tmpTaskDir, 'TODO.md')), 'TODO.md must be written on sync');
+  const todoMd = fs.readFileSync(path.join(tmpTaskDir, 'TODO.md'), 'utf8');
+  assert.ok(todoMd.includes('step_2'), 'TODO.md must render current task checklist');
+  assert.ok(liveSynced.client_todo_directive.native_payload && Array.isArray(liveSynced.client_todo_directive.native_payload.todos));
+
+  const { reportFromAgent } = require('../src/mcp/memory_project_context');
+  const liveTaskDir = path.join(tmpTaskDir, 'live-sync');
+  fs.mkdirSync(liveTaskDir, { recursive: true });
+  fs.writeFileSync(path.join(liveTaskDir, 'status.json'), JSON.stringify({
+    task_id: 'live_sync_1',
+    client: 'codex',
+    phase: 'execute',
+    prompt: 'Realtime TODO progression check',
+    current_dispatch: { id: 'disp_1', agent: 'anbu', task_id: 'step_2' },
+    tasks: [
+      { id: 'step_1', content: 'Audit auth', status: 'completed', agent: 'genin' },
+      { id: 'step_2', content: 'Patch race', status: 'in_progress', agent: 'anbu' }
+    ]
+  }, null, 2), 'utf8');
+  const reportRes = JSON.parse(reportFromAgent({
+    agent_name: 'anbu',
+    summary: 'Patched race condition cleanly',
+    validation: ['node tests/test_hitl_compaction_and_todos.js exited 0'],
+    task_dir: liveTaskDir,
+    dispatch_id: 'disp_1',
+    client: 'codex'
+  }));
+  assert.ok(Array.isArray(reportRes.todos), 'reportFromAgent must return synced todos');
+  assert.strictEqual(reportRes.todos.find(t => t.id === 'step_2').status, 'completed', 'reportFromAgent must advance completed task in realtime');
+  assert.ok(reportRes.client_todo_directive && reportRes.client_todo_directive.native_tool === 'update_plan');
+  assert.ok(reportRes.client_todo_directive.native_payload && Array.isArray(reportRes.client_todo_directive.native_payload.plan));
+
+  const traversalReport = JSON.parse(reportFromAgent({
+    agent_name: 'anbu',
+    summary: 'Attempt traversal write',
+    task_dir: '../../outside-root'
+  }));
+  assert.strictEqual(traversalReport.status, 'error', 'reportFromAgent must reject path-traversal task_dir');
 
   const statusObj = {
     phase: 'plan_approval',

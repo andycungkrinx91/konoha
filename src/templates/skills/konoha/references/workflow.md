@@ -1,4 +1,4 @@
-# 🍃 Konoha LangGraph.js Production StateGraph Workflow (v2.2.21)
+# 🍃 Konoha LangGraph.js Production StateGraph Workflow (v2.2.22)
 
 Technical specification and operational guide for the LangGraph.js cyclic StateGraph orchestration engine, parallel git worktree execution, Real-Time Idle `@advisor` worker guard, native walkthrough/TODO synchronization, per-turn token budget governor, and HITL gates.
 
@@ -6,7 +6,7 @@ Technical specification and operational guide for the LangGraph.js cyclic StateG
 
 ## 🏗️ StateGraph Architecture Overview
 
-In Konoha `v2.2.21`, all multi-step engineering tasks and `/konoha <prompt>` invocations run on a compiled, cyclic LangGraph.js StateGraph (`src/mcp/langgraph/index.js`) with persistent SQLite checkpoints via `KonohaCheckpointSaver`.
+In Konoha `v2.2.22`, all multi-step engineering tasks and `/konoha <prompt>` invocations run on a compiled, cyclic LangGraph.js StateGraph (`src/mcp/langgraph/index.js`) with persistent SQLite checkpoints via `KonohaCheckpointSaver`.
 
 ### Dual-Track Execution Model
 1. **Branch B (Fast-Track / Single-Slice Tasks)**: Direct single-domain requests or slash shortcuts (`/jonin`, `/anbu`, `/genin`, etc.) dispatch with a compact delegation envelope (`<= 3KB` router payload) and client-native `spawn_directive`.
@@ -72,11 +72,13 @@ In Konoha `v2.2.21`, all multi-step engineering tasks and `/konoha <prompt>` inv
 
 ---
 
-## 🛡️ Real-Time Idle `@advisor` Worker Manager (`<= 1,000 Tokens` / Turn)
+## 🛡️ Real-Time Idle `@advisor` Worker Manager (`<= 8,192 Tokens` / Turn)
 
-Implemented in `src/workflow/kage-reviewer/advisor_monitor.js` and integrated into `konoha.report_from_agent` and SDLC settings:
-- **Zero-Token Idle State**: When workers are idle or compliant, `@advisor` returns `status: 'IDLE_OK'` with **`0` output tokens**.
-- **Hard 1,000-Token Per-Turn Cap**: Input digests and interrupt directives are clamped via `clampAdvisorBytes` to **`<= 4,000 bytes` (`<= 1,000 tokens`)** per turn with `evict_stale_results: true` (OMP-aligned).
+Implemented in `src/workflow/kage-reviewer/advisor_monitor.js` and integrated into `konoha.report_from_agent`, `runMcpAgent`, `sannin`, and SDLC settings:
+- **Zero-Token Idle State**: When workers are idle or compliant, `@advisor` sits idle from turn 0 and returns `status: 'IDLE_OK'` with **`0` output tokens**.
+- **8,192-Token Per-Turn Cap**: Input digests and interrupt directives are clamped via `clampAdvisorBytes` to **`<= 32,768 bytes` (`<= 8,192 tokens`)** with Head+Middle+Tail preservation (`advisor_max_tokens = 8192`).
+- **Dynamic 100k Per-Agent Input Token Quota (`agent_input_token_quota` / `KONOHA_AGENT_INPUT_TOKEN_QUOTA`)**: Compaction activates dynamically when an agent reaches its input token quota (default `100,000`), saves a per-agent snapshot in LangGraph SQLite checkpoint state (`lg_checkpoints` namespace `agent:<name>` and `KonohaWorkflowState.agentSnapshots`), resets the baseline, and auto-continues from `## LATEST CONDITION CHECKPOINT (Auto-Continue)`.
+- **Realtime Client TODO Sync**: `syncTodoAndWalkthrough` emits full `client_todo_directive` (`native_payload` + `markdown_checklist` + `walkthrough_steps`) and updates `TODO.md` + `sdlc_tasks` across all 8 harnesses on every transition.
 - **5-Point Real-Time Guard**:
   1. `todo_drift`: Worker output deviates from the delegated task slice.
   2. `owned_files_breach` / `worktree_escape`: Worker modifies files outside `owned_files` or outside `worktree_path`.

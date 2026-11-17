@@ -217,6 +217,57 @@ async function run() {
   assert.strictEqual(session.exhausted(), true);
   console.log('  ✓ Token clamp and session budget accounting verified.');
 
+  console.log('--- Testing Dynamic Quota (100k Default + KONOHA_AGENT_INPUT_TOKEN_QUOTA) & LangGraph State Checkpointing ---');
+  assert.strictEqual(LIMITS.MAX_INPUT_TOKENS, 180000);
+  assert.strictEqual(LIMITS.COMPACT_THRESHOLD_TOKENS, 100000);
+
+  const os = require('os');
+  const fs = require('fs');
+  const path = require('path');
+  const db = require('../src/db');
+  const { getLatestLangGraphCompactionState } = require('../src/context_compaction');
+  const prevBridgeDb = db.DB_PATH;
+  const budgetTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-bridge-quota-'));
+  db.DB_PATH = path.join(budgetTmpDir, 'bridge_quota.db');
+  const prevBridgeQuota = process.env.KONOHA_AGENT_INPUT_TOKEN_QUOTA;
+  try {
+    process.env.KONOHA_AGENT_INPUT_TOKEN_QUOTA = '3000';
+    const dynMessages = Array.from({ length: 12 }, (_, idx) => ({
+      role: idx % 2 === 0 ? 'user' : 'assistant',
+      content: `Turn ${idx}: ${'telemetry '.repeat(220)}`
+    }));
+    const dynRes = validateRequestBudget(
+      { model: 'claude-3-5-sonnet', system: 'Head invariant', messages: dynMessages },
+      { taskDir: budgetTmpDir, taskId: 'bridge_q1', agent: 'anbu', sessionId: 'sess-bridge-q' }
+    );
+    assert.strictEqual(dynRes.ok, true);
+    assert.strictEqual(dynRes.compacted, true);
+    assert.strictEqual(dynRes.auto_continue, true);
+    assert.strictEqual(dynRes.quota_tokens, 3000);
+    assert.strictEqual(dynRes.backend, 'langgraph_state');
+    assert.strictEqual(dynRes.checkpoint_ns, 'agent:anbu');
+    assert.ok(dynRes.checkpoint_id, 'Bridge compaction must persist a LangGraph checkpoint_id');
+    const saved = getLatestLangGraphCompactionState({ taskId: 'bridge_q1', agent: 'anbu' });
+    assert.ok(saved && saved.state && saved.state.agent === 'anbu', 'Bridge compaction must be readable from lg_checkpoints');
+
+    // Security: untrusted payload.taskDir / payload.taskId must be ignored by validateRequestBudget
+    const poisonedRes = validateRequestBudget(
+      { model: 'claude-3-5-sonnet', system: 'Head invariant', taskDir: '/etc/evil', taskId: 'evil_t1', agent: 'anbu', messages: dynMessages },
+      { taskId: 'trusted_bridge_q2', agent: 'anbu', sessionId: 'sess-bridge-q2' }
+    );
+    assert.strictEqual(poisonedRes.ok, true);
+    assert.strictEqual(poisonedRes.compacted, true);
+    assert.strictEqual(getLatestLangGraphCompactionState({ taskId: 'evil_t1', agent: 'anbu' }), null, 'Untrusted payload.taskId must not control checkpoint storage');
+    const trustedSaved = getLatestLangGraphCompactionState({ taskId: 'trusted_bridge_q2', agent: 'anbu' });
+    assert.ok(trustedSaved && trustedSaved.state && trustedSaved.state.task_id === 'trusted_bridge_q2');
+  } finally {
+    db.DB_PATH = prevBridgeDb;
+    if (prevBridgeQuota === undefined) delete process.env.KONOHA_AGENT_INPUT_TOKEN_QUOTA;
+    else process.env.KONOHA_AGENT_INPUT_TOKEN_QUOTA = prevBridgeQuota;
+    fs.rmSync(budgetTmpDir, { recursive: true, force: true });
+  }
+  console.log('  ✓ Dynamic 100k default, KONOHA_AGENT_INPUT_TOKEN_QUOTA override, LangGraph state checkpoint & auto_continue verified.');
+
   console.log('All tests in test_bridge_request_budget.js passed cleanly!');
 }
 

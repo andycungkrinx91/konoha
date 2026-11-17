@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('path');
+const { slicePreservingHeadMiddleTail } = require('../context_budget');
 const {
   getResolvedTaskDir,
   loadWorkflowStatus,
@@ -91,9 +92,7 @@ function _dispatchPlanPhase(status, resolvedTaskDir) {
   if (status.plan_refinement) {
     findingsRaw += `\n\n### Plan Refinement Feedback\n${status.plan_refinement}`;
   }
-  const findingsSummary = findingsRaw.length > 500
-    ? findingsRaw.slice(0, 500).trim() + '...'
-    : findingsRaw;
+  const findingsSummary = slicePreservingHeadMiddleTail(findingsRaw, 500, { markerLabel: 'findings-anchor' });
   status.assigned_agent = 'kage';
   saveWorkflowStatus(resolvedTaskDir, status);
   return JSON.stringify({ status: 'ready', phase: 'plan', agent: 'kage', dispatch_id: dispatch.id, task_dir: resolvedTaskDir, findings: findingsSummary, skill_directive: SKILL_RETRIEVAL_DIRECTIVE });

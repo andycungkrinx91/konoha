@@ -3,8 +3,9 @@
 const path = require('path');
 const { saveWorkflowStatus, cleanupTransientScratchFiles } = require('./workflow_common');
 const { syncTodoAndWalkthrough } = require('./todo_walkthrough_sync');
-const { setSessionTurn, getSessionKey } = require('./client_detection');
 const { buildPickerBinding } = require('./hitl_picker');
+const { slicePreservingHeadMiddleTail } = require('../context_budget');
+const { resolveDynamicInputQuota, captureLangGraphCompactionState } = require('../context_compaction');
 // Layout-invariant: `src/mcp` is mirrored flat into `~/.konoha/mcp`, where
 // `../../bin` escapes to `~/bin` and does not exist.
 const { getConfigValue } = require('../config_access');
@@ -28,25 +29,22 @@ function compactPostApprovalContext(resolvedTaskDir, status = {}, options = {}) 
   }), 'utf8');
 
   const rawPlan = String(status.plan || '').trim();
-  const planLines = rawPlan.split('\n').filter((l) => l.trim());
-  const compactPlanSummary = planLines.slice(0, 18).join('\n').slice(0, 1200);
+  const compactPlanSummary = slicePreservingHeadMiddleTail(rawPlan, 1800, { markerLabel: 'compacted after Gate 1 approval' });
 
-  if (rawPlan.length > 1200) {
+  if (rawPlan.length > 1800) {
     status.plan_full_length = rawPlan.length;
-    status.plan = `${compactPlanSummary}\n...[compacted after Gate 1 approval]`;
+    status.plan = compactPlanSummary;
   }
-  if (status.findings && String(status.findings).length > 360) {
-    status.findings = `${String(status.findings).slice(0, 360).trim()}... [compacted]`;
+  if (status.findings && String(status.findings).length > 600) {
+    status.findings = slicePreservingHeadMiddleTail(String(status.findings), 600, { markerLabel: 'compacted' });
   }
-  if (status.exploration_evidence && String(status.exploration_evidence).length > 360) {
-    status.exploration_evidence = `${String(status.exploration_evidence).slice(0, 360).trim()}... [compacted]`;
+  if (status.exploration_evidence && String(status.exploration_evidence).length > 600) {
+    status.exploration_evidence = slicePreservingHeadMiddleTail(String(status.exploration_evidence), 600, { markerLabel: 'compacted' });
   }
 
   const projPath = options.projectPath || status.project_path || process.cwd();
   const sessId = options.sessionId || status.session_id || 'default';
-  try {
-    setSessionTurn(getSessionKey(projPath, sessId), 2);
-  } catch (_) { /* best-effort session turn bump */ }
+  const quotaTokens = resolveDynamicInputQuota({ explicitQuota: options.agentInputTokenQuota });
 
   const postBytes = Buffer.byteLength(JSON.stringify({
     plan: status.plan || '',
@@ -55,13 +53,37 @@ function compactPostApprovalContext(resolvedTaskDir, status = {}, options = {}) 
     history: status.history || []
   }), 'utf8');
 
+  const observedInputTokens = Math.ceil(preBytes / 3.5);
+  const capture = captureLangGraphCompactionState({
+    taskDir: resolvedTaskDir || '',
+    projectPath: projPath,
+    sessionId: sessId,
+    agent: status.assigned_agent || 'sannin',
+    task: status.prompt || '',
+    taskId: status.task_id || (resolvedTaskDir ? path.basename(resolvedTaskDir) : ''),
+    todos: status.tasks || [],
+    work: status.plan || '',
+    latestCondition: compactPlanSummary,
+    quotaTokens,
+    observedInputTokens,
+    trigger: 'gate1_approval',
+    status
+  });
+
   const summary = {
     compacted: true,
     compacted_at: new Date().toISOString(),
+    backend: 'langgraph_state',
     bytes_before: preBytes,
     bytes_after: postBytes,
     bytes_saved: Math.max(0, preBytes - postBytes),
-    auto_compaction_turn: 2,
+    compact_trigger: 'gate1_approval',
+    agent_input_token_quota: quotaTokens,
+    auto_continue: true,
+    thread_id: capture.thread_id,
+    checkpoint_ns: capture.checkpoint_ns,
+    checkpoint_id: capture.checkpoint_id || null,
+    preserved_anchors: ['head', 'middle', 'tail'],
     client_compact_directive: 'Context compacted after Gate 1 approval. Proceed directly with TodoWrite/task_boundary execution.'
   };
   status.compaction = summary;

@@ -11,17 +11,44 @@ Two physically separate SQLite files. Nothing joins across them, and no write pa
 
 ## Main DB
 
-Sixteen tables appear below — those with relationships or security relevance. The
+Twenty-four tables appear below — those with relationships or security relevance (`CURRENT_SCHEMA_VERSION = 9`). The
 remaining main tables (`assets`, `asset_files`, `generation_jobs`, `llm_requests_3d`,
-`schema_migrations`, `validation_results`) and SQLite's own `*_fts*`, `sqlite_sequence`,
-and `_sqliteai_vector` bookkeeping tables are omitted as standalone storage.
+`schema_migrations`, `validation_results`, `code_chunks_fts` virtual table, `persona_memories_fts`, `skills_fts`, and SQLite's `*_fts*` / `sqlite_sequence` bookkeeping tables) are omitted as standalone storage.
 
 ```mermaid
+---
+title: Konoha Main SQLite Database ERD
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f0fdf4'
+    tertiaryColor: '#fff7ed'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
+---
 erDiagram
     agents ||..o| soul_archetypes : "agent_name (logical)"
     skills ||--o{ skill_chunks : "skill_name = name"
     projects ||--o{ persona_memories : "project_hash"
+    persona_memories ||..o{ memory_audit_events : "memory_id (immutable log)"
+    persona_memories ||..o{ memory_relations : "source_memory_id / target_memory_id"
     projects ||..o{ active_sessions : "project_hash (logical)"
+    code_index_roots ||--o{ code_files : "root_hash"
+    code_index_roots ||--o{ code_edges : "root_hash"
+    code_files ||--o{ code_symbols : "file_id"
+    code_files ||--o{ code_refs : "file_id"
+    code_files ||--o{ code_edges : "source_file_id / target_file_id"
+    code_files ||--o{ code_chunks : "file_id"
+    code_symbols ||..o{ code_refs : "target_symbol_id (SET NULL)"
+    code_symbols ||..o{ code_edges : "source_symbol_id / target_symbol_id"
 
     agents {
         TEXT name PK
@@ -86,6 +113,7 @@ erDiagram
         TEXT hitl_mode
         TEXT advisor_mode
         INTEGER advisor_max_tokens
+        INTEGER agent_input_token_quota
         TEXT created_at
         TEXT updated_at
     }
@@ -100,8 +128,56 @@ erDiagram
         TEXT content
         TEXT tags
         INTEGER importance
+        TEXT domain
+        TEXT source_type
+        TEXT source_ref
+        TEXT creator_agent
+        REAL confidence
+        TEXT verification_status
+        TEXT lifecycle_status
+        TEXT superseded_by
+        TEXT valid_from
+        TEXT valid_until
+        TEXT last_verified_at
+        INTEGER access_count
+        REAL salience
+        BLOB embedding
+        TEXT metadata_json
         TEXT created_at
         TEXT updated_at
+    }
+
+    memory_audit_events {
+        TEXT id PK
+        TEXT memory_id
+        TEXT action
+        TEXT actor
+        TEXT reason
+        TEXT evidence_ref
+        TEXT previous_state
+        TEXT new_state
+        TEXT project_hash
+        TEXT session_id
+        INTEGER reversible
+        TEXT reverted_at
+        TEXT created_at
+    }
+
+    memory_relations {
+        TEXT id PK
+        TEXT source_memory_id
+        TEXT target_memory_id
+        TEXT relation_type
+        TEXT evidence_ref
+        TEXT evidence_type
+        REAL confidence
+        INTEGER verified
+        TEXT project_hash
+        TEXT session_id
+        TEXT agent_name
+        TEXT created_by
+        TEXT status
+        TEXT created_at
     }
 
     active_sessions {
@@ -227,17 +303,123 @@ erDiagram
         TEXT type
         BLOB value
     }
+
+    code_index_roots {
+        TEXT root_hash PK
+        TEXT root_path UK
+        TEXT head_sha
+        TEXT status
+        INTEGER file_count
+        INTEGER symbol_count
+        INTEGER chunk_count
+        INTEGER indexed_epoch_ms
+        TEXT indexed_at
+        TEXT updated_at
+        TEXT error
+    }
+
+    code_files {
+        INTEGER id PK
+        TEXT root_hash FK
+        TEXT rel_path UK
+        TEXT language
+        INTEGER byte_size
+        INTEGER line_count
+        TEXT content_hash
+        REAL mtime_ms
+        REAL ctime_ms
+        TEXT inode_id
+        TEXT parser_version
+        TEXT content_kind
+        TEXT metrics_json
+        TEXT indexed_at
+    }
+
+    code_symbols {
+        INTEGER id PK
+        TEXT root_hash FK
+        INTEGER file_id FK
+        TEXT name UK
+        TEXT kind UK
+        TEXT parent_name
+        INTEGER start_line UK
+        INTEGER end_line
+        TEXT signature
+        TEXT language
+    }
+
+    code_refs {
+        INTEGER id PK
+        TEXT root_hash FK
+        INTEGER file_id FK
+        TEXT target_name
+        INTEGER target_symbol_id FK
+        TEXT kind
+        INTEGER line
+        TEXT provenance
+        REAL confidence
+    }
+
+    code_edges {
+        INTEGER id PK
+        TEXT root_hash FK
+        INTEGER source_file_id FK
+        INTEGER source_symbol_id FK
+        INTEGER target_file_id FK
+        INTEGER target_symbol_id FK
+        TEXT edge_kind
+        TEXT specifier
+        REAL confidence
+        TEXT provenance
+    }
+
+    code_chunks {
+        INTEGER id PK
+        TEXT root_hash
+        INTEGER file_id FK
+        TEXT rel_path
+        TEXT language
+        INTEGER chunk_index UK
+        INTEGER start_line
+        INTEGER end_line
+        TEXT body
+        TEXT chunk_kind
+        INTEGER symbol_id FK
+        TEXT content_hash
+        BLOB embedding
+        TEXT embedding_model
+    }
 ```
 
-Declared foreign keys are `skill_chunks.skill_name → skills.name` and `persona_memories.project_hash → projects.project_hash`. Dotted relations are logical joins with no constraint.
+Declared foreign keys are `skill_chunks.skill_name → skills.name`, `persona_memories.project_hash → projects.project_hash`, and every `code_*` child row to its parent (`code_edges` also references `code_files` and `code_symbols`, `code_chunks.symbol_id` references `code_symbols`). Dotted relations are logical joins with no constraint.
+
+The six relational `code_*` tables plus `code_chunks_fts` form the native code-intelligence index (introduced in schema v6/v7; current schema v8 adds `memory_audit_events`, `memory_relations`, and provenance/lifecycle columns on `persona_memories`). Each child table cascades from `code_index_roots` on `root_hash`, so `code_remove` is a single delete. `code_refs.target_symbol_id` and `code_edges.target_file_id` / `target_symbol_id` use `ON DELETE SET NULL` so unresolved targets stay in the graph until re-linked, with `provenance` (`parser`, `heuristic`, `unresolved`) and numeric `confidence` distinguishing verified AST/cross-file links from lexical/heuristic guesses or unresolved symbols. `code_chunks_fts` is an FTS5 external-content table over `code_chunks` and is not drawn; its three triggers (`code_chunks_ai/ad/au`) keep it in step, and `setupSchema` / `ensureCodeChunksFts` idempotently recreate and rebuild missing FTS5 structures even when `user_version >= 8`. `code_chunks.embedding` stays `NULL` when semantic search is disabled (`KONOHA_SEMANTIC_SEARCH=0`) or the semantic runtime is unavailable (e.g., offline without cached ONNX weights; `indexRepositoryAsync` sets `semantic_skipped: true` while leaving the root `fresh`) — synthetic hash-derived vectors are never written there.
 
 `lg_writes` is keyed on `(thread_id, checkpoint_ns, checkpoint_id, task_id, idx)`; it references `lg_checkpoints` logically, not by a declared foreign key.
 
-`persona_memories_migrated` and `active_sessions_migrated` are not shown: they exist only while a foreign-key/PK rebuild is running and are dropped when it commits.
+`persona_memories_migrated` and `active_sessions_migrated` are not shown: they exist only while a foreign-key/PK rebuild is running and are dropped when it commits. Note that `persona_memories.embedding` exists in DDL, but `src/memory_brain.js` omits `embedding` on `INSERT` and `src/vector_backfill.js` only backfills `skill_chunks`, so memory recall (`recallAsync`) currently runs lexical FTS5/LIKE retrieval with `semantic_applied: false`.
 
 ## Akatsuki Lab DB
 
 ```mermaid
+---
+title: Konoha Akatsuki Lab SQLite Database ERD
+config:
+  theme: base
+  themeVariables:
+    darkMode: false
+    background: '#ffffff'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
+    lineColor: '#334155'
+    arrowheadColor: '#334155'
+    secondaryColor: '#f0fdf4'
+    tertiaryColor: '#fff7ed'
+    fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    fontSize: '13px'
+---
 erDiagram
     lab_runs ||--o{ lab_tool_invocations : "run_id"
     lab_runs ||--o{ red_skill_audit : "run_id"

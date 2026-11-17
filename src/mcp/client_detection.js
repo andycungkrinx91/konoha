@@ -81,8 +81,9 @@ function detectActiveClient() {
       if (activeOverride.includes('claude')) return 'claudecode';
       if (activeOverride.includes('cursor')) return 'cursor';
       if (activeOverride.includes('pi.dev') || activeOverride === 'pi' || activeOverride.endsWith('-pi') || activeOverride.includes('pi-')) return 'pi';
-      if (activeOverride.includes('agy') || activeOverride.includes('antigravity-cli')) return 'agy';
+      if (activeOverride.includes('agy') || activeOverride.includes('antigravity-cli')) return 'antigravity';
       if (activeOverride.includes('antigravity') || activeOverride.includes('ide')) return 'antigravity';
+      return activeOverride;
     }
 
     if (process.env.CODEX_SESSION || process.env.CODEX_THREAD_ID || process.env.CODEX_CI) return 'codex';
@@ -98,12 +99,7 @@ function detectActiveClient() {
     if (convId) {
       if (process.env.CLAUDE_CODE_CHILD_SESSION === '1' || process.env.CLAUDE_CONVERSATION_ID) return 'claudecode';
       if (process.env.PI_CODING_AGENT || process.env.PI_SESSION_FILE || process.env.PI_SESSION_ID) return 'pi';
-      if ((process.env.ANTIGRAVITY_LS_VERSION || '').startsWith('cli') || (process.env.ANTIGRAVITY_AGENTAPI_EXE || '').includes('agy')) return 'agy';
-      const cliDir = path.join(ANTIGRAVITY_CLI_BRAIN, convId);
-      if (fs.existsSync(cliDir) && fs.statSync(cliDir).isDirectory()) return 'agy';
-      const ideDir = path.join(ANTIGRAVITY_IDE_BRAIN, convId);
-      if (fs.existsSync(ideDir) && fs.statSync(ideDir).isDirectory()) return 'antigravity';
-      return 'agy';
+      return 'antigravity';
     }
 
     // No hard session signal: attribute HONESTLY instead of guessing from
@@ -292,7 +288,7 @@ function resolveConvDir(fpath) {
 function detectActiveAgent() {
   try {
     const client = detectActiveClient();
-    let convId = (client === 'agy' || client === 'antigravity') ? process.env.ANTIGRAVITY_CONVERSATION_ID : null;
+    let convId = client === 'antigravity' ? process.env.ANTIGRAVITY_CONVERSATION_ID : null;
     if (['cursor', 'claudecode', 'opencode', 'commandcode', 'omp'].includes(getActiveClient()) || ['cursor', 'claudecode', 'opencode', 'commandcode', 'omp'].includes(client)) {
       convId = null;
     }
@@ -337,7 +333,7 @@ function getActiveSessionId(workspaceRoot = null, client = null) {
 
   const curClient = client || getActiveClient() || detectActiveClient() || '';
   let sessId = '';
-  if (curClient === 'agy' || curClient === 'antigravity') {
+  if (curClient === 'antigravity') {
     sessId = process.env.ANTIGRAVITY_CONVERSATION_ID || '';
   } else if (curClient === 'claudecode') {
     sessId = process.env.CLAUDE_CONVERSATION_ID || process.env.CLAUDE_CODE_SESSION_ID || '';
@@ -458,10 +454,49 @@ function getAndIncrementSessionTurn(sessionKey) {
   return current;
 }
 
+/**
+ * Resolves auto-detected client attribution into a spawn-capable harness name,
+ * collapsing `'unattributed'` or empty detections to `fallback` while keeping
+ * explicit harness names intact so unsupported ones still fail closed.
+ */
+function resolveDetectedSpawnClient(client, fallback = 'universal') {
+  if (typeof client !== 'string') return fallback;
+  const trimmed = client.trim();
+  if (!trimmed || trimmed.toLowerCase() === 'unattributed') return fallback;
+  return trimmed;
+}
+
+/**
+ * Selects the first non-empty trimmed string client candidate so whitespace-only
+ * overrides never mask later runtime or auto-detected attribution values.
+ */
+function pickRawClient(candidates = []) {
+  if (!Array.isArray(candidates)) {
+    return typeof candidates === 'string' ? candidates.trim() : '';
+  }
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return '';
+}
+
+/**
+ * Picks the first non-empty client candidate and normalizes `'unattributed'` or
+ * missing detections to `fallback` while keeping explicit harness names intact.
+ */
+function resolveFirstSpawnClient(candidates = [], fallback = 'universal') {
+  return resolveDetectedSpawnClient(pickRawClient(candidates), fallback);
+}
+
 
 module.exports = {
   detectActiveClient,
   detectActiveAgent,
+  pickRawClient,
+  resolveDetectedSpawnClient,
+  resolveFirstSpawnClient,
   getActiveSessionId,
   getKonohaTmpRoot,
   getSessionKey,

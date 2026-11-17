@@ -28,8 +28,8 @@ function classifyRouter(state) {
 
 function planRouter(state) {
   if (state.error || state.phase === 'error') return 'node_error';
-  if (state.budgetExceeded) return 'node_budget_exceeded';
   if (state.hitlPending) return '__end__';
+  if (state.budgetExceeded) return 'node_budget_exceeded';
   return 'node_brief';
 }
 
@@ -62,8 +62,8 @@ function executeRouter(state) {
 function reviewRouter(state) {
   if (state.circuitOpen || state.gateVerdict === 'circuit_open') return 'node_error';
   if (state.error || state.phase === 'error') return 'node_error';
-  if (state.budgetExceeded) return 'node_budget_exceeded';
   if (state.hitlPending) return '__end__';
+  if (state.budgetExceeded) return 'node_budget_exceeded';
   if (state.gateVerdict === 'pass') return 'node_complete';
   if (state.gateVerdict === 'remediate') return 'node_remediate';
   // Fail closed on unknown verdict

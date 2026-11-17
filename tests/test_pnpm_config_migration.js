@@ -36,12 +36,12 @@ check('package.json has no legacy pnpm key', () => {
   assert.strictEqual('pnpm' in pkg, false);
 });
 
-check('package.json overrides only duplicates the yaml image-size security pin', () => {
-  const keys = Object.keys(pkg.overrides || {});
+check('package.json overrides only duplicates documented yaml security pins', () => {
+  const keys = Object.keys(pkg.overrides || {}).sort();
   assert.deepStrictEqual(
     keys,
-    ['image-size'],
-    'package.json#overrides must stay empty except the documented image-size CVE pin; pnpm-workspace.yaml is authoritative'
+    ['globalthis', 'image-size'],
+    'package.json#overrides must stay empty except documented security pins mirrored for npm/Socket resolution; pnpm-workspace.yaml is authoritative'
   );
 });
 
@@ -49,10 +49,10 @@ check('packageManager is pinned', () => {
   assert.strictEqual(pkg.packageManager, 'pnpm@12.16.1');
 });
 
-check('workspace yaml uses audit.ignore and drops ignoreCves', () => {
-  assert.match(workspace, /^audit:\s*$/m);
-  assert.match(workspace, /^\s+ignore:\s*$/m);
-  assert.ok(workspace.includes('GHSA-gcqx-w48m-w2h4'), 'GHSA suppression missing');
+check('workspace yaml drops legacy ignoreCves/ignoreGhsas/auditConfig keys', () => {
+  if (/^audit:\s*$/m.test(workspace)) {
+    assert.match(workspace, /^\s+ignore:\s*$/m);
+  }
   assert.strictEqual(/ignoreCves/.test(workspace), false, 'ignoreCves still present');
   assert.strictEqual(/ignoreGhsas/.test(workspace), false, 'ignoreGhsas still present');
   assert.strictEqual(/^auditConfig:/m.test(workspace), false, 'auditConfig block still present');

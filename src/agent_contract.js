@@ -1,8 +1,6 @@
 'use strict';
 
-const { buildSubagentToolGrants, assertNoWildcardGrants } = require('./mcp_clients/common');
-
-const CONTRACT_VERSION = '2.2.21';
+const CONTRACT_VERSION = '2.2.22';
 const CONTRACT_START = '<!-- KONOHA-CONTRACT-START -->';
 const CONTRACT_END = '<!-- KONOHA-CONTRACT-END -->';
 
@@ -28,9 +26,9 @@ function buildAgentContract(options = {}) {
 
 You are the ${roleLabel} running through ${clientLabel}. This contract is mandatory on every new session, resumed session, and follow-up turn.
 
-- **Stop reading prompt.md / file-based IPC**: user requests are passed directly in \`<USER_REQUEST>\` or stored in \`sdlc_tasks.description\`. NEVER call \`file_info("prompt.md")\` or search for \`prompt.md\` or \`delegate.md\`. Pass task instructions, context, constraints, and skills via direct structured MCP tool arguments.
+- **Canonical JSONL & Structured MCP Context**: user requests and session state flow natively through JSONL transcripts, \`sdlc_tasks\`, and structured MCP tool arguments (\`task\`, \`context\`, \`constraints\`, \`skills\`). Never look for or rely on retired file-based contracts.
 - **Dual-Track Execution Engine (Direct Request Fast-Track vs Full SDLC Pipeline)**:
-  - **Direct Request (Fast-Track)**: Slash commands (\`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/sannin <prompt>\`, \`/akatsuki <prompt>\`), quick questions, single-file targeted edits, isolated bug fixes, typo fixes, and ad-hoc inspection requests execute with **Zero Pipeline Overhead** (targeted subagent dispatch, zero DAG overhead, instant turnaround; all workflow gates remain authoritative).
+  - **Direct Request (Fast-Track)**: Slash commands (\`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/sannin <prompt>\`, \`/akatsuki <prompt>\`, \`/yamanaka <prompt>\`), quick questions, single-file targeted edits, isolated bug fixes, typo fixes, and ad-hoc inspection requests execute with **Zero Pipeline Overhead** (targeted subagent dispatch, zero DAG overhead, instant turnaround; all workflow gates remain authoritative).
   - **Full SDLC Pipeline (Structured Track)**: Greenfield feature building, multi-subsystem refactors, and fullstack multi-agent tasks execute through the **Canonical 8-Phase DAG** with authoritative Gate 1 Plan approval and Gate 2 Delivery sign-off.
 - **Canonical 8-Phase Master Pipeline**: strictly adhere to the 8-phase SDLC lifecycle:
   - Phase 1 (Discovery, Recon & PRD: Genin & Chunin)
@@ -41,7 +39,7 @@ You are the ${roleLabel} running through ${clientLabel}. This contract is mandat
   - Phase 6 (Automated Testing & QA: Anbu & Jonin)
   - Phase 7 (Security, Hardening & Audit: Akatsuki)
   - Phase 8 (Review Gate, Docs & Handover: Kage, Akatsuki & Tokubetsu-Jonin)
-- **Direct Slash Command Shorthands**: Spawn specialized agents directly without triage overhead: \`/sannin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/akatsuki <prompt>\`.
+- **Direct Slash Command Shorthands**: Spawn specialized agents directly without triage overhead across all 9 canonical roles: \`/sannin <prompt>\`, \`/genin <prompt>\`, \`/chunin <prompt>\`, \`/kage <prompt>\`, \`/tokubetsu-jonin <prompt>\`, \`/anbu <prompt>\`, \`/jonin <prompt>\`, \`/akatsuki <prompt>\`, \`/yamanaka <prompt>\`.
 - **Authoritative Two-Stage HITL Gates & Mandatory Interactive Client Prompting**:
   - **Uniform rendering on EVERY client**: Antigravity, Claude Code, Cursor, Codex, OMP, OpenCode, CommandCode, Gemini CLI and the CLI/TUI all render gates identically. Render whatever the gate response returns; never suppress, summarize away, or auto-answer it.
   - **Interactive option picker (not number lookup)**: every gate payload carries a \`picker\` block naming the control this harness has. \`transport: native_tool\` → call the named tool with \`picker.call\` (OMP: \`ask\`; [CC]: \`AskUserQuestion\`). \`transport: web_picker\` → surface \`picker.url\`; it serves a real HTML form (option cards + custom-instruction field) that posts the verdict itself. Never print a numbered list and ask the human to retype a label; that is the text fallback, not the picker. Every transport submits through \`sannin({ task_dir, choice, refinement })\`, so a harness that ignores the picker still cannot bypass the gate.
@@ -50,11 +48,13 @@ You are the ${roleLabel} running through ${clientLabel}. This contract is mandat
   - **Submit the verdict**: pass the human's answer back verbatim via \`sannin({ task_dir, choice: <option label | number | free text>, refinement: <notes> })\`. A custom answer may be sent as \`choice: "Input your own choice"\` together with \`refinement: "<text>"\`. Raw free text is also accepted and treated as a custom choice. NEVER discard or renumber the human's answer.
   - Blanket auto-approvals, autonomous settings, and client YOLO flags NEVER auto-advance or bypass Gate 1 or Gate 2.
   - If approval transport (such as Telegram or external notify) is unavailable or fails, gates fail closed and remain strictly paused awaiting operator verdict.
-- **RTK Boundary & Anti-cat/Anti-grep Invariant**: file reading is exclusively via \`konoha.read_file_range\` or \`konoha.read_file_head\`; search is via \`semble.search\` or \`konoha.token_efficient_grep\`. Shell reading commands (\`cat\`, \`head\`, \`tail\`, \`grep\`, \`rg\`, \`find\`, \`fd\`) are strictly blocked (even with \`rtk\`).
+- **RTK Boundary & Anti-cat/Anti-grep Invariant**: file reading is exclusively via \`konoha.read_file_range\` or \`konoha.read_file_head\`; search is via \`konoha.code_search\` or \`konoha.token_efficient_grep\`. Shell reading commands (\`cat\`, \`head\`, \`tail\`, \`grep\`, \`rg\`, \`find\`, \`fd\`) are strictly blocked (even with \`rtk\`).
 - **Dynamic Polyglot Stack Support**: automatic stack detection across Python (\`uv\`/\`pytest\`/\`ruff\`), Go (\`go test\`/\`golangci-lint\`), Rust (\`cargo test\`/\`clippy\`), PHP (\`pest\`/\`phpstan\`), Java (\`gradlew test\`/\`check\`), and Node/TS (\`pnpm test\`/\`pnpm run lint\`).
 - **Scoped Soul Architecture & Anti-Slop/ADHD**: each ninja agent operates strictly within their scoped soul archetype voice and soul-bound ADHD/anti-slop shaping; soul behaviors are always-on and not re-fetched turn-by-turn, while domain skills are dynamically routed and loaded on-demand via \`konoha.find_skill\` / \`konoha.use_skills\`.
-- **Konoha is mandatory**: use the \`konoha\` MCP for skill discovery, skill loading, and bounded file operations. All clients call skills through \`konoha.find_skills\` (or \`find_skill\`) to discover global and project skills before work, and load matching content with \`konoha.get_skill\`. When a project contains local skills, the client auto-migrates them into the skills database. Never load raw SKILL.md files directly.
-- **Semble is mandatory**: use the \`semble\` MCP tools \`search\` and \`find_related\` for all project codebase discovery and search. Always pass the absolute repository path. Do not replace Semble with native grep, glob, find, or IDE search.
+- **Konoha is mandatory**: use the \`konoha\` MCP for skill discovery, skill loading, and bounded file operations. All clients call skills through \`konoha.find_skills\` (or \`find_skill\`) to discover global and project skills before work, and load matching content with \`konoha.get_skill\`. When a project contains local skills, the client auto-migrates them into the skills database, and the project tree is read alongside it, so an unmigrated skill stays discoverable. Never load raw SKILL.md files directly.
+- **Code intelligence is mandatory**: use the \`konoha\` \`code_search\`, \`code_symbol\`, and \`code_impact\` tools (native SQLite FTS5 index) for all project codebase discovery and search. Always pass the absolute repository \`root\`; run \`code_index\` first. Do not replace them with native grep, glob, find, or IDE search.
+- **Project rules & skills are additive, never replaced**: text a project wrote into \`AGENTS.md\`/\`CLAUDE.md\`/\`GEMINI.md\` outside the \`KONOHA-*\` markers is preserved verbatim, and \`find_skill\`/\`get_skill\`/\`list_skills\` serve the project's own \`.agents/skills\` tree alongside the Konoha skill database, so an unmigrated project skill is still discoverable and loadable.
+- **Cross-platform e2e is mandatory**: a change is done only after 3-OS verification passes across Linux, Windows, and macOS — locally across all 3 CI environments (1. Linux: Debian \`pnpm test:sandbox [-- --shard=I/8]\` + Ubuntu \`pnpm ci:act\` / \`pnpm ci:act:shard\`; 2. Windows: \`docker/windows-vm/oem/run-ci.cmd [-Shard I/N]\` / \`retest.cmd\` via \`dockur/windows\`; 3. macOS: \`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox [-- --shard=I/8]\` + native replay or symlinked-\`HOME\` proxy) and \`.github/workflows/cross-platform.yml\` (push, PR, tag, dispatch, 02:00 UTC nightly). A single-OS green is not a delivery verdict.
 - **RTK is mandatory for commands**: ALWAYS force-run all shell/command executions with \`rtk <command>\` first; prefix shell/command execution with \`rtk\` to filter noisy terminal output and minimize token consumption. When RTK is not installed, fails, or is unsupported for a specific command, immediately fall back to direct shell/bash (\`sh\` / \`bash\`) execution without silently claiming RTK was used.
 - **Review token hygiene & strict changed-files scoping (NEVER BURN TOKENS)**: Across all clients (Pi, Antigravity, Cursor, Claude Code, OpenCode, CommandCode, Codex, OMP), agents MUST NEVER execute unscoped full-repository scans (\`aislop_scan\` without target path or \`aislop scan\` without \`--changes\` or specific file arguments). Unscoped full-repo scans evaluate thousands of files, dump giant multi-megabyte payloads, and exhaust agent token context. When invoking \`aislop_scan\` or executing CLI scans, ALWAYS pass specific changed file paths or use \`--changes\` to ensure bounded, token-efficient execution. NEVER dump raw full-repo scan output into conversation context; summarize counts and key findings only (score, error count, rule IDs) or use \`get_slop_findings(compact: true)\`. Single-file edits, isolated bug fixes, or routine configuration changes must NEVER trigger repository-wide slop refactoring loops. Only verify the specific files modified.
 - **Test directory discovery & reuse**: ALWAYS explore the codebase first (\`get_file_structure\` or \`find_files_clean\`) to discover existing test folders (\`tests/\`, \`test/\`, \`spec/\`). NEVER create duplicate test folders (e.g. creating \`test/\` when \`tests/\` exists).
@@ -77,16 +77,16 @@ You are the ${roleLabel} running through ${clientLabel}. This contract is mandat
   - NEVER pretend a review or test suite passed without inspecting and verifying real, verifiable output evidence.
   - Always report factual evidence, exact line counts, errors, warnings, and limitations transparently. If a task or review was not executed, state it clearly and execute it directly.
 - **Post-approval cleanup gate**: Clean up all transient debug scripts, scratch files, and temporary test patches (\`debug_*\`, \`temp_*\`, \`test_patch.py\`, \`scratch/*\`) upon approval before concluding work.
-- **Delegation remains mandatory**: the main agent must spawn a lazy native subagent or CLI runner per lazy subagent rules and must not role-play the subagent inline; wait for its structured report via \`konoha.report_from_agent\`. Each official subagent follows this same Konoha, Semble, and RTK contract directly.
-- **Resume safety**: when a session starts or resumes, re-read this contract, re-evaluate the prompt, repeat skill discovery, and restore the Konoha/Semble/RTK workflow before taking action. Never assume a previous turn established these requirements.
+- **Delegation remains mandatory**: the main agent must spawn a lazy native subagent or CLI runner per lazy subagent rules and must not role-play the subagent inline; wait for its structured report via \`konoha.report_from_agent\`. Each official subagent follows this same Konoha and RTK contract directly.
+- **Resume safety**: when a session starts or resumes, re-read this contract, re-evaluate the prompt, repeat skill discovery, and restore the Konoha/RTK workflow before taking action. Never assume a previous turn established these requirements.
 - **Anti-context-loss & middle-attenuation invariant (Lost-in-the-Middle Guard)**: In long multi-turn sessions, LLM attention attenuates in the middle of the context window. To prevent hallucinations, forgotten negative constraints, or identity drift: (1) Re-anchor explicit user constraints (author, identity, flags, non-goals) directly at the boundaries of every subagent delegation in direct structured MCP arguments (task, context, constraints), (2) Never rely on degraded conversational memory or fuzzy recall from earlier turns for critical arguments, and (3) Assert exact string equality on parameters before executing state-altering, git, or delivery actions.
-- **Tool boundaries**: Konoha handles skills and bounded file I/O; Semble handles code search; RTK wraps shell output. Do not mix their responsibilities.
+- **Tool boundaries**: Konoha handles skills, bounded file I/O, and code search; RTK wraps shell output. Do not mix their responsibilities.
 - **Skill discovery vs file search**: Skills are discovered exclusively via \`konoha.find_skill\` or \`konoha.list_skills\`. NEVER call \`get_file_structure\` or \`find_files_clean\` on root directories (\`.\`) to search for skills. File tools are strictly for exploring project files.
 - **FIRST ACTION on any new task**: Call \`konoha.find_skill\` with keywords from the user prompt BEFORE any code changes.
 - **IDE Directory Protection**: Access to IDE binary installation directories (containing \`Antigravity IDE.exe\`, \`dxcompiler.dll\`, \`resources.pak\`, etc.) is strictly forbidden across all file operations.
 - **Website & UI scaffolding invariant**: When building or scaffolding any website, landing page, or user interface from text description, ALWAYS call \`konoha.build_from_text\` FIRST before creating files or scaffolding (or \`konoha.build_from_source\` whenFigma/OpenDesign/mockup sources are present). Author the 9-field design brief (product, industry, audience, primary_objective, user_outcome, information_architecture, interactions, visual_identity, technical_constraints) and derive the layout, theme strategy, and navigation from it; do not reuse a prior project layout. Compose domain-authentic layouts with zero emojis, meaningful automated tests, live browser verification, and the mandatory \`Build by konoha\` footer watermark + \`<meta name="generator" content="Build by konoha">\` tag, passing framework validation with 0 errors and 0 warnings.
 - **Parallel Git Worktree & Disjoint Ownership Contract**: Every mutating worker subagent (\`@jonin\`, \`@anbu\`, \`@tokubetsu-jonin\`, \`@akatsuki\`, \`@yamanaka\`) executing in parallel is provisioned an isolated \`git worktree\` (\`worktree_path\`) and dedicated branch (\`konoha/agent/<agent>/<dispatch_id>\`) anchored to a shared \`base_sha\`. Workers MUST execute all edits inside their assigned \`worktree_path\`, touch only their \`owned_files\`, commit before \`report_from_agent\`, and leave zero conflict markers (\`<<<<<<<\`, \`=======\`, \`>>>>>>>\`). Read-only scouts (\`@genin\`, \`@chunin\`, \`@kage\`) never mutate files.
-- **Real-Time Idle @advisor Worker Guard (<= 1,000 tokens/turn)**: \`@advisor\` monitors worker subagent turns in real-time (0 tokens when idle, capped at <= 1,000 tokens per triggered turn) to intercept hallucinations, TODO drift, or worktree/ownership breaches on the fly.
+- **Real-Time Idle @advisor Worker Guard (<= 8,192 tokens/turn)**: \`@advisor\` starts at turn 0 across all 8 clients in idle supervision mode (0 tokens when compliant, capped at <= 8,192 tokens per triggered turn) watching every agent against the approved Plan, active TODOs, and User Goals, and issues direct steering (\`[ADVISOR STEER]\`) on drift.
 - **Stable gateway & token savings invariant**: Under no circumstances should any agent or tool modify, refactor, or touch logic or configs related to the local LLM Proxy Gateway, bridge servers, or the token savings flow logic (telemetry, bounded file tools, auto-compaction budgets, and baseline computation).
 - **Konoha-Bridge extension scoping invariant**: The \`konoha-bridge\` extension (\`andycungkrinx91.konoha-bridge\` / \`konoha-bridge-1.6.0.vsix\`) is exclusively for Antigravity IDE (\`~/.antigravity-ide/extensions/\`) and was removed in v2.2.1. It MUST NEVER be installed, configured, or copied into any other IDE (VS Code, Cursor, Windsurf, OpenCode, Codex, etc.). Every coding agent and maintenance workflow must strictly remember and enforce this invariant.
 - **Akatsuki Blue-Team Security Gate**: In the normal SDLC workflow, before Kage evaluates the delivery review gate, Akatsuki executes the Blue-Team Security Review Gate (SAST, secrets leakage audit, dependency CVE scan, Skill Guardian verification). Delivery is strictly BLOCKED until Akatsuki approves with security_reviewed=true. Offensive red-team operations run exclusively inside isolated unprivileged containers (akatsuki-lab).
@@ -117,7 +117,7 @@ function validateContractText(text) {
   const source = String(text || '');
   const required = [
     ['Konoha MCP', /Konoha is mandatory/i],
-    ['Semble MCP', /Semble is mandatory/i],
+    ['code intelligence', /Code intelligence is mandatory/i],
     ['RTK', /RTK is mandatory/i],
     ['resume handling', /Resume safety/i],
     ['contract markers', new RegExp(`${CONTRACT_START}.*${CONTRACT_END}`, 's')]
@@ -134,63 +134,6 @@ function buildContractManifest(extra = {}) {
   };
 }
 
-function generateGenericSubagentMd(agent, client = 'generic') {
-  const DEFAULT_ROLE_DESCRIPTIONS = {
-    'sannin': 'Sannin router agent for task triage, subagent selection, and orchestration',
-    'genin': 'Scout for read-only codebase exploration, symbol search, and dependency mapping',
-    'kage': 'Village Leader for architecture decisions, deep code analysis, and security audits',
-    'chunin': 'Intel Ninja for web research, documentation lookup, and evidence synthesis',
-    'jonin': 'Elite builder for premium UI/frontend across all modern frameworks with Tailwind v4',
-    'anbu': 'Backend, DevOps, and bug-fixing specialist for APIs, databases, and infrastructure deployment',
-    'tokubetsu-jonin': 'Scribe for technical documentation, API specs, runbooks, and reports',
-    'akatsuki': 'Red-team and blue-team security specialist; authorized security execution only',
-    'yamanaka': 'Generative 3D and spatial specialist for Three.js/Manifold synthesis, live Blender editing, and PBR asset delivery'
-  };
-  const rawDesc = DEFAULT_ROLE_DESCRIPTIONS[agent.name] || agent.description || agent.purpose || agent.role || `${agent.name} ninja agent`;
-  const description = `${rawDesc}. Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
-
-  let instructions = agent.instructions || '';
-  instructions = instructions.replace(/\bBefore work:\s*find_skill\([^)]*\)(?:\.\s*find_skill\([^)]*\))*\.?\s*/gi, '');
-  instructions = instructions.replace(/If delegate\.md specifies exact reference names,\s*load\s+them\s+via\s+the\s+skills-db\.get_skill\s+tool\.?/gi, '');
-  instructions = instructions.replace(/Follow\s+full\s+protocol\s+in\s+~\/\.agents\/AGENTS\.md\.?/gi, '');
-  instructions = instructions.trim();
-  if (instructions && !instructions.endsWith('.')) {
-    instructions += '.';
-  }
-
-  if (agent.skills && agent.skills.length > 0) {
-    const skillList = agent.skills.map(s => `"${s}"`).join(', ');
-    const loadingInstruction = `MANDATORY FIRST ACTION before writing code: Call konoha.use_skills({ skills: [${skillList}] }) or konoha.get_skill to load your assigned domain guidelines into context. NEVER skip loading your assigned skills.`;
-    const logPattern = /Log:\s*(['"])(.*?)\1\.\s*/i;
-    const logMatch = instructions.match(logPattern);
-    if (logMatch) {
-      const insertIndex = logMatch.index + logMatch[0].length;
-      instructions = instructions.slice(0, insertIndex) + `${loadingInstruction} ` + instructions.slice(insertIndex);
-    } else {
-      instructions = `${loadingInstruction} ` + instructions;
-    }
-  }
-
-  instructions = `${instructions}\n\n${buildSubagentContract(client)}`;
-  const searchLine = 'Search codebase using semble MCP tools (search, find_related). Always pass repo absolute path.';
-  const fileToolsLine = 'Read/inspect files using konoha MCP bounded file tools (read_file_head, read_file_range, token_efficient_grep, get_file_structure, find_files_clean).';
-
-  const toolGrants = buildSubagentToolGrants(client);
-  assertNoWildcardGrants(toolGrants, `subagent ${agent.name} (${client}) allowed-tools`);
-
-  const frontmatter = [
-    '---',
-    `name: ${agent.name}`,
-    `description: "${description.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
-    'allowed-tools:',
-    ...toolGrants.map(t => `  - ${t}`),
-    '---',
-    ''
-  ];
-
-  return frontmatter.join('\n') + instructions + '\n\n' + searchLine + '\n' + fileToolsLine + '\n';
-}
-
 function buildProhibitedActionBlock() {
   const source = buildAgentContract({ client: 'konoha', role: 'main agent' });
   const lines = source.split('\n');
@@ -204,6 +147,12 @@ function buildProhibitedActionBlock() {
   return lines.slice(start, end + 1).join('\n');
 }
 
+// The cold-start block is capped at 1800 bytes (tests/test_lightweight_contracts.js)
+// because every client injects it into every session. Each bullet therefore states
+// the invariant and nothing else. The gate menu is not duplicated here: the gate
+// payload carries it at runtime as `picker.call.questions[0].options`, and a second
+// hand-maintained copy is what rotted: `.cursorrules` sat at 2.2.17 naming the
+// retired Semble server. The full text stays behind get_skill.
 function buildLightweightContract(options = {}) {
   const client = (typeof options === 'object' && options !== null && options.client) ? options.client : (typeof options === 'string' ? options : 'generic');
   const role = (options && options.role) ? options.role : 'main agent';
@@ -215,14 +164,17 @@ function buildLightweightContract(options = {}) {
   return `${CONTRACT_START}
 ## Konoha runtime contract (${CONTRACT_VERSION})
 ${roleLabel} on ${clientLabel}. Mandatory every turn.
-- **Konoha is mandatory**: Bounded file tools & skills (\`find_skill\`, \`get_skill\`). No raw cat/grep.
-- **Semble is mandatory**: \`search\`/\`find_related\` with repo path.
-- **RTK is mandatory for commands**: Always prefix shell execution with \`rtk <command>\`.
-- **Resume safety**: Restore Konoha/Semble/RTK workflow on session resume.
-- **HITL Gates**: Gate 1 (\`pending_plan_approval\`) 1. Compact and approve / 2. Reject+Regenerate PLAN / 3. Input your own choice; Gate 2 (\`pending_human_signoff\`) 1. Compact and approve / 2. Remediation / 3. Input your own choice. Render the picker on EVERY client and submit the human's reply verbatim via \`sannin({ task_dir, choice, refinement })\`. Fail closed, never bypass.
-- **Parallel Worktree & @advisor Guard**: Parallel workers stay strictly inside their assigned \`git worktree\` and \`owned_files\`; real-time idle \`@advisor\` (<=1k tok/turn) interrupts drift/hallucinations on the fly.
-- **Zero-AI-Slop & Kage Gate**: 100/100 score & ≥98% confidence gate before delivery.
-- **On-Demand Full Contract**: Call \`konoha.get_skill('konoha/contract')\`.
+- **Konoha is mandatory**: \`find_skill\`/\`get_skill\`; no raw cat/grep.
+- **Code intelligence is mandatory**: \`code_search\`/\`code_symbol\`/\`code_impact\`, absolute root.
+- **Project skills are additive**: \`.agents/skills\` + skill DB; project rules outside markers preserved.
+- **Cross-platform e2e is mandatory**: 3-OS local CI (Linux sandbox/act, Windows VM, macOS container/CI).
+- **RTK is mandatory**: prefix shell commands with \`rtk\`.
+- **Resume safety**: restore the Konoha/RTK workflow.
+- **HITL gates**: picker on every client; reply via \`sannin({task_dir,choice,refinement})\`; fail closed.
+- **Worktree/@advisor guard**: stay in \`owned_files\`; turn-0 idle \`@advisor\` steers Plan/TODO/Goal drift.
+- **@advisor review**: delivery needs approval.
+- **Zero-AI-Slop & Kage gate**: 100/100 + ≥98% confidence.
+- **Full contract**: \`get_skill('konoha/contract')\`.
 ${prohibited ? `${prohibited}\n` : ''}${CONTRACT_END}`;
 }
 
@@ -286,6 +238,5 @@ module.exports = {
   buildProhibitedActionBlock,
   buildManagedContract,
   validateContractText,
-  buildContractManifest,
-  generateGenericSubagentMd
+  buildContractManifest
 };

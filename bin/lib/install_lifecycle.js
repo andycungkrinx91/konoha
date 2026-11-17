@@ -123,23 +123,14 @@ async function runEmbedAndMigrationStage(options = {}) {
   };
 }
 
-async function _restartOrAutoStartUi(cmdUiRestart, ensureUiDaemonAutoStart) {
-  try {
-    await cmdUiRestart(['--no-open']);
-  } catch (_) {
-    await ensureUiDaemonAutoStart();
-  }
-}
-
-async function runUiBuildAndRestartStage(options = {}) {
+async function runUiBuildStage(options = {}) {
   const konohaRoot = options.konohaRoot || getKonohaRoot();
   if (options.skipUi || process.env.KONOHA_SKIP_UI_LIFECYCLE === '1') {
-    return { ok: true, stage: 'ui_build_restart', skipped: true, konohaRoot };
+    return { ok: true, stage: 'ui_build', skipped: true, konohaRoot };
   }
 
   try {
     const { cmdUiBuild } = require('./ui_build');
-    const { cmdUiRestart, ensureUiDaemonAutoStart } = require('./ui_commands');
     const installedHandler = path.join(konohaRoot, 'apps', 'web', 'build', 'handler.js');
     const repoHandler = path.resolve(__dirname, '..', '..', 'apps', 'web', 'build', 'handler.js');
 
@@ -147,13 +138,9 @@ async function runUiBuildAndRestartStage(options = {}) {
       await cmdUiBuild();
     }
 
-    if (options.restartUi !== false && process.env.KONOHA_UI_AUTOSTART !== '0') {
-      await _restartOrAutoStartUi(cmdUiRestart, ensureUiDaemonAutoStart);
-    }
-
-    return { ok: true, stage: 'ui_build_restart', konohaRoot };
+    return { ok: true, stage: 'ui_build', konohaRoot };
   } catch (err) {
-    return { ok: false, stage: 'ui_build_restart', reason: err.message, konohaRoot };
+    return { ok: false, stage: 'ui_build', reason: err.message, konohaRoot };
   }
 }
 
@@ -232,21 +219,20 @@ async function runFullInstallationLifecycle(options = {}) {
     };
   }
 
-  const uiResult = await runUiBuildAndRestartStage({
+  const uiResult = await runUiBuildStage({
     konohaRoot,
     skipUi: options.skipUi,
-    forceUiBuild: options.forceUiBuild,
-    restartUi: options.restartUi
+    forceUiBuild: options.forceUiBuild
   });
-  stages.push({ stage: 5, name: 'konoha_ui_build_and_restart', ...uiResult });
+  stages.push({ stage: 5, name: 'konoha_ui_build', ...uiResult });
   if (!uiResult.ok) {
     return {
       ok: false,
       failedStage: 5,
-      stageName: 'konoha_ui_build_and_restart',
-      error: uiResult.reason || 'Web UI build/restart failed',
+      stageName: 'konoha_ui_build',
+      error: uiResult.reason || 'Web UI build failed',
       backupSummary,
-      recoveryHint: 'Run "konoha ui build && konoha ui restart" manually.',
+      recoveryHint: 'Run "konoha ui build" manually.',
       stages
     };
   }
@@ -265,6 +251,6 @@ module.exports = {
   executePreInstallBackup,
   runTransactionalDatabaseMigration,
   runEmbedAndMigrationStage,
-  runUiBuildAndRestartStage,
+  runUiBuildStage,
   runFullInstallationLifecycle
 };

@@ -20,6 +20,8 @@ Module._resolveFilename = function (request, parent, isMain, options) {
 
 const readline = require("readline");
 const { startStdioOrphanGuard, startDaemonOrphanGuard } = require("./mcp_orphan_guard");
+const { createRequestScheduler } = require("./mcp/request_scheduler");
+const { WORKFLOW_GRAPH_TOOLS } = require("./mcp/tool_dispatch");
 
 // Seed process.env from ~/.konoha/config.json before any module captures a
 // value at load time. Explicit environment variables still win.
@@ -80,6 +82,8 @@ if (installErrors.length) {
 
 
 
+const { getBaselineBytesForTool } = require("./file_tools_savings_baseline");
+
 let activeClient = null;
 let _cachedActiveClient = null;
 
@@ -95,60 +99,6 @@ function detect_active_client_from_env() {
     return _cachedActiveClient;
   } catch (_) {
     return "unattributed";
-  }
-}
-
-/**
- * Measure the bytes a naive full-corpus read would have produced for a search
- * tool. Directories are walked to a bounded depth so the figure reflects real
- * content; when nothing can be measured the result is 0 and callers record no
- * savings claim instead of inventing a default.
- */
-const BASELINE_MAX_ENTRIES = 5000;
-const BASELINE_MAX_DEPTH = 8;
-
-function _measureTreeBytes(rootPath) {
-  let total = 0;
-  let visited = 0;
-  const stack = [{ dir: rootPath, depth: 0 }];
-  while (stack.length > 0 && visited < BASELINE_MAX_ENTRIES) {
-    const { dir, depth } = stack.pop();
-    let entries = [];
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch (_) {
-      continue;
-    }
-    for (const entry of entries) {
-      if (visited >= BASELINE_MAX_ENTRIES) break;
-      const full = require('path').join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name.startsWith('.')) continue;
-        if (depth < BASELINE_MAX_DEPTH) stack.push({ dir: full, depth: depth + 1 });
-        continue;
-      }
-      if (!entry.isFile()) continue;
-      visited += 1;
-      try {
-        total += fs.statSync(full).size;
-      } catch (_) { /* unreadable entry: skip */ }
-    }
-  }
-  return total;
-}
-
-function getBaselineBytesForTool(toolName, args) {
-  try {
-    const target = args.path || args.file_path || args.filepath || args.dir || args.directory || args.target;
-    if (!target) return 0;
-    const resolved = router.resolveInputPath(target);
-    if (!fs.existsSync(resolved)) return 0;
-    const st = fs.statSync(resolved);
-    if (st.isFile()) return st.size;
-    if (!st.isDirectory()) return 0;
-    return _measureTreeBytes(resolved);
-  } catch (_) {
-    return 0;
   }
 }
 
@@ -185,7 +135,7 @@ function detectClientFromInfoOrEnv(params) {
     if (envClient.includes("commandcode") || envClient.includes("command-code")) return "commandcode";
     if (envClient.includes("codex") || envClient.includes("openai")) return "codex";
     if (envClient.includes("omp")) return "omp";
-    if (envClient.includes("agy") || envClient.includes("antigravity-cli")) return "agy";
+    if (envClient.includes("agy") || envClient.includes("antigravity-cli")) return "antigravity";
     if (envClient.includes("antigravity") || envClient.includes("ide")) return "antigravity";
   }
 
@@ -200,7 +150,7 @@ function detectClientFromInfoOrEnv(params) {
   if (client_name.includes("commandcode") || client_name.includes("command-code")) return "commandcode";
   if (client_name.includes("codex") || client_name.includes("openai")) return "codex";
   if (client_name.includes("omp")) return "omp";
-  if (client_name.includes("antigravity-cli") || client_name.includes("agy")) return "agy";
+  if (client_name.includes("antigravity-cli") || client_name.includes("agy")) return "antigravity";
   if (client_name.includes("antigravity") || client_name.includes("ide")) return "antigravity";
 
   return detect_active_client_from_env();
@@ -217,7 +167,7 @@ function resolveWorkspaceRootFromParams(params) {
 }
 
 function resolveSessionIdForClient(client) {
-  if (client === 'agy' || client === 'antigravity') return process.env.ANTIGRAVITY_CONVERSATION_ID || '';
+  if (client === 'antigravity') return process.env.ANTIGRAVITY_CONVERSATION_ID || '';
   if (client === 'claudecode') return process.env.CLAUDE_CONVERSATION_ID || process.env.CLAUDE_CODE_SESSION_ID || '';
   if (client === 'pi') {
     let sessId = process.env.PI_SESSION_ID || '';
@@ -288,7 +238,7 @@ function handleInitialize(id, params) {
   };
 }
 
-const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki'];
+const AGENT_DELEGATION_TOOLS = ['genin', 'kage', 'jonin', 'anbu', 'chunin', 'tokubetsu_jonin', 'sannin', 'akatsuki', 'yamanaka'];
 
 // Tool arguments arrive from client adapters that may hand us an object, a JSON
 // string, or a bare prose string. Return { args, error } instead of guessing:
@@ -314,7 +264,30 @@ function parseToolArguments(toolName, rawArgs) {
   return { args: {}, error: `arguments must be a JSON object, got ${typeof rawArgs}` };
 }
 
-function handleToolCall(id, params) {
+function _toolErrorFlag(text) {
+  try {
+    const parsed = JSON.parse(text);
+    return Boolean(parsed && typeof parsed === 'object' && parsed.error !== undefined);
+  } catch (_) {
+    return false;
+  }
+}
+
+// The LangGraph workflow is async: gates, pickers, confidence and the Akatsuki
+// pre-gate exist only on `executeTool`. The sync router would answer with
+// routing metadata and silently drop the parked workflow.
+async function _dispatchToolText(toolName, args) {
+  const dispatcher = require("./mcp/tool_dispatch");
+  if (!dispatcher.WORKFLOW_GRAPH_TOOLS.includes(toolName)) {
+    return await router.dispatchToolAsync(toolName, args);
+  }
+  const prepared = router.prepareToolCall(toolName, args);
+  if (prepared.error) return { text: JSON.stringify({ error: prepared.error }), isError: true };
+  const text = await dispatcher.executeTool(toolName, prepared.args);
+  return { text, isError: _toolErrorFlag(text) };
+}
+
+async function handleToolCall(id, params) {
   const toolName = params.name;
   const { args, error: argsError } = parseToolArguments(toolName, params.arguments);
 
@@ -332,13 +305,14 @@ function handleToolCall(id, params) {
 
   process.stderr.write(`[mcp ${SERVER_NAME}] tool_call: ${toolName}(${JSON.stringify(args)})\n`);
 
-  let text, isError;
+  let outcome;
   try {
-    ({ text, isError } = router.dispatchTool(toolName, args));
+    outcome = await _dispatchToolText(toolName, args);
   } catch (err) {
-    text = JSON.stringify({ error: `Tool execution failed: ${err.message}` });
-    isError = true;
+    outcome = { text: JSON.stringify({ error: `Tool execution failed: ${err.message}` }), isError: true };
   }
+  const { text } = outcome;
+  const isError = outcome.isError;
   const retBytes = Buffer.byteLength(text, "utf8");
   logToolCallSavings(toolName, args, retBytes);
   return {
@@ -351,7 +325,7 @@ function handleToolCall(id, params) {
   };
 }
 
-function handleRequest(req) {
+async function handleRequest(req) {
   const { method, id, params = {} } = req;
 
   if (id === undefined && method?.startsWith("notifications/")) {
@@ -371,7 +345,7 @@ function handleRequest(req) {
   if (method === "resources/templates/list") return { jsonrpc: "2.0", id, result: { resourceTemplates: [] } };
   if (method === "prompts/list") return { jsonrpc: "2.0", id, result: { prompts: [] } };
   if (method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: router.listToolSchemas() } };
-  if (method === "tools/call") return handleToolCall(id, params);
+  if (method === "tools/call") return await handleToolCall(id, params);
 
   if (id !== undefined) {
     return { jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } };
@@ -644,6 +618,13 @@ function setupStdioMcpListener(handles) {
   });
   const orphanGuard = startStdioOrphanGuard();
 
+  const scheduler = createRequestScheduler({
+    serializedTools: WORKFLOW_GRAPH_TOOLS,
+    handleRequest,
+    writeLine: (obj) => process.stdout.write(`${JSON.stringify(obj)}\n`),
+    onIdleClose: () => process.exit(0)
+  });
+
   rl.on("close", () => {
     orphanGuard.stop();
     if (handles.pollInterval) clearInterval(handles.pollInterval);
@@ -652,20 +633,12 @@ function setupStdioMcpListener(handles) {
       const { stopGateway } = require("./bridge/gateway");
       stopGateway().catch(() => {});
     } catch (_) { /* best-effort */ }
-    process.exit(0);
+    scheduler.markClosing();
   });
 
   rl.on("line", (line) => {
     orphanGuard.noteActivity();
-    const trimmed = line.trim();
-    if (!trimmed) return;
-    try {
-      const req = JSON.parse(trimmed);
-      const response = handleRequest(req);
-      if (response) process.stdout.write(`${JSON.stringify(response)}\n`);
-    } catch (err) {
-      process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: `Parse error: ${err.message}` } })}\n`);
-    }
+    scheduler.enqueueLine(line);
   });
 }
 
@@ -687,4 +660,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { handleRequest, parseToolArguments, handleToolCall, SERVER_NAME, SERVER_VERSION, main };
+module.exports = { handleRequest, parseToolArguments, handleToolCall, setupStdioMcpListener, SERVER_NAME, SERVER_VERSION, main };

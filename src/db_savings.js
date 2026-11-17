@@ -281,7 +281,6 @@ function queryStats(conn, timeFilter = null, modelTokens = null) {
 
   const byClient = {
     antigravity: { calls: 0, bytes: 0, tokens: 0 },
-    agy: { calls: 0, bytes: 0, tokens: 0 },
     cursor: { calls: 0, bytes: 0, tokens: 0 },
     claudecode: { calls: 0, bytes: 0, tokens: 0 },
     opencode: { calls: 0, bytes: 0, tokens: 0 },
@@ -443,7 +442,7 @@ function getSavingsReport(dbPath = null) {
 
   const conn = db.getConnection(targetPath, false);
   try {
-    db.setupSchema(conn);
+    (db.ensureSchema || db.setupSchema)(conn);
     sanitizeLegacyRecords(conn);
     backfillFabricatedFloors(conn);
 

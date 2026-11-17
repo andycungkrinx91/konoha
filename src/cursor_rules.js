@@ -6,9 +6,10 @@ const {
   buildLightweightContract,
 } = require('./agent_contract');
 const {
-  buildSembleSearchPolicyCompact,
+  buildCodeSearchPolicyCompact,
   buildFileToolsPolicyCompact,
 } = require('./search_policy');
+const { isReadOnlyAgent } = require('./agent_file_safety');
 
 const CURSOR_FALLBACK_MODEL = 'inherit';
 
@@ -27,7 +28,7 @@ function resolveCursorModel(agent = {}) {
 }
 
 function generateCursorSubagent(agent) {
-  const readonly = agent.name === 'genin';
+  const readonly = isReadOnlyAgent(agent);
   const description = `${agent.description} Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
   
   let instructions = agent.instructions || '';
@@ -48,13 +49,14 @@ function generateCursorSubagent(agent) {
 
   instructions = `${instructions}\n\n${buildSubagentContract('cursor')}`;
   const body = adaptInstructionsForCursor(instructions);
-  const sembleLine = buildSembleSearchPolicyCompact();
+  const codeSearchLine = buildCodeSearchPolicyCompact();
   const fileToolsLine = buildFileToolsPolicyCompact();
 
   const frontmatter = [
     '---',
     `name: ${agent.name}`,
     `description: ${description.replace(/\n/g, ' ')}`,
+    'generated_by: konoha',
   ];
   if (agent.model) {
     frontmatter.push(`model: ${agent.model}`);
@@ -64,7 +66,7 @@ function generateCursorSubagent(agent) {
   }
   frontmatter.push('---', '');
 
-  return frontmatter.join('\n') + body + '\n\n' + sembleLine + '\n' + fileToolsLine + '\n';
+  return frontmatter.join('\n') + body + '\n\n' + codeSearchLine + '\n' + fileToolsLine + '\n';
 }
 
 function generateCursorRule(agents, ruleContent = null) {

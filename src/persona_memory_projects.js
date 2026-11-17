@@ -144,7 +144,7 @@ function detectProjectStack(workspacePath) {
 }
 
 function initMemoryTables(conn) {
-  db.setupSchema(conn);
+  (db.ensureSchema || db.setupSchema)(conn);
 }
 
 function saveOrUpdateProject(projectPath, contextSummary = "", techStack = null, dbPath = null) {

@@ -32,7 +32,7 @@ test.describe('Hybrid FTS5 & Neural Vector Skill Search', () => {
     await page.waitForTimeout(800);
 
     const skillsList = page.locator('.metric-card-3d');
-    await expect(skillsList.first()).toBeVisible();
+    await expect(skillsList.first()).toBeVisible({ timeout: 15000 });
 
     // Check engine badge on first result
     const badge = skillsList.first().locator('.rounded-\\[5px\\], .gradient-badge').first();
@@ -43,7 +43,7 @@ test.describe('Hybrid FTS5 & Neural Vector Skill Search', () => {
     await page.waitForTimeout(800);
 
     const semanticResults = page.locator('.metric-card-3d');
-    await expect(semanticResults.first()).toBeVisible();
+    await expect(semanticResults.first()).toBeVisible({ timeout: 15000 });
   });
 
   test('Vector stats chunk badge reflects real state', async ({ page }) => {

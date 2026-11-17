@@ -9,15 +9,26 @@ const sdlcManager = require('../../../workflow/kage-reviewer/sdlc_manager');
 const { superviseLifecycleStage } = require('../../../workflow/kage-reviewer/advisor_monitor');
 const { runAkatsukiFinalGate, _evaluateAkatsukiReview } = require('../../../workflow/akatsuki/workflows');
 const { finalizeNodeResult } = require('../budget');
+const { syncTodoAndWalkthrough } = require('../../todo_walkthrough_sync');
+
+function _attachTodoSync(status, state, taskDir, payload) {
+  const todoSync = syncTodoAndWalkthrough(status, { client: state.client || status.client || '', taskDir });
+  if (taskDir) saveWorkflowStatus(taskDir, status);
+  return {
+    ...payload,
+    todos: todoSync.todos,
+    walkthrough_steps: todoSync.walkthrough_steps,
+    client_todo_directive: todoSync.client_todo_directive,
+  };
+}
 
 function createPassResult(status, taskDir, state, payload) {
   status.human_signed_off = true;
   status.hitl_gate = null;
   status.phase = 'done';
   status.gateVerdict = 'pass';
-  if (taskDir) saveWorkflowStatus(taskDir, status);
 
-  const resPayload = {
+  const resPayload = _attachTodoSync(status, state, taskDir, {
     status,
     phase: 'done',
     gateVerdict: 'pass',
@@ -25,7 +36,7 @@ function createPassResult(status, taskDir, state, payload) {
     hitlStage: null,
     hitlChoice: null,
     hitlRefinement: null,
-  };
+  });
   return finalizeNodeResult(state, resPayload, 'node_complete', { source: payload });
 }
 
@@ -167,15 +178,27 @@ async function reviewNode(state) {
   // Re-run the slop gate on every review pass. Confidence must reflect the code
   // as it is now; caching it meant a run that started below 98% remediated 7 times
   // against a frozen score and could never recover, even after the code was fixed.
+  let aislopTestBypass = false;
   try {
     const gateRes = runAislopGate(projectPath, status);
+    if (gateRes && gateRes.enforced === false && gateRes.ok === true) {
+      aislopTestBypass = true;
+    }
     if (gateRes && gateRes.score !== undefined) {
       status.confidence = gateRes.score;
       status.ai_slop_findings = (gateRes.findings || []).length;
       status.ai_slop_clean = gateRes.pass;
+    } else if (gateRes && gateRes.pass === false) {
+      status.ai_slop_clean = false;
+      status.confidence = 0;
+      status.ai_slop_findings = Math.max(1, (gateRes.findings || []).length);
     }
-  } catch (_) {
-    // safe fallback: keep any previously recorded confidence
+  } catch (err) {
+    // Fail closed if the AI-slop gate crashes: an unscored/errored audit cannot pass review.
+    status.ai_slop_clean = false;
+    status.confidence = 0;
+    status.ai_slop_findings = Math.max(1, status.ai_slop_findings || 0);
+    status.ai_slop_error = err && err.message ? err.message : String(err);
   }
 
   const rootRecord = sdlcManager.getTask(rootId);
@@ -185,7 +208,12 @@ async function reviewNode(state) {
 
   const { akatsukiGate, akatsukiPassed } = _evaluateAkatsukiPreGate(state, status, projectPath, taskDir);
 
-  const confidence = status.confidence !== undefined ? status.confidence : 100;
+  const confidence = status.confidence !== undefined
+    ? status.confidence
+    : (aislopTestBypass ? 100 : 0);
+  // Persist the number the gate actually judged: the sign-off response reads it
+  // back from the saved status, and an unscored run must not report `undefined`.
+  status.confidence = confidence;
   const slopFindings = status.ai_slop_findings || 0;
   const isSlopClean = status.ai_slop_clean !== false && slopFindings === 0;
   const advisorReview = superviseLifecycleStage('review', { status, taskDir, projectPath });
@@ -198,9 +226,8 @@ async function reviewNode(state) {
         ? 'akatsuki_blue_mode_skipped'
         : 'akatsuki_blue_mode_failed';
     }
-    if (taskDir) saveWorkflowStatus(taskDir, status);
 
-    const payload = {
+    const payload = _attachTodoSync(status, state, taskDir, {
       status,
       phase: 'remediate',
       confidence,
@@ -208,13 +235,22 @@ async function reviewNode(state) {
       gateVerdict: 'remediate',
       hitlPending: false,
       hitlStage: null,
-    };
+    });
     return finalizeNodeResult(state, payload, 'node_remediate', {
       source: { verdict: 'remediate', confidence, slopFindings, akatsukiPassed },
     });
   }
 
-  if (state.hitlChoice && (state.hitlStage === 'gate2' || !status.human_signed_off)) {
+  const isGate2Pending = Boolean(
+    !status.human_signed_off && (
+      state.hitlStage === 'gate2' ||
+      status.hitl_gate === 'pending_human_signoff' ||
+      status.hitl_gate === 'delivery_signoff' ||
+      status.hitl_gate === 'Gate 2 (Delivery Sign-Off)' ||
+      status.phase === 'delivery_signoff'
+    )
+  );
+  if (state.hitlChoice && isGate2Pending) {
     const choiceObj = parseGateChoice(state.hitlChoice, state.hitlRefinement);
     const g2Res = applyGate2Choice(choiceObj, status, taskDir, sdlcManager);
     if (g2Res && g2Res.signed_off) {
@@ -224,9 +260,8 @@ async function reviewNode(state) {
       status.phase = 'remediate';
       status.gateVerdict = 'remediate';
       status.hitl_gate = null;
-      if (taskDir) saveWorkflowStatus(taskDir, status);
 
-      const payload = {
+      const payload = _attachTodoSync(status, state, taskDir, {
         status,
         phase: 'remediate',
         gateVerdict: 'remediate',
@@ -234,7 +269,7 @@ async function reviewNode(state) {
         hitlStage: null,
         hitlChoice: null,
         hitlRefinement: null,
-      };
+      });
       return finalizeNodeResult(state, payload, 'node_remediate', {
         source: { verdict: 'remediate', choiceObj, g2Res },
       });
@@ -242,8 +277,17 @@ async function reviewNode(state) {
   }
 
   const isSignedOffInDb = rootRecord && rootRecord.status === 'completed';
+  const envHitl = String(process.env.KONOHA_HITL_MODE || '').trim().toLowerCase();
   const isDirectSubagent = status.invocation_mode === 'direct_subagent' || state.invocationMode === 'direct_subagent';
-  const autoSignoffActive = Boolean(state.autoSignoff || status.auto_signoff || isDirectSubagent);
+  const explicitProjectPath = state.projectPath || status.project_path || null;
+  const hitlEnforced = Boolean(
+    envHitl === 'enabled' ||
+    status.hitl_mode === 'enabled' ||
+    (!isDirectSubagent && explicitProjectPath && sdlcManager.hasExplicitHitlEnabled(explicitProjectPath))
+  );
+  const autoSignoffActive = hitlEnforced
+    ? false
+    : Boolean(state.autoSignoff || status.auto_signoff || isDirectSubagent);
 
   if (status.human_signed_off || isSignedOffInDb || autoSignoffActive) {
     return createPassResult(status, taskDir, state, { verdict: 'pass', auto_signoff: autoSignoffActive });
@@ -251,17 +295,17 @@ async function reviewNode(state) {
 
   status.phase = 'review';
   status.hitl_gate = 'pending_human_signoff';
-  if (taskDir) saveWorkflowStatus(taskDir, status);
 
   const prompt = buildGate2Prompt(status, taskDir, rootId, { confidence, report: status.report });
-  const payload = {
+  const payload = _attachTodoSync(status, state, taskDir, {
     status,
     phase: 'review',
+    confidence,
     hitlPending: true,
     hitlStage: 'gate2',
     gateVerdict: 'pending_signoff',
     result: prompt,
-  };
+  });
   return finalizeNodeResult(state, payload, 'node_complete', {
     selfResume: true,
     selfNode: 'node_review',

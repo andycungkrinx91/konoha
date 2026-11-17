@@ -1,6 +1,6 @@
 # Cursor IDE & Cursor CLI Setup Guide
 
-Konoha **v2.2.21** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. The same `konoha` + `semble` + `aislop` MCP stack and nine ninja subagents work across all environments.
+Konoha **v2.2.22** supports **Cursor IDE** and **Cursor CLI** alongside Antigravity, Claude Code, OpenCode, Command Code, Codex, Pi, and OMP. The same `konoha` + `aislop` MCP stack and nine ninja subagents work across all environments.
 
 ## RTK (Rust Token Killer) — Token-Optimized Shell
 
@@ -19,11 +19,11 @@ Meta commands like `rtk gain` show token savings, and `rtk discover` finds misse
 
 - **Cursor IDE** or **Cursor CLI** installed
 - **Node.js** ≥ 24.0.0 (via nvm, Homebrew, or system package; uses built-in `node:sqlite` with FTS5, zero external native compilation)
-- Agent skills in `~/.agents/skills/` (with `SKILL.md` files) — Konoha indexes these in SQLite; Cursor uses Konoha MCP and does not receive a Konoha filesystem mirror
+- Agent skills in `~/.agents/skills/` (with `SKILL.md` files) — `~/.agents/skills/` is the canonical local skill source indexed in SQLite; `konoha init` also synchronizes Konoha-owned skill files across global client skill directories including `~/.cursor/skills/`.
 
 ### Cross-Platform Notes
 
-Status: **Linux x64 verified**; macOS (arm64/x64) and Windows 10/11 **not yet run** for 2.2.21.
+Status: **Linux x64 and Windows 11 x64 (`docker/windows-vm`) verified for 2.2.22**; macOS container sandbox (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox`) and `.github/workflows/cross-platform.yml` (`macos-latest`, `windows-latest`, `ubuntu-latest`) cover the full 3-OS matrix (see `docs/CI.md`).
 
 | OS | Node.js 24+ Install | Cursor Setup |
 |----|-----------------|--------------|
@@ -54,13 +54,13 @@ Konoha will auto-configure Cursor if it is detected (`~/.cursor/` or `cursor` bi
 
 | Path | Purpose |
 |------|---------|
-| `~/.cursor/mcp.json` | **Backed up** to `mcp.json.back` (first install only), then merged with `konoha` + `semble` + `aislop` while preserving unrelated servers |
-| `~/.agents/skills/` | Canonical agent skill source indexed and served through Konoha FTS5; no Cursor filesystem mirror |
+| `~/.cursor/mcp.json` | **Backed up** to `mcp.json.back` (first install only), then merged with `konoha` + `aislop` while preserving unrelated servers |
+| `~/.agents/skills/` | Canonical agent skill source indexed and served through Konoha FTS5 (`~/.cursor/skills/` receives ownership-aware Konoha skill sync via `src/global_skill_sync.js`) |
 | `~/.cursor/hooks.json` | `sessionStart` → `cursor_bootstrap.js` (fail-open) |
 | `~/.cursor/cli-config.json` | MCP allowlist for Cursor CLI |
 | `~/.cursor/rules/rtk.mdc` | **RTK (Rust Token Killer) rule** — deployed automatically when `rtk` binary is on PATH |
 | `.cursor/mcp.json` (project) | Project-scoped MCP config |
-| `.cursor/rules/konoha.mdc` | Main-agent Konoha + Semble + RTK contract and delegation rules |
+| `.cursor/rules/konoha.mdc` | Main-agent Konoha + RTK contract and delegation rules |
 
 > [!NOTE]
 > Your original `~/.cursor/mcp.json` is preserved in `~/.cursor/mcp.json.back`. To restore:
@@ -74,7 +74,7 @@ konoha test
 konoha status
 ```
 
-Confirm the **Cursor IDE/CLI Integrations** section shows **ACTIVE** for MCP, subagents, hooks, CLI permissions, and the indexed skill source. Cursor does not receive a Konoha-managed `.cursor/skills/` mirror.
+Confirm the **Cursor IDE/CLI Integrations** section shows **ACTIVE** for MCP, subagents, hooks, CLI permissions, and the indexed skill source (`konoha init` synchronizes Konoha skills to `~/.cursor/skills/` via `src/global_skill_sync.js` alongside `~/.agents/skills/`).
 
 ## Step 3: Restart Cursor
 
@@ -84,30 +84,30 @@ Close and reopen Cursor (or start a new agent session) so MCP servers reload.
 
 1. **Orchestrator** (main agent) reads `.cursor/rules/konoha.mdc`.
 2. **Skills first**: Call `konoha.find_skill`.
-3. **Code context**: Call `semble.search` / `semble.find_related` for project code — **not** Cursor `Grep`, `Glob`, or `SemanticSearch`.
+3. **Code context**: Call `konoha.code_search` / `code_symbol` / `code_impact` for project code — **not** Cursor `Grep`, `Glob`, or `SemanticSearch`.
 4. **Delegate** via structured MCP tools served by `konoha` (for example, `jonin` or `anbu`) with task context and Taste-Skill dials. Use `task_dir` only for legacy fallback hosts.
-5. **Skills from MCP**: Konoha keeps `~/.agents/skills/` as the canonical source and indexes it in SQLite. Cursor agents load skill **content** via `konoha` MCP; Konoha does not create `.cursor/skills/` mirrors or symlinks.
+5. **Skills from MCP**: Konoha keeps `~/.agents/skills/` as the canonical source, indexes it in SQLite, and synchronizes Konoha-owned skill files into global harness directories including `~/.cursor/skills/`. Cursor agents still load skill **content** on demand via `konoha` MCP (`find_skill` / `get_skill`) rather than dumping whole files into prompts.
 
-### Default search / grep / find → semble
+### Default search / grep / find → native code intelligence
 
-When Konoha is installed, **semble MCP is the default** for all codebase discovery on Cursor and Antigravity:
+When Konoha is installed, the in-process **SQLite FTS5 code index is the default** for all codebase discovery on Cursor and Antigravity:
 
 | Avoid | Use instead |
 |-------|-------------|
-| Cursor `Grep`, `Glob`, `SemanticSearch` | `semble.search` / `semble.find_related` |
-| Shell `grep`, `rg`, `find` | `semble.search` with `repo` = absolute project path |
-| Antigravity built-in grep/glob | `semble` MCP |
+| Cursor `Grep`, `Glob`, `SemanticSearch` | `konoha.code_search` / `code_symbol` |
+| Shell `grep`, `rg`, `find` | `konoha.code_search` with `root` = absolute project path |
+| Antigravity built-in grep/glob | `konoha.code_search` |
 
-`konoha` remains for skill lookup and file reads — never use it (or semble) for the wrong purpose. If semble MCP is down after retry, `rg` is allowed once as a documented fallback.
+`konoha` remains for skill lookup and file reads — never use `code_search` for the wrong purpose. If the index reports `degraded: true`, `rg` is allowed once as a documented fallback.
 
 ### Token-efficient file reads (`konoha`)
 
-After semble locates targets, use **konoha** MCP for precise, capped file operations:
+After `code_search` locates targets, use **konoha** MCP for precise, capped file operations:
 
 | Tool | Use when |
 |------|----------|
-| `read_file_head` | Read ≤200 lines from file start (default 80) |
-| `read_file_range` | Read ≤500 lines with line numbers |
+| `read_file_head` | Read ≤150 lines from file start (default 50) |
+| `read_file_range` | Read ≤250 lines with line numbers (clamps larger spans to 200-line chunks) |
 | `file_info` | File size + line count without loading content |
 | `token_efficient_grep` | Regex search capped at 20 matches |
 | `get_file_structure` | Class/function signatures without bodies |
@@ -149,7 +149,7 @@ Custom subagents you create via `konoha agent create` can still be deleted.
 
 Cursor CLI reads `~/.cursor/cli-config.json` for MCP permissions. After `konoha init`, these grants are added:
 
-- `Mcp(semble)`, `Mcp(semble, search)`, `Mcp(semble, find_related)`
+- `Mcp(konoha, code_search)`, `Mcp(konoha, code_symbol)`, `Mcp(konoha, code_impact)`, `Mcp(konoha, code_context)`
 - `Mcp(aislop)`, `Mcp(aislop, aislop_scan)`, `Mcp(aislop, aislop_fix)`, `Mcp(aislop, aislop_why)`, `Mcp(aislop, aislop_baseline)`
 - `Mcp(konoha)`, `Mcp(konoha, read_file_head)`, `Mcp(konoha, read_file_range)`, `Mcp(konoha, file_info)`, `Mcp(konoha, token_efficient_grep)`, `Mcp(konoha, get_file_structure)`, `Mcp(konoha, find_files_clean)`, `Mcp(konoha, find_skill)`, `Mcp(konoha, get_skill)`, `Mcp(konoha, list_skills)`, `Mcp(konoha, optimize_report)`, `Mcp(konoha, build_from_source)`, `Mcp(konoha, build_from_text)`
 
@@ -159,7 +159,7 @@ Run `konoha doctor --yes` to repair missing permissions.
 
 ### MCP not detected in Cursor
 
-1. Check `~/.cursor/mcp.json` contains `konoha`, `semble`, and `aislop`.
+1. Check `~/.cursor/mcp.json` contains `konoha` and `aislop`.
 2. Run `konoha doctor --yes`.
 3. Run `node ~/.konoha/cursor_bootstrap.js` (must exit 0).
 4. Restart Cursor.
@@ -174,7 +174,7 @@ Run `konoha doctor --yes` to repair missing permissions.
 
 1. Run `konoha doctor --yes` to repair MCP and generated rules.
 2. After `konoha skill add` or editing skills, run `konoha migrate`.
-3. Confirm the agent uses `konoha.find_skill` and `konoha.get_skill`; do not create a `.cursor/skills/` mirror.
+3. Confirm the agent uses `konoha.find_skill` and `konoha.get_skill` instead of dumping `~/.cursor/skills/` or `~/.agents/skills/` files directly into prompts.
 
 ### Dual-platform / multi-client (Antigravity + Cursor + others)
 

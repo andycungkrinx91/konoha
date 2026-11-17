@@ -1,5 +1,10 @@
+import fs from 'fs';
 import { test, expect } from '@playwright/test';
 import { loginAndUnlock } from './auth_helper.js';
+
+const ROOT_PKG = JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+const IS_V22_SERIES = /^2\.2\./.test(String(ROOT_PKG.version || ''));
+test.skip(IS_V22_SERIES, `Yamanaka 3D Studio is planned/unreleased in Konoha v${ROOT_PKG.version} (skipped across all 2.2.* versions)`);
 
 test("Yamanaka 3D Studio routes load cleanly with interactive viewport", async ({ page }) => {
   await loginAndUnlock(page);

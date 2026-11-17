@@ -25,6 +25,9 @@ async function planNode(state) {
         const compactionAudit = superviseLifecycleStage('compaction', {
           status,
           taskDir,
+          goal: status.prompt || state.prompt || '',
+          todos: choiceResult.todos || status.tasks || state.todos || [],
+          client: status.client || state.client,
           compaction: choiceResult.compaction || status.compaction
         });
         saveWorkflowStatus(taskDir, status);
@@ -70,7 +73,12 @@ async function planNode(state) {
   }
 
   const rootRecord = sdlcManager.getTask(rootTaskId);
-  const isApprovedInDb = rootRecord && (rootRecord.status === 'in_progress' || rootRecord.status === 'completed');
+  // `in_progress` is stamped by runSannin on every dispatch, before any gate is
+  // answered, so it can never prove the plan was approved. Only the verdict
+  // applyGate1Choice writes into the task evidence is authoritative.
+  const isApprovedInDb = Boolean(rootRecord) && (
+    rootRecord.status === 'completed' || rootRecord.evidence?.gate1_verdict === 'approved'
+  );
 
   if (status.plan_approved || isApprovedInDb) {
     status.plan_approved = true;
@@ -85,6 +93,8 @@ async function planNode(state) {
       phase: 'brief',
       hitlPending: false,
       hitlStage: null,
+      hitlChoice: null,
+      hitlRefinement: null,
     };
     return finalizeNodeResult(state, payload, 'node_brief', { source: planData });
   }

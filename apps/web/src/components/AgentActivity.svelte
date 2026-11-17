@@ -359,7 +359,7 @@
 
       <text x="155" y="54" font-size="11" font-weight="800" fill="var(--color-text-muted)" letter-spacing="2">CLIENT HARNESSES (8)</text>
       <text x={CENTER_X} y="54" text-anchor="middle" font-size="11" font-weight="800" fill="var(--color-primary)" letter-spacing="2">NINJA ORCHESTRATION RING</text>
-      <text x="1045" y="54" text-anchor="end" font-size="11" font-weight="800" fill="var(--color-text-muted)" letter-spacing="2">MCP &amp; SEMBLE TOOLS</text>
+      <text x="1045" y="54" text-anchor="end" font-size="11" font-weight="800" fill="var(--color-text-muted)" letter-spacing="2">MCP TOOLS</text>
 
       {#each visibleEdges as edge (edge.id)}
         <g>
@@ -574,7 +574,7 @@
           <div class="flex flex-wrap items-center gap-4">
             <span class="flex items-center gap-1.5 font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background: var(--theme-grad-1);"></span>Ninja Agent</span>
             <span class="flex items-center gap-1.5 font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background: var(--theme-success);"></span>Client Harness</span>
-            <span class="flex items-center gap-1.5 font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background: var(--theme-grad-3);"></span>MCP / Semble Tool</span>
+            <span class="flex items-center gap-1.5 font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background: var(--theme-grad-3);"></span>MCP Tool Call</span>
           </div>
           <div class="font-mono font-bold" data-testid="spider-flip-status">
             Spider Orientation: {isSpiderFlipped ? 'INVERTED (180°)' : 'UPRIGHT (0°)'} · Flips: {spiderFlipCount}

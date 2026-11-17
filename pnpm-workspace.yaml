@@ -10,6 +10,7 @@ overrides:
   "arraybuffer.prototype.slice": "npm:@socketregistry/arraybuffer.prototype.slice@1.0.7"
   "available-typed-arrays": "npm:@socketregistry/available-typed-arrays@1.0.7"
   "define-properties": "npm:@socketregistry/define-properties@1.0.7"
+  "deepmerge": "4.1.2"
   "devalue": ">=6.0.2"
   "es-define-property": "npm:@socketregistry/es-define-property@1.0.7"
   "es-set-tostringtag": "npm:@socketregistry/es-set-tostringtag@1.0.9"
@@ -84,9 +85,9 @@ patchedDependencies:
   "playwright-core@1.64.1": "patches/playwright-core@1.64.1.patch"
   "pptxgenjs@4.0.1": "patches/pptxgenjs@4.0.1.patch"
 
-audit:
-  ignore:
-    - "GHSA-gcqx-w48m-w2h4"
+allowBuilds:
+  onnxruntime-node: false
+  protobufjs: false
 
 minimumReleaseAgeExclude:
   - marked@18.2.0

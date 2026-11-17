@@ -4,8 +4,7 @@
  * bin/lib/extension.js — IDE Extensions & External Tooling Management.
  *
  * Manages:
- * - uv and uvx detection, fallback paths, and installation
- * - Semble package refresh
+ * - uv detection, fallback paths, and installation
  * - Antigravity IDE detection and obsolete bridge registry cleanup
  *   (The konoha-bridge VSIX lifecycle was removed in v2.2.1; only stale registry keys are pruned.)
  */
@@ -13,12 +12,12 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync, spawnSync } = require('child_process');
+const { execSync } = require('child_process');
 const { HOME, INSTALL_BUILD_MIGRATE_TIMEOUT_MS } = require('./paths');
 const { getConfigValue } = require('./config_defaults');
 const { fileExists } = require('./prompt');
 const { log, info, warn, success } = require('./format');
-const { SEMBLE_PACKAGE } = require('../../src/semble_manager');
+
 
 const PINNED_UV_VERSION = '0.9.5';
 
@@ -63,7 +62,7 @@ function installUv(silent = false) {
   // does not have; there the attempt blocks the whole run instead of failing fast.
   if (process.env.KONOHA_SKIP_UV_INSTALL === '1') return false;
 
-  if (!silent) info(`Attempting to install pinned "uv" v${PINNED_UV_VERSION} for Semble MCP...`);
+  if (!silent) info(`Attempting to install pinned "uv" v${PINNED_UV_VERSION} for the aislop MCP...`);
   try {
     const stdioOpt = silent ? 'ignore' : 'inherit';
     const tmpDir = os.tmpdir();
@@ -117,32 +116,6 @@ function getUvCommand() {
   return null;
 }
 
-function refreshSemblePackage(silent = true) {
-  const uvxCmd = getUvxCommand();
-  try {
-    const result = spawnSync(uvxCmd, ['--from', SEMBLE_PACKAGE, 'semble', '--version'], {
-      encoding: 'utf8', timeout: 120000, stdio: silent ? 'ignore' : 'inherit', windowsHide: true
-    });
-    return result.status === 0
-      ? { ok: true, command: uvxCmd }
-      : { ok: false, reason: `semble-refresh-failed-${result.status}` };
-  } catch (error) {
-    return { ok: false, reason: 'semble-refresh-failed', error: error.message };
-  }
-}
-
-function getUvxCommand() {
-  const uvCmd = getUvCommand();
-  if (!uvCmd) return 'uvx';
-  if (uvCmd !== 'uv') {
-    const companionUvx = path.join(path.dirname(uvCmd), process.platform === 'win32' ? 'uvx.exe' : 'uvx');
-    if (fileExists(companionUvx)) {
-      return companionUvx;
-    }
-  }
-  return 'uvx';
-}
-
 
 function findIdeExecutable(name) {
   const isWin = process.platform === 'win32';
@@ -165,7 +138,5 @@ function findIdeExecutable(name) {
 module.exports = {
   installUv,
   getUvCommand,
-  refreshSemblePackage,
-  getUvxCommand,
   findIdeExecutable
 };

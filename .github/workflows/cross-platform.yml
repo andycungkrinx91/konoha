@@ -1,14 +1,21 @@
 name: Cross-Platform
 
 # Runs the repo checks on all three supported OSes for every push to master and
-# every pull request. The publish and release-assets workflows stay tag-only on
-# ubuntu-latest; this workflow owns push/PR verification and never publishes.
+# every pull request. Tag pushes are included so a release carries its own
+# verdict: the README CI badge reads the run for the release tag
+# (`cross-platform.yml?branch=v<version>`, rewritten by scripts/bump_version.js)
+# rather than whatever master happens to be.
+# The publish and release-assets workflows stay tag-only on ubuntu-latest; this
+# workflow owns push/PR/tag verification and never publishes.
 #
 # Duration targets (docs/CI.md, "Duration budget"): ubuntu < 10 min,
-# macos < 20 min, windows < 40 min. The suite is the only term large enough to
+# macos < 20 min, windows < 30 min. The suite is the only term large enough to
 # matter, so it is split across shards on separate runners — one runner cannot
-# be made fast enough by tuning. Shard counts are set from the measured suite
-# work per platform; see the Duration budget table for the arithmetic.
+# be made fast enough by tuning. Shard counts are tuned for GitHub Free limits
+# (256 matrix jobs/run max; 20 concurrent jobs total; 5 concurrent macOS jobs):
+#   - windows-latest: 16 shards (~18 suites/shard; avoids the 17 min 8-shard run)
+#   - ubuntu-latest:  8 shards  (~36 suites/shard; finishes quickly and frees slots)
+#   - macos-latest:   5 shards  (matches the 5 concurrent macOS cap in one wave)
 #
 # The test step has no `continue-on-error`: a failing suite turns the workflow
 # red. Sharding cannot hide a failure, because each shard must run a non-empty
@@ -18,8 +25,15 @@ name: Cross-Platform
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
+  # Nightly cross-platform run. Push-only triggers miss the regressions that
+  # matter most here: a runner image change, a dependency that resolves
+  # differently on another OS, or a Windows/macOS-only path bug that no PR
+  # touches. The cron run is the standing proof that every platform passes.
+  schedule:
+    - cron: '0 2 * * *'
 
 permissions:
   contents: read
@@ -84,25 +98,172 @@ jobs:
           node bin/cli.js migrate --skip-embeddings
           node bin/cli.js version
 
-  test:
-    name: ${{ matrix.os }} shard ${{ matrix.shard }}/8
+  seed:
+    name: Build golden seed (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.1.1
+        with:
+          run_install: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore Hugging Face model cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/@huggingface/transformers/.cache
+            ~/.cache/huggingface
+            ~/.konoha/models
+          key: konoha-hf-models-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/vector_pipeline.js') }}
+          restore-keys: |
+            konoha-hf-models-${{ runner.os }}-
+
+      - name: Build web
+        env:
+          SOURCE_DATE_EPOCH: '1760000000'
+        run: pnpm --filter konoha-web build
+
+      - name: Restore golden seed
+        id: seed-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/konoha_golden_seed
+          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**','assets/**') }}
+
+      - name: Build golden seed
+        if: steps.seed-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 30
+        env:
+          KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
+          KONOHA_SKIP_UV_INSTALL: '1'
+          KONOHA_SKIP_RTK_INSTALL: '1'
+        run: node tests/run_all.js --seed-only
+
+      - name: Save golden seed
+        if: steps.seed-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/konoha_golden_seed
+          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**','assets/**') }}
+
+  test:
+    name: ${{ matrix.os }} shard ${{ matrix.shard }}/${{ matrix.shard_total }}
+    needs: [seed]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     strategy:
       # One shard failing must not cancel the others — the per-shard signal is
       # what says which suite broke.
       fail-fast: false
-      # Eight shards on every OS. One job over the whole discovered list measured
-      # 1720 s, far outside the 600 s Linux budget. The gate tree's 281 measured
-      # durations sum to 6245 s, and round-robin assignment of them predicted a
-      # worst shard of 240 s at 8 (316 s at 6, 406 s at 4); the run measured
-      # 175 s. Uniform rather than per-OS because the macOS and Windows
-      # multipliers are unmeasured, and Windows is the platform this work exists
-      # for — sizing it down on a number nobody has taken would be guesswork.
-      # Fewer shards would only save runner minutes, which is not the constraint.
+      # Per-OS shard matrix (29 test jobs + 3 checks jobs = 32 jobs <= 256 limit),
+      # asymmetric to respect GitHub Free concurrency (20 total, 5 macOS max).
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        include:
+          - os: ubuntu-latest
+            shard: 1
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 2
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 3
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 4
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 5
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 6
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 7
+            shard_total: 8
+          - os: ubuntu-latest
+            shard: 8
+            shard_total: 8
+          - os: macos-latest
+            shard: 1
+            shard_total: 5
+          - os: macos-latest
+            shard: 2
+            shard_total: 5
+          - os: macos-latest
+            shard: 3
+            shard_total: 5
+          - os: macos-latest
+            shard: 4
+            shard_total: 5
+          - os: macos-latest
+            shard: 5
+            shard_total: 5
+          - os: windows-latest
+            shard: 1
+            shard_total: 16
+          - os: windows-latest
+            shard: 2
+            shard_total: 16
+          - os: windows-latest
+            shard: 3
+            shard_total: 16
+          - os: windows-latest
+            shard: 4
+            shard_total: 16
+          - os: windows-latest
+            shard: 5
+            shard_total: 16
+          - os: windows-latest
+            shard: 6
+            shard_total: 16
+          - os: windows-latest
+            shard: 7
+            shard_total: 16
+          - os: windows-latest
+            shard: 8
+            shard_total: 16
+          - os: windows-latest
+            shard: 9
+            shard_total: 16
+          - os: windows-latest
+            shard: 10
+            shard_total: 16
+          - os: windows-latest
+            shard: 11
+            shard_total: 16
+          - os: windows-latest
+            shard: 12
+            shard_total: 16
+          - os: windows-latest
+            shard: 13
+            shard_total: 16
+          - os: windows-latest
+            shard: 14
+            shard_total: 16
+          - os: windows-latest
+            shard: 15
+            shard_total: 16
+          - os: windows-latest
+            shard: 16
+            shard_total: 16
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -127,7 +288,20 @@ jobs:
       # when no build of the current version exists, and resolveWebBuildSource()
       # prefers apps/web/build when there is one. Without this step first the seed
       # build runs a second full SvelteKit build instead of copying this one.
+      - name: Restore Hugging Face model cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/@huggingface/transformers/.cache
+            ~/.cache/huggingface
+            ~/.konoha/models
+          key: konoha-hf-models-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/vector_pipeline.js') }}
+          restore-keys: |
+            konoha-hf-models-${{ runner.os }}-
+
       - name: Build web
+        env:
+          SOURCE_DATE_EPOCH: '1760000000'
         run: pnpm --filter konoha-web build
 
       # The golden seed is a full `konoha init` HOME (~400 MB) that every suite
@@ -141,10 +315,11 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/konoha_golden_seed
-          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**') }}
+          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**','assets/**') }}
 
       - name: Build golden seed
         if: steps.seed-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 30
         env:
           KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
         run: node tests/run_all.js --seed-only
@@ -161,7 +336,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/konoha_golden_seed
-          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**') }}
+          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**','assets/**') }}
 
       # Bare runners have no browser cache. The harness forwards
       # PLAYWRIGHT_BROWSERS_PATH (tests/run_all.js), defaulting to
@@ -213,16 +388,44 @@ jobs:
           brew install ffmpeg-full
           echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
 
+      # The Windows image's ffmpeg may lack the encoder, and
+      # community.chocolatey.org answers 504 under load — which cost shard 16/16
+      # of run 43868450771 a whole job before a single test ran. `choco install`
+      # also exits 0 when the feed times out ("Unable to find package"), so the
+      # exit code proves nothing and the encoder probe is the only real signal.
+      # Retry here and fail this step, rather than leaving the verify step to
+      # discover it after the install already reported success.
       - name: Ensure ffmpeg with libwebp (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $hasEncoder = $false
-          try { $hasEncoder = ((ffmpeg -hide_banner -encoders 2>$null) -match 'libwebp_anim').Count -gt 0 } catch { $hasEncoder = $false }
-          if (-not $hasEncoder) { choco install ffmpeg -y --no-progress }
+          function Test-LibwebpAnim {
+            # Prepend the shim dir so the freshly installed ffmpeg wins over
+            # whichever binary the runner shipped with, without dropping the
+            # entries earlier steps appended via $GITHUB_PATH.
+            $env:Path = "C:\ProgramData\chocolatey\bin;$env:Path"
+            try { $encoders = (& ffmpeg -hide_banner -encoders 2>$null) -join "`n" } catch { return $false }
+            return $encoders -match 'libwebp_anim'
+          }
+          if (Test-LibwebpAnim) { Write-Host 'runner ffmpeg already exposes libwebp_anim'; exit 0 }
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            Write-Host "choco install ffmpeg (attempt $attempt/3)"
+            # --force: a choco package that already reports installed would
+            # otherwise no-op, and the probe would keep failing on the same
+            # binary for all three attempts.
+            choco install ffmpeg -y --no-progress --force
+            if (Test-LibwebpAnim) { exit 0 }
+            Start-Sleep -Seconds (15 * $attempt)
+          }
+          Write-Host '::error::could not provision an ffmpeg exposing libwebp_anim in 3 attempts'
+          exit 1
 
+      # One probe for all three OSes, so a failure must say which binary it
+      # rejected: the three provisioning legs differ and the runner's ffmpeg is
+      # a plausible suspect every time.
       - name: Verify ffmpeg webp encoder
-        run: node -e "const{spawnSync}=require('child_process');const r=spawnSync('ffmpeg',['-hide_banner','-encoders'],{encoding:'utf8'});if(!r.stdout||!r.stdout.includes('libwebp_anim')){console.error('ffmpeg build lacks the libwebp_anim encoder');process.exit(1);}console.log('ffmpeg exposes libwebp_anim');"
+        run: |
+          node -e 'const{spawnSync}=require("child_process");const enc=spawnSync("ffmpeg",["-hide_banner","-encoders"],{encoding:"utf8"});if(enc.stdout&&enc.stdout.includes("libwebp_anim")){console.log("ffmpeg exposes libwebp_anim");process.exit(0);}const ver=spawnSync("ffmpeg",["-hide_banner","-version"],{encoding:"utf8"});const which=(ver.stdout||"").split("\n")[0]||(ver.error?"ffmpeg not on PATH ("+ver.error.code+")":"ffmpeg not on PATH");console.error("ffmpeg build lacks the libwebp_anim encoder");console.error("resolved:",which);process.exit(1);'
 
       # Full suite via tests/run_all.js, split into the shard this job owns.
       # Parallel mode is the harness's own feature (KONOHA_TEST_PARALLEL=1,
@@ -233,8 +436,10 @@ jobs:
       - name: Test (shard)
         env:
           KONOHA_TEST_PARALLEL: '1'
-          KONOHA_TEST_SHARD: ${{ matrix.shard }}/8
+          KONOHA_TEST_SHARD: ${{ matrix.shard }}/${{ matrix.shard_total }}
+          KONOHA_TEST_TIMEOUT: '3600000'
+          KONOHA_SHARD_TIMEOUT: '3600000'
           KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
-        timeout-minutes: 90
+        timeout-minutes: 60
         run: pnpm test

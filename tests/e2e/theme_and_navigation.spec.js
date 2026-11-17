@@ -269,8 +269,7 @@ test.describe("Web UI Theme Switcher & Navigation E2E Suite", () => {
     const statusFooter = page.locator("aside").locator("text=Listen on 127.0.0.1:1404");
     await expect(statusFooter).toBeVisible();
 
-    // Verify SQLite FTS5 + Semble and Localhost are removed
-    await expect(page.locator("aside").locator("text=SQLite FTS5 + Semble")).not.toBeVisible();
+    // Verify Localhost is removed
     await expect(page.locator("aside").locator("text=Localhost")).not.toBeVisible();
 
     // Verify 'Created by Andy Setiyawan' attribution link exists

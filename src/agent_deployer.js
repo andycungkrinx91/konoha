@@ -10,7 +10,7 @@ const deployUtils = require('./deploy_utils');
 const {
   SERVER_PATH,
   HOME
-} = require('../bin/lib/paths');
+} = require('./config_access').loadBinLib('paths');
 const {
   buildLightweightContract,
   buildManagedContract
@@ -18,26 +18,25 @@ const {
 const { loadAgents } = require('./agent_storage');
 
 function buildDefineSubagentGuide(agents) {
-  return `### Konoha MCP Tool-Based Delegation (CRITICAL)
+  return `### Konoha Hybrid Subagent Architecture (MCP Delegation + Native Harness Spawning)
 
-All subagents are migrated to MCP tools served by the \`konoha\` MCP server. Rather than using custom subagent configuration structures or files, delegation is performed directly by calling the corresponding MCP tool.
+Subagents operate in two coordinated layers across the \`konoha\` MCP server and each client harness:
+1. **MCP Delegation & Context Layer**: Calling \`konoha.<agent>\` (${agents.map(a => `\`${a.name}\``).join(', ')}) compiles the delegation envelope (bound skills, soul archetype, codebase intelligence/memory) and returns a harness-native **Spawn Directive**.
+2. **Native Subagent Execution Layer**: Client harnesses that natively support subagents read Konoha's deployed agent profiles (\`.claude/agents/*.md\`, \`.cursor/agents/*.md\`, \`~/.codex/agents/*.toml\`, \`~/.config/opencode/agents/*.md\`, \`.commandcode/agents/*.md\`, \`~/.omp/agent/agents/*.md\`, or Antigravity \`define_subagent\`/\`invoke_subagent\`) and spawn isolated child workers using their native tool (\`Agent\`, \`Task\`, \`task\`, \`spawn_agent\`, \`invoke_subagent\`) or \`konoha run-agent\`. Harnesses without native spawning (e.g. bare \`pi\` without extensions) fail closed with \`UNSUPPORTED_NATIVE_SPAWN\`.
 
-The official delegation tools are: ${agents.map(a => `\`${a.name}\``).join(', ')}.
 
-
-### Auto-Compaction Contract (Token Preservation across all clients)
-Konoha automatically activates **High-Efficiency Auto-Compaction** after 2 MCP delegations (\`turn >= 2\`, reset after 30 min idle) across all coding tools (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, Cursor, and Codex):
-- **Memory Continuity**: Project tech stack (\`framework\`, \`styling\`, \`package_manager\`), architectural invariants, and verified episodic learnings are permanently remembered and prioritized in prompts. Advisory learnings are preserved with base importance.
-- **Prompt Compaction**: Verbose instruction boilerplates and redundant diff explanations are compacted. The primary skill SOP preview (250 chars) is always included even on compact turns. Agent instructions are truncated to 1200 chars and constraints to 600 chars (never stripped entirely).
+### Auto-Compaction & Live Checklist Sync Contract (All 8 Harnesses)
+Konoha enforces a **Dynamic Per-Agent Input Token Quota** (default \`100,000\` tokens via \`agent_input_token_quota\` / \`KONOHA_AGENT_INPUT_TOKEN_QUOTA\`) and **Realtime Checklist Sync** across all 8 coding harnesses (Antigravity IDE/CLI, Claude Code, CommandCode, OpenCode, Cursor, OMP, Codex, and Pi):
+- **Quota-Triggered LangGraph Checkpoint & Auto-Continue**: Instead of truncating after 2 turns, when an agent reaches its configured input token quota (\`agent_input_token_quota\`), Konoha saves a per-agent checkpoint (\`agent\`, \`task\`, \`todo\`, \`work\`, \`progress\`, \`latest_condition\`) directly in LangGraph SQLite state (\`lg_checkpoints\` / \`KonohaWorkflowState.agentSnapshots\`), compacts active context using Head+Middle+Tail preservation, resets the agent's token baseline, and automatically continues from \`## LATEST CONDITION CHECKPOINT (Auto-Continue)\`.
+- **Realtime Client Checklist Sync**: Every delegation and agent report returns \`client_todo_directive\` (with harness-specific \`native_payload\`), \`walkthrough_steps\`, and syncs \`TODO.md\` + \`sdlc_tasks\` so active task lists update in real time.
+- **Memory Continuity & Advisor Guard**: Project invariants and verified learnings are retained across compactions; \`@advisor\` sits idle from turn 0 (\`<= 8,192\` tokens/turn) to catch drift without Lost-in-the-Middle drops.
 - **On-Demand Skills**: Full reference manuals are served on-demand via \`konoha.get_skill\` instead of being dumped into prompts.
 
 ### Delegation Protocol
 
 To delegate a task:
-1. **Direct Structured MCP Delegation (Mandatory & Token-Safe)**: Call the subagent MCP tool directly (for example, \`jonin\`, \`anbu\`, \`kage\`, or \`genin\`) with \`task\`, \`context\`, \`constraints\`, \`skills\`, \`taste_dials\`, and \`project_path\`. This executes inline with zero file-based IPC (never search for or write \`prompt.md\`, \`delegate.md\`, or \`result.md\`).
-2. **Result Delivery**: Subagents return structured results directly to the orchestrator upon completion.
-
-This guarantees consistent cross-client execution without relying on custom subagent configuration frameworks or files.`;
+1. **Direct Structured MCP Delegation (Mandatory & Token-Safe)**: Call the subagent MCP tool directly (for example, \`jonin\`, \`anbu\`, \`kage\`, or \`genin\`) with structured arguments (\`task\`, \`context\`, \`constraints\`, \`skills\`, \`taste_dials\`, and \`project_path\`) to compile the delegation envelope and harness spawn directive. Session state and transcripts flow through canonical JSON/JSONL streams and \`konoha.report_from_agent\` rather than legacy markdown IPC files.
+2. **Isolated Child Spawning & Result Delivery**: Spawn the child agent via the returned native harness call or \`konoha run-agent\` so the subagent executes with scoped permissions (strictly read-only for \`genin\`) and reports back to the parent orchestrator.`;
 }
 
 function buildLightweightMarkdownContent(agents, clientTitle, clientKey) {
@@ -207,12 +206,12 @@ function cleanObsoleteAgentDirs(_home = null) {
 }
 
 function deployGlobalClientConfigs(options) {
-  const { pythonCmd, serverPath, uvxCmd, agents, projectRoot, deployProject, home } = options;
+  const { pythonCmd, serverPath, agents, projectRoot, deployProject, home } = options;
   const effectiveHome = home || process.env.HOME || process.env.USERPROFILE || os.homedir();
 
   try {
     mcpClientsManager.ensureClaudeCodeSetup({
-      pythonCmd, serverPath, uvxCmd, silent: true,
+      pythonCmd, serverPath, silent: true,
       ruleContent: generateClaudeCodeMd(agents), agents, projectRoot, deployProject, home: effectiveHome
     });
   } catch (_) { /* intentional best-effort fallback */ }
@@ -220,34 +219,34 @@ function deployGlobalClientConfigs(options) {
   try {
     const opencodeManager = require('./opencode_manager');
     opencodeManager.ensureOpenCodeSetup({
-      pythonCmd, serverPath, uvxCmd, agents, projectRoot, deployProject, silent: true, home: effectiveHome
+      pythonCmd, serverPath, agents, projectRoot, deployProject, silent: true, home: effectiveHome
     });
   } catch (_) { /* intentional best-effort fallback */ }
 
   try {
     const codexManager = require('./codex_manager');
     codexManager.ensureCodexSetup({
-      pythonCmd, serverPath, uvxCmd, agents, projectRoot, deployProject, silent: true, home: effectiveHome
+      pythonCmd, serverPath, agents, projectRoot, deployProject, silent: true, home: effectiveHome
     });
   } catch (_) { /* intentional best-effort fallback */ }
 
   try {
     mcpClientsManager.ensureCommandCodeSetup({
-      pythonCmd, serverPath, uvxCmd, agents, projectRoot, deployProject, silent: true, home: effectiveHome
+      pythonCmd, serverPath, agents, projectRoot, deployProject, silent: true, home: effectiveHome
     });
   } catch (_) { /* intentional best-effort fallback */ }
 
   try {
     const piManager = require("./pi_manager");
     if (options.force || piManager.isPiInstalled()) {
-      piManager.ensurePiSetup({ pythonCmd, serverPath, uvxCmd, silent: true, home: effectiveHome, force: options.force, skipDetection: options.force });
+      piManager.ensurePiSetup({ pythonCmd, serverPath, silent: true, home: effectiveHome, force: options.force, skipDetection: options.force });
     }
   } catch (_) { /* intentional best-effort fallback */ }
 
   try {
     const ompManager = require("./omp_manager");
     if (options.force || ompManager.isOmpInstalled()) {
-      ompManager.ensureOmpSetup({ pythonCmd, serverPath, uvxCmd, silent: true, home: effectiveHome, force: options.force });
+      ompManager.ensureOmpSetup({ pythonCmd, serverPath, silent: true, home: effectiveHome, force: options.force });
     }
   } catch (_) { /* intentional best-effort fallback */ }
 }
@@ -256,7 +255,6 @@ function regenerateAndDeploy(silentOrOptions = false) {
   const silent = typeof silentOrOptions === 'boolean' ? silentOrOptions : (silentOrOptions.silent || false);
   const pythonCmd = typeof silentOrOptions === 'object' ? (silentOrOptions.pythonCmd || 'python3') : 'python3';
   const serverPath = typeof silentOrOptions === 'object' ? (silentOrOptions.serverPath || SERVER_PATH) : SERVER_PATH;
-  const uvxCmd = typeof silentOrOptions === 'object' ? (silentOrOptions.uvxCmd || 'uvx') : 'uvx';
   const projectRoot = typeof silentOrOptions === 'object' ? (silentOrOptions.projectRoot || null) : null;
   const deployProject = typeof silentOrOptions === 'object' ? (silentOrOptions.deployProject || false) : false;
   const force = typeof silentOrOptions === 'object' ? (silentOrOptions.force || false) : false;
@@ -317,7 +315,7 @@ function regenerateAndDeploy(silentOrOptions = false) {
 
   try {
     cursorManager.ensureCursorSetup({
-      pythonCmd, serverPath, uvxCmd, agents, projectRoot, deployProject,
+      pythonCmd, serverPath, agents, projectRoot, deployProject,
       silent: true, allowHooks: true, ruleContent: null, home: effectiveHome
     });
   } catch (_) { /* intentional fallback */ }
@@ -327,11 +325,16 @@ function regenerateAndDeploy(silentOrOptions = false) {
   } catch (_) { /* intentional fallback */ }
 
   cleanObsoleteAgentDirs(effectiveHome);
-  deployGlobalClientConfigs({ pythonCmd, serverPath, uvxCmd, agents, projectRoot, deployProject, home: effectiveHome, force });
+  deployGlobalClientConfigs({ pythonCmd, serverPath, agents, projectRoot, deployProject, home: effectiveHome, force });
 
   try {
     deployUtils.syncSoulAcrossClients({ home: effectiveHome, silent });
   } catch (_) { /* intentional fallback */ }
+
+  try {
+    const { ensureProjectKonohaGuardPlugin } = require('./project_konoha_mcp_guardrail');
+    ensureProjectKonohaGuardPlugin(projectRoot || process.cwd());
+  } catch (_) { /* strict Konoha-repo-only guard helper */ }
 
   if (fingerprint) {
     try {

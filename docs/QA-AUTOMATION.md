@@ -20,24 +20,27 @@ Browsing web applications using LLMs is expensive in token consumption. Re-runni
 
 ```mermaid
 ---
+title: Token-Efficient Playwright QA Cycle
 config:
   theme: base
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#0284c7'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
+    secondaryColor: '#f8fafc'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
     nodeSpacing: 45
     rankSpacing: 55
     padding: 24
-    wrappingWidth: 350
+    wrappingWidth: 380
 ---
 flowchart LR
     A["Explore<br/>(Playwright, tokens)"] --> B["Flow File<br/>(JSON)"]
@@ -46,10 +49,16 @@ flowchart LR
     D -. "only on failure:<br/>small, escalating triage" .-> A
 
     linkStyle default stroke:#334155,stroke-width:2px;
-    style A fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
-    style B fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
-    style C fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
-    style D fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
+
+    classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+    classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+    classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+    classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+    class A blueShape;
+    class B orangeShape;
+    class C greenShape;
+    class D redShape;
 ```
 
 ---
@@ -58,19 +67,20 @@ flowchart LR
 
 ```mermaid
 ---
+title: Canonical 8-Phase QA Automation Flow
 config:
   theme: base
   themeVariables:
     darkMode: false
     background: '#ffffff'
-    mainBkg: '#ffffff'
-    primaryColor: '#ffffff'
-    primaryTextColor: '#0f172a'
-    primaryBorderColor: '#8b5cf6'
+    mainBkg: '#eff6ff'
+    primaryColor: '#eff6ff'
+    primaryTextColor: '#334155'
+    primaryBorderColor: '#3b82f6'
     lineColor: '#334155'
     arrowheadColor: '#334155'
     secondaryColor: '#f8fafc'
-    tertiaryColor: '#ffffff'
+    tertiaryColor: '#f0fdf4'
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
     fontSize: '13px'
   flowchart:
@@ -110,7 +120,17 @@ flowchart TD
   RD -. "depth 7 or slop_cycles > 7" .-> STOP["Stop and ask the user"]
 
   linkStyle default stroke:#334155,stroke-width:2px;
-  style P5 fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#0f172a;
+  style P5 fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;
+
+  classDef blueShape fill:#eff6ff,stroke:#3b82f6,color:#334155,stroke-width:2px;
+  classDef orangeShape fill:#fff7ed,stroke:#f97316,color:#334155,stroke-width:2px;
+  classDef greenShape fill:#f0fdf4,stroke:#10b981,color:#334155,stroke-width:2px;
+  classDef redShape fill:#fef2f2,stroke:#ef4444,color:#334155,stroke-width:2px;
+
+  class P1,P2,P3,P4,Q1,Q2 blueShape;
+  class QV,Q3,QF,QFB,QFU,P6,P7,G orangeShape;
+  class Q4,Q5,Q6,P8 greenShape;
+  class RD,STOP redShape;
 ```
 
 ---
@@ -134,7 +154,7 @@ Every QA claim in Konoha must be backed by concrete tool execution output:
 
 | Claim | Required Verification Evidence |
 |---|---|
-| Route / Selector exists | Genin cites exact `file:line` from Semble codebase exploration. |
+| Route / Selector exists | Genin cites exact `file:line` from native code-search exploration. |
 | Flow works | `qa_codify` compile + Playwright run exit 0 on that flow file hash. |
 | Bug confirmed | RED `qa_e2e_run` summary with unique `run_id` for the codified spec. |
 | Bug fixed | GREEN `qa_e2e_run` summary with unique `run_id` on the same test spec. |
@@ -217,7 +237,7 @@ Measurements conducted on Konoha Web UI (`/detector` route):
 
 ## Test Suite Runner & Isolation Contract (G-01, G-17)
 
-Konoha's test runner (`tests/run_all.js`, executed via `pnpm test` or `node tests/run_all.js [--parallel]`) enforces multi-tenant test isolation. It discovers every `tests/test_*.js`, `tests/*.test.js`, and `tests/verify_*.js` file, minus the unreleased `tests/test_yamanaka_*.js` suites (named in the run banner; still runnable by passing one as the filter), so a new suite is discovered without editing a list.
+Konoha's test runner (`tests/run_all.js`, executed via `pnpm test` or `node tests/run_all.js [--parallel]`) enforces multi-tenant test isolation. It discovers every `tests/test_*.js`, `tests/*.test.js`, and `tests/verify_*.js` file, minus the unreleased `tests/test_yamanaka_*.js` suites across all `2.2.*` versions (`/^2\.2\./`, named in the run banner; still runnable by passing one as the filter), so a new suite is discovered without editing a list. Likewise, `tests/e2e/yamanaka_3d_studio.spec.js` automatically skips across `2.2.*` versions when running Playwright (`pnpm test:e2e`).
 
 Every test and lint entry point in `package.json` is routed through `scripts/rtk_exec.js`, so suite output reaches the orchestrating model as a failure-focused summary instead of thousands of raw lines:
 
@@ -255,7 +275,6 @@ Three different things in this repo are called a sandbox. They do not nest, and 
      - `HOME`: points to the ephemeral suite snapshot directory.
      - `USERPROFILE`: the same directory. `os.homedir()` reads `USERPROFILE` on win32 and ignores `HOME`, so without it a suite that calls `os.homedir()` escapes the sandbox while the product reads `HOME` — the two then disagree mid-suite.
      - `KONOHA_DB_PATH`: points to `$HOME/.konoha/konoha.db`.
-     - `KONOHA_UI_AUTOSTART`: set to `'0'` by default. `tests/test_ui_autostart.js` is the exception — the runner deletes the variable for that suite, because the suite asserts that autostart *happens* and that `'0'` suppresses it.
      - `PYTHONUSERBASE`: points to a read-only scratch directory under `/tmp`.
      - `KONOHA_TEST_SANDBOX`: set to `'1'`.
    - Upon suite completion, the ephemeral snapshot directory is purged, ensuring zero cross-suite mutations and zero writes to the user's real `$HOME`.
@@ -273,5 +292,26 @@ Three different things in this repo are called a sandbox. They do not nest, and 
      pnpm test:sandbox            # full suite, container-local HOME and /tmp
      pnpm test:sandbox -- --lint  # fast path
      ```
-     Linux and Windows use Docker; macOS uses Docker too, or `container` when Docker Desktop is not installed. `pnpm test` on the host now refuses to start: `tests/run_all.js` calls `assertMaintenanceSandbox()` before discovery and exits 1 unless `KONOHA_SANDBOX_CONTAINER=1` or `CI=true` is set, so the only way to run the suite is `pnpm test:sandbox`. The check reads the process environment, so `rtk node tests/run_all.js` refuses identically. Running a single file by path (`node tests/test_hitl_picker_binding.js`) is still possible and is still not evidence — it inherits the machine's `~/.konoha`, its global `konoha` shim, and its client config, so a green run there says nothing about a clean machine.
-     See [Container sandbox](CI.md#container-sandbox-rule-12). The `mktemp` form above is for a single mutating suite, not for the runner: `tests/run_all.js` refuses a host run outright, so there is no host fallback for the full suite. On Apple-silicon macOS, `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the same image through [apple/container](https://github.com/apple/container) without Docker Desktop.
+     Linux and Windows use Docker; macOS uses Docker too, or `container` when Docker Desktop is not installed. `tests/run_all.js` calls `assertMaintenanceSandbox()` before discovery and admits three strict modes: `container` (`KONOHA_SANDBOX_CONTAINER=1`), `ci` (`CI=true`), or **Option H1** `host-isolated` (`pnpm test:parallel` / `node tests/run_all.js`, where the runner creates a lock/lease-protected `os.tmpdir()` golden seed + ephemeral `os.tmpdir()/konoha_suite_*` snapshots with `HOME === USERPROFILE`, `KONOHA_DB_PATH` inside `$HOME/.konoha/`, `KONOHA_TEST_SANDBOX=1`, `KONOHA_HOST_ISOLATED=1`, and `SIGINT`/`SIGTERM` cleanup). Bare host execution without isolation invariants exits `1`. Running a single file by path (`node tests/test_hitl_picker_binding.js`) is still possible for targeted development.
+     See [Container sandbox](CI.md#container-sandbox-rule-12). Use `node tests/run_all.js --cleanup-seed` to prune unlocked golden seeds and dead `konoha_suite_*` artifacts after host verification. On Apple-silicon macOS, `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` runs the same image through [apple/container](https://github.com/apple/container) without Docker Desktop.
+
+---
+
+## Live Headed Docker Browser Workspace
+
+When interactive browser observation is needed during frontend development (`live_browser_monitor.js`) or Anbu QA (`qa_e2e_run` / `qaE2eRunAsync`), Konoha launches a persistent headed Chromium session inside an isolated container built from `docker/browser-workspace.Dockerfile` (`konoha-browser-workspace:local`).
+
+### Architecture & Isolation
+- **Display & Viewer Stack**: `Xvfb :99` (`-nolisten tcp`) + `fluxbox` + `x11vnc` (`-localhost -rfbauth`) + `noVNC`/`websockify`, paired with `src/workflow/qa-automation/browser_container_agent.js` keeping a single headed Chromium context alive over a container-local UNIX domain socket (`/tmp/konoha-browser-agent.sock`, mode `0600`).
+- **Security Controls (`src/workflow/qa-automation/browser_workspace_security.js`)**:
+  - `validateBindHost`: VNC/noVNC and optional Playwright UI (`9323`) ports bind strictly to `127.0.0.1` unless `allowPublicBind: true` is paired with an explicit `>= 16`-character `authToken`.
+  - `validateWorkspaceMountPath`: mounts only an explicit workspace directory read-only (`/workspace:ro`) and refuses home/root directories, personal browser profiles (`.mozilla`, Chrome/Chromium `User Data`), `.ssh`/`.aws`/`.gnupg`/`.kube`, `.env*`, or `konoha.db`.
+  - `konoha ui` surfaces active container viewer URLs (`http://127.0.0.1:<port>/vnc.html?...`) through existing authenticated `GET /api/v1/activity/live` (`browser_sessions`), while noVNC itself binds loopback `127.0.0.1` with per-session `-rfbauth` authentication.
+- **Session Lifecycle (`src/workflow/qa-automation/browser_session_manager.js`)**:
+  - Supports session creation, persistence/reuse across edits (`reuse: true`, tracking `build_id` / `fresh`), streamed log inspection, cancellation (`SIGTERM`), idle/max-duration watchdogs, and orphan cleanup (`konoha.browser.managed=true`).
+  - CLI surface: `konoha browser start|status|logs|stop|cleanup|qa`.
+  - Existing Web UI surface: `GET /api/v1/activity/live` (`browser_sessions`) and `/api/v1/events` SSE (`no new REST endpoints`).
+- **Headless CI Preservation & WebGL Notes**:
+  - Under `CI=1`, `qaE2eRunAsync` and `apps/web/playwright.config.js` ignore headed flags and run headless Playwright without starting Docker viewer containers.
+  - Inside the container, Chromium launches with `--use-gl=angle --use-angle=swiftshader --enable-webgl --ignore-gpu-blocklist` so WebGL/Three.js scenes render via CPU SwiftShader without host GPU passthrough.
+  - Host `127.0.0.1` / `localhost` target URLs are translated to `host.docker.internal` (with `--add-host=host.docker.internal:host-gateway` on Linux); when targeting a host dev server from Linux Docker, start the dev server with `--host 0.0.0.0` so the container bridge can reach it.

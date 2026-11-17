@@ -9,21 +9,20 @@ const ompManager = require('../../src/omp_manager');
 const antigravityManager = require('../../src/antigravity_manager');
 const agentManager = require('../../src/agent_manager');
 const deployUtils = require('../../src/deploy_utils');
-const { getUvxCommand } = require('../lib/extension');
 const { checkPython } = require('../lib/runtime_lifecycle');
 const { SERVER_PATH } = require('../lib/paths');
 
 function checkCursorClient(clientOptions, context) {
   if (!cursorManager.isCursorInstalled()) return;
   const cursorStatus = cursorManager.getCursorStatus();
-  if (cursorStatus.mcpSkillsDb && cursorStatus.mcpSemble && cursorStatus.mcpKonoha) {
+  if (cursorStatus.mcpSkillsDb && cursorStatus.mcpKonoha) {
     context.record('Cursor IDE/CLI (~/.cursor/)', 'HEALTHY', 'MCP and hooks configured');
     return;
   }
   try {
     cursorManager.ensureCursorSetup(clientOptions);
     const repaired = cursorManager.getCursorStatus();
-    if (repaired.mcpKonoha && repaired.mcpSemble) {
+    if (repaired.mcpKonoha) {
       context.record('Cursor IDE/CLI (~/.cursor/)', 'REPAIRED', 'Registered MCP and session hook');
       context.incrementRepairs();
     } else {
@@ -38,8 +37,8 @@ function checkCursorClient(clientOptions, context) {
 function checkClaudeCodeClient(context) {
   if (!mcpClientsManager.isClaudeCodeInstalled()) return;
   const claudeStatus = mcpClientsManager.getClaudeCodeStatus();
-  if (claudeStatus.mcpKonoha && claudeStatus.mcpSemble && claudeStatus.mcpAislop && claudeStatus.permissionsAllowed) {
-    context.record('Claude Code (~/.claude.json)', 'HEALTHY', 'konoha, semble, and aislop active & allowed');
+  if (claudeStatus.mcpKonoha && claudeStatus.mcpAislop && claudeStatus.permissionsAllowed) {
+    context.record('Claude Code (~/.claude.json)', 'HEALTHY', 'konoha and aislop active & allowed');
     return;
   }
   try {
@@ -49,12 +48,11 @@ function checkClaudeCodeClient(context) {
     mcpClientsManager.ensureClaudeCodeSetup({
       pythonCmd: python,
       serverPath: SERVER_PATH,
-      uvxCmd: getUvxCommand(),
       ruleContent,
       silent: true
     });
     const repaired = mcpClientsManager.getClaudeCodeStatus();
-    if (repaired.mcpKonoha && repaired.mcpSemble && repaired.permissionsAllowed) {
+    if (repaired.mcpKonoha && repaired.permissionsAllowed) {
       context.record('Claude Code (~/.claude.json)', 'REPAIRED', 'Registered Konoha MCP servers & allowed tools');
       context.incrementRepairs();
     } else {
@@ -69,14 +67,14 @@ function checkClaudeCodeClient(context) {
 function checkOpenCodeClient(clientOptions, context) {
   if (!opencodeManager.isOpenCodeInstalled()) return;
   const openCodeStatus = opencodeManager.getOpenCodeStatus();
-  if (openCodeStatus.mcpKonoha && openCodeStatus.mcpSemble && openCodeStatus.mcpAislop) {
-    context.record('OpenCode (~/.config/opencode/opencode.json)', 'HEALTHY', 'konoha, semble, and aislop active');
+  if (openCodeStatus.mcpKonoha && openCodeStatus.mcpAislop) {
+    context.record('OpenCode (~/.config/opencode/opencode.json)', 'HEALTHY', 'konoha and aislop active');
     return;
   }
   try {
     opencodeManager.ensureOpenCodeSetup(clientOptions);
     const repaired = opencodeManager.getOpenCodeStatus();
-    if (repaired.mcpKonoha && repaired.mcpSemble) {
+    if (repaired.mcpKonoha) {
       context.record('OpenCode (~/.config/opencode/opencode.json)', 'REPAIRED', 'Registered MCP and session hook');
       context.incrementRepairs();
     } else {
@@ -91,8 +89,8 @@ function checkOpenCodeClient(clientOptions, context) {
 function checkCommandCodeClient(context) {
   if (!mcpClientsManager.isCommandCodeInstalled()) return;
   const cmdStatus = mcpClientsManager.getCommandCodeStatus();
-  if (cmdStatus.mcpKonoha && cmdStatus.mcpSemble && cmdStatus.mcpAislop) {
-    context.record('Command Code (~/.commandcode/mcp.json)', 'HEALTHY', 'konoha, semble, and aislop active');
+  if (cmdStatus.mcpKonoha && cmdStatus.mcpAislop) {
+    context.record('Command Code (~/.commandcode/mcp.json)', 'HEALTHY', 'konoha and aislop active');
     return;
   }
   try {
@@ -100,11 +98,10 @@ function checkCommandCodeClient(context) {
     mcpClientsManager.ensureCommandCodeSetup({
       pythonCmd: python,
       serverPath: SERVER_PATH,
-      uvxCmd: getUvxCommand(),
       silent: true
     });
     const repaired = mcpClientsManager.getCommandCodeStatus();
-    if (repaired.mcpKonoha && repaired.mcpSemble) {
+    if (repaired.mcpKonoha) {
       context.record('Command Code (~/.commandcode/mcp.json)', 'REPAIRED', 'Registered Konoha MCP servers');
       context.incrementRepairs();
     } else {
@@ -119,8 +116,8 @@ function checkCommandCodeClient(context) {
 function checkCodexClient(context) {
   if (!codexManager.isCodexInstalled()) return;
   const codexStatus = codexManager.getCodexStatus();
-  if (codexStatus.mcpKonoha && codexStatus.mcpSemble && codexStatus.mcpAislop) {
-    context.record('Codex (~/.codex/config.toml)', 'HEALTHY', 'konoha, semble, and aislop active');
+  if (codexStatus.mcpKonoha && codexStatus.mcpAislop) {
+    context.record('Codex (~/.codex/config.toml)', 'HEALTHY', 'konoha and aislop active');
     return;
   }
   try {
@@ -128,11 +125,10 @@ function checkCodexClient(context) {
     codexManager.ensureCodexSetup({
       pythonCmd: python,
       serverPath: SERVER_PATH,
-      uvxCmd: getUvxCommand(),
       silent: true
     });
     const repaired = codexManager.getCodexStatus();
-    if (repaired.mcpKonoha && repaired.mcpSemble) {
+    if (repaired.mcpKonoha) {
       context.record('Codex (~/.codex/config.toml)', 'REPAIRED', 'Registered Konoha MCP servers');
       context.incrementRepairs();
     } else {
@@ -156,7 +152,6 @@ function checkPiClient(context) {
     piManager.ensurePiSetup({
       pythonCmd: python,
       serverPath: SERVER_PATH,
-      uvxCmd: getUvxCommand(),
       silent: true
     });
     const repaired = piManager.getPiStatus();
@@ -205,7 +200,6 @@ function checkAntigravityClient(context) {
     }
     const parts = [];
     if (status.mcpSkillsDb) parts.push('konoha');
-    if (status.mcpSemble) parts.push('semble');
     if (status.mcpAislop) parts.push('aislop');
     const healthy = Boolean(parts.length) && status.schemasCount > 0;
     context.record(

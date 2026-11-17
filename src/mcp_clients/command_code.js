@@ -9,8 +9,12 @@ const {
 } = require('../platform_utils');
 const {
   buildMainAgentContract,
-  generateGenericSubagentMd
+  buildSubagentContract
 } = require('../agent_contract');
+const {
+  writeAgentFileSafe,
+  writeManagedFileSafe
+} = require('../agent_file_safety');
 const { buildGuardrailCheckerSource } = require('../guardrails');
 const {
   SERVER_PATH,
@@ -25,36 +29,40 @@ const {
   backupFile,
   buildClientToolGrants,
   buildBareToolGrants,
-  buildSubagentToolGrants,
   assertNoWildcardGrants,
   readMcpHealth,
   removeKonohaFromMcpBlock
 } = require('./common');
 
-function deployCommandCodeRtkRule(silent = true) {
+function deployCommandCodeRtkRule(silent = true, options = {}) {
+  const opts = typeof silent === 'object' && silent !== null ? silent : options;
+  const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
   const src = resolveRtkRuleTemplate();
   if (!src) {
     return { ok: false, reason: 'rtk-rule-template-missing' };
   }
-  const dest = path.join(HOME, '.commandcode', 'rules', 'rtk.md');
+  const home = opts.home || process.env.HOME || process.env.USERPROFILE || HOME;
+  const dest = opts.dest || path.join(home, '.commandcode', 'rules', 'rtk.md');
   try {
-    ensureDir(path.dirname(dest));
-    fs.copyFileSync(src, dest);
-    if (!silent) process.stderr.write(String('  ✓ Deployed RTK rule to ' + dest) + '\n');
-    return { ok: true };
+    const content = fs.readFileSync(src, 'utf8');
+    const writeRes = writeManagedFileSafe(dest, content, { silent: isSilent });
+    if (writeRes.status !== 'conflict' && !isSilent) {
+      process.stderr.write(`  ✓ Deployed RTK rule to ${dest}\n`);
+    }
+    return { ok: true, status: writeRes.status };
   } catch (e) {
     return { ok: false, reason: 'copy-failed', error: e.message };
   }
 }
 
-function registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent = true, options = {}) {
+function registerCommandCodeGlobalMcp(pythonCmd, serverPath, silent = true, options = {}) {
   if (typeof silent === 'object' && silent !== null) {
     options = silent;
     silent = options.silent !== false;
   }
   const targetConfig = options.configPath || (options.home ? path.join(options.home, '.commandcode', 'mcp.json') : COMMANDCODE_JSON);
   if (!fileExists(serverPath)) return false;
-  const servers = buildStdioMcpServers({ pythonCmd, serverPath, uvxCmd, client: 'commandcode' });
+  const servers = buildStdioMcpServers({ client: 'commandcode' });
 
   backupFile(targetConfig, silent, { client: 'commandcode', ...options });
 
@@ -210,7 +218,7 @@ if (toolName === 'read_file' || toolName === 'READ' || toolName === 'Read') {
       process.exit(0);
     }
   }
-  const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (read_file, Read, cat, etc.) is STRICTLY FORBIDDEN inside Konoha-managed workflows! You MUST use the konoha MCP bounded file tools (read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, token_efficient_grep) or semble MCP for codebase search! Retry using ONLY konoha or semble MCP tools.";
+  const reason = "⚠️ MANDATORY RULE VIOLATION: Using built-in/native file tools (read_file, Read, cat, etc.) is STRICTLY FORBIDDEN inside Konoha-managed workflows! You MUST use the konoha MCP bounded file tools (read_file_head, read_file_range, file_info, get_file_structure, find_files_clean, token_efficient_grep) or the konoha code_* tools for codebase search! Retry using ONLY konoha MCP tools.";
   process.stdout.write(JSON.stringify({
     suppressOutput: false,
     hookSpecificOutput: {
@@ -361,11 +369,37 @@ function registerCommandCodeWorkflowReminder(silent = true, options = {}) {
 }
 
 function buildCommandCodeSubagentMd(agent) {
-  // Claude-style frontmatter plus the Command Code allow-list must both come
-  // from the one shared helper, so a subagent never gets a narrower tool set
-  // than the main agent (and never a wildcard).
-  assertNoWildcardGrants(buildSubagentToolGrants('commandcode'), `command code subagent ${agent.name} allowed-tools`);
-  return generateGenericSubagentMd(agent, 'commandcode');
+  const { buildCommandCodeTools } = require('./common');
+  const { getRoleDescription, isReadOnlyAgent, AGENT_OWNERSHIP_MARKER } = require('../agent_file_safety');
+  const { buildCodeSearchPolicyCompact, buildFileToolsPolicyCompact } = require('../search_policy');
+  const toolGrants = buildCommandCodeTools(agent);
+  assertNoWildcardGrants(toolGrants, `command code subagent ${agent.name} tools`);
+
+  const rawDesc = getRoleDescription(agent);
+  const description = `${rawDesc}. Use proactively when tasks match: ${agent.delegationKeywords || agent.purpose || agent.name}.`;
+  let instructions = String(agent.instructions || '').trim();
+  if (instructions && !instructions.endsWith('.')) instructions += '.';
+  if (Array.isArray(agent.skills) && agent.skills.length > 0) {
+    const skillList = agent.skills.map((s) => `"${s}"`).join(', ');
+    instructions = `MANDATORY FIRST ACTION before writing code: Call konoha.use_skills({ skills: [${skillList}] }) or konoha.get_skill to load your assigned domain guidelines into context. ${instructions}`;
+  }
+  const readOnlyNote = isReadOnlyAgent(agent)
+    ? '\nRead-only enforcement: Never modify files or run shell commands.'
+    : '';
+  const body = `${instructions}${readOnlyNote}\n\n${buildSubagentContract('commandcode')}\n\n${buildCodeSearchPolicyCompact()}\n${buildFileToolsPolicyCompact()}\n`;
+
+  const frontmatter = [
+    '---',
+    `name: ${agent.name}`,
+    `description: "${description.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+    AGENT_OWNERSHIP_MARKER,
+    'tools:',
+    ...toolGrants.map((t) => `  - ${t}`),
+    '---',
+    ''
+  ];
+
+  return frontmatter.join('\n') + body;
 }
 
 function deployCommandCodeRules(silent = true, options = {}) {
@@ -393,15 +427,17 @@ function deployCommandCodeRules(silent = true, options = {}) {
     fs.writeFileSync(agentsMd, finalAgentsMd, 'utf8');
 
     const contractContent = buildMainAgentContract('commandcode') + '\n';
-    if (fileExists(ruleDest)) {
-      backupFile(ruleDest, silent, { client: 'commandcode', scope: 'global', ...opts });
-    }
-    fs.writeFileSync(ruleDest, contractContent, 'utf8');
+    const isSilent = typeof silent === 'boolean' ? silent : (opts.silent !== false);
+    writeManagedFileSafe(ruleDest, contractContent, {
+      silent: isSilent,
+      onBeforeOverwrite: (p) => backupFile(p, isSilent, { client: 'commandcode', scope: 'global', ...opts })
+    });
 
-    for (const agent of agents) {
+    const { getDeployableAgents } = require('../canonical_agents');
+    for (const agent of getDeployableAgents(agents)) {
       if (!agent || !agent.name || !validateAgentName(agent.name, agentsDir) || agent.name.startsWith('mcp_') || agent.name.startsWith('cli-test-')) continue;
       const subagentMd = buildCommandCodeSubagentMd(agent);
-      fs.writeFileSync(path.join(agentsDir, `${agent.name}.md`), subagentMd, 'utf8');
+      writeAgentFileSafe(path.join(agentsDir, `${agent.name}.md`), subagentMd, agent.name, { silent: isSilent });
     }
 
     if (!silent) process.stderr.write(`  ✓ Deployed Konoha instructions, rules & agents to Command Code\n`);
@@ -416,7 +452,6 @@ function ensureCommandCodeSetup(options = {}) {
   const {
     pythonCmd = 'python3',
     serverPath = SERVER_PATH,
-    uvxCmd = 'uvx',
     silent = false,
     force = false,
     skipDetection = false
@@ -430,13 +465,13 @@ function ensureCommandCodeSetup(options = {}) {
     return { ok: false, reason: 'konoha server not installed' };
   }
 
-  if (!registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent, options)) {
+  if (!registerCommandCodeGlobalMcp(pythonCmd, serverPath, silent, options)) {
     return { ok: false, reason: 'commandcode-mcp-registration-failed' };
   }
   registerCommandCodePermissions(silent, options);
   registerCommandCodeWorkflowReminder(silent, options);
   const nativeBlocker = registerCommandCodeNativeBlocker(silent, options);
-  const rtkRule = deployCommandCodeRtkRule(silent);
+  const rtkRule = deployCommandCodeRtkRule(silent, options);
   const contractRule = deployCommandCodeRules(silent, options);
 
   const projectRoot = options.projectRoot || null;
@@ -444,7 +479,7 @@ function ensureCommandCodeSetup(options = {}) {
   const projSettings = projectRoot ? path.join(projectRoot, '.commandcode', 'settings.json') : null;
   if (projectRoot && (options.appendProject || (options.deployProject && (fileExists(projMcp) || fileExists(projSettings))))) {
     if (options.appendProject || fileExists(projMcp)) {
-      registerCommandCodeGlobalMcp(pythonCmd, serverPath, uvxCmd, silent, { ...options, configPath: projMcp });
+      registerCommandCodeGlobalMcp(pythonCmd, serverPath, silent, { ...options, configPath: projMcp });
     }
     if (options.appendProject || fileExists(projSettings)) {
       registerCommandCodePermissions(silent, { ...options, settingsPath: projSettings });
@@ -452,7 +487,7 @@ function ensureCommandCodeSetup(options = {}) {
   }
 
   const status = getCommandCodeStatus(options);
-  if (!status.mcpKonoha || !status.mcpSemble) {
+  if (!status.mcpKonoha) {
     return { ok: false, reason: 'commandcode-mcp-verification-failed' };
   }
   return {
@@ -469,7 +504,7 @@ function _cleanCommandCodeSettings(config) {
   if (config.permissions && Array.isArray(config.permissions.allow)) {
     const initial = config.permissions.allow.length;
     config.permissions.allow = config.permissions.allow.filter(
-      (p) => !p.startsWith('mcp__konoha') && !p.startsWith('mcp__semble') && !p.startsWith('mcp__aislop') && !p.startsWith('mcp__skills-db')
+      (p) => !p.startsWith('mcp__konoha') && !p.startsWith('mcp__aislop') && !p.startsWith('mcp__skills-db')
     );
     if (config.permissions.allow.length !== initial) updated = true;
   }
@@ -529,7 +564,7 @@ function _readCommandCodeSettingsStatus(status, home = HOME) {
   try {
     const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
     const allow = settings.permissions && Array.isArray(settings.permissions.allow) ? settings.permissions.allow : [];
-    status.permissionsAllowed = allow.includes('mcp__konoha__sannin') && allow.includes('mcp__semble__search') && allow.includes('mcp__aislop__aislop_scan');
+    status.permissionsAllowed = allow.includes('mcp__konoha__sannin') && allow.includes('mcp__aislop__aislop_scan');
     const ccHooks = settings.hooks || {};
     status.nativeBlockerDeployed = Array.isArray(ccHooks.PreToolUse) && ccHooks.PreToolUse.some(
       (h) => h.hooks && h.hooks.some((e) => e.command && e.command.includes('konoha-native-blocker-cc'))
@@ -544,7 +579,6 @@ function getCommandCodeStatus(options = {}) {
     installed: options.force || options.skipDetection ? true : isCommandCodeInstalled(),
     globalConfig: fileExists(targetConfig),
     mcpKonoha: false,
-    mcpSemble: false,
     mcpSkillsDb: false,
     path: targetConfig,
     status: 'missing',
@@ -568,14 +602,13 @@ function getCommandCodeStatus(options = {}) {
   if (config) {
     const health = readMcpHealth(config, 'mcpServers');
     status.mcpKonoha = health.konoha;
-    status.mcpSemble = health.semble;
     status.mcpAislop = health.aislop;
     status.mcpSkillsDb = health.skillsDb;
     status.mcpServers = config.mcpServers || {};
 
     _readCommandCodeSettingsStatus(status);
 
-    if (health.konoha && health.semble && health.aislop) {
+    if (health.konoha && health.aislop) {
       status.status = 'ok';
     }
   }
