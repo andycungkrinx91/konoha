@@ -33,3 +33,7 @@ Every official Konoha subagent must follow this contract on every new, resumed, 
 - Codebase search → `mcp__konoha__code_search` / `code_symbol` / `code_impact`.
 - Skill lookup and bounded file reads → `mcp__konoha__*` tools.
 - Shell output → `rtk <command>` when installed; never bypass the Konoha code tools or bounded file tools with native search/read tools.
+
+### This Table Is a Curated Core, Not the Manifest
+
+The table lists the bounded file and code-intel tools a subagent needs, not every tool the server exposes. `src/mcp_tool_manifest.json` is the full manifest — including the delegation entry points (`sannin`, `genin`, `anbu`, `jonin`, `kage`, `chunin`, `tokubetsu_jonin`, `akatsuki`, `yamanaka`) and the document, spreadsheet, presentation, diagram, QA, and persona-memory families. A subagent does not delegate; a maintainer still has to know those tools exist. Never grow this table to match the manifest — it is injected into subagent prompts, and the manifest is the source of truth.

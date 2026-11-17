@@ -37,6 +37,26 @@ const baselineText = fs.readFileSync(BASELINE_DOC, 'utf-8');
 assert(baselineText.includes('code-intelligence'), 'TOKEN-BASELINE.md must document native code intelligence');
 assert(baselineText.includes('Aislop MCP'), 'TOKEN-BASELINE.md must document Aislop MCP');
 
+// The canonical schema surface is the single largest thing Konoha adds to every
+// request, and nothing else bounds its total. Measured in-process so the gate
+// never depends on a deployed client directory.
+const LIMIT_CANONICAL_SCHEMA_TOKENS = 7300;
+const CANONICAL_TOOL_COUNT = 56;
+const canonicalSchemas = require(path.join(ROOT, 'src', 'file_tools_router')).listToolSchemas();
+assert.strictEqual(
+  canonicalSchemas.length,
+  CANONICAL_TOOL_COUNT,
+  `canonical tools/list surface changed: ${canonicalSchemas.length} != ${CANONICAL_TOOL_COUNT}`
+);
+const canonicalSchemaTokens = tokenCount(JSON.stringify(canonicalSchemas));
+assert(
+  canonicalSchemaTokens <= LIMIT_CANONICAL_SCHEMA_TOKENS,
+  `canonical schema surface regressed: ${canonicalSchemaTokens} > ${LIMIT_CANONICAL_SCHEMA_TOKENS} tokens`
+);
+console.log(
+  `  ✓ Canonical tools/list surface: ${canonicalSchemas.length} tools, ${canonicalSchemaTokens} <= ${LIMIT_CANONICAL_SCHEMA_TOKENS} tokens`
+);
+
 // Schemas — the catalog only exists on a host where Antigravity is deployed.
 const schemaRoot = path.join(os.homedir(), '.gemini', 'antigravity-cli', 'mcp');
 const readSchemaPayload = (serverName) => {

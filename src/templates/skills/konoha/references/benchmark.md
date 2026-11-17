@@ -25,7 +25,7 @@ Every supported harness prepends a fixed block before the first user token. Kono
 | `~/.omp/agent/AGENTS.md` (OMP user context) | ~5.5 KB | exactly one managed block, exactly one contract version |
 | OMP workflow addendum (`buildOmpWorkflowAddendum`) | ~4.1 KB | rules only; command dumps and procedure belong to the skill that owns them |
 | Lightweight contract (`buildLightweightContract`) | ~1.0 KB per foreign client file | version bump only; the body does not vary by client |
-| Tool schemas (`src/mcp_tool_manifest.json`) | ~28 KB | an API contract — prose trimming moves ~1.1 KB of ~8.3k tokens; only tool-count reduction moves it materially |
+| Tool schemas (`src/mcp_tool_manifest.json`) | 28,986 B / 6,598 tok | an API contract — prose trimming moves ~1.6k of 6.6k tokens, and the remaining ~5.0k is JSON structure; only tool-count reduction moves it materially |
 
 1. **One managed block, one version.** `buildManagedContract` (`src/agent_contract.js`) removes *every* `KONOHA-CONTRACT-START`…`KONOHA-CONTRACT-END` span before writing the fresh block. Splicing only the first pair left any second block in place forever and made redeploy a permanent no-op; a deployed file once carried 2.2.23 and 2.2.12 side by side, so the agent read two versions of the same rules on every turn.
 2. **Only one user-level context file is injected.** OMP keeps one user context file and `native` (`~/.omp/agent/AGENTS.md`) wins it, so `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`, `~/.config/opencode/AGENTS.md`, and `~/.agents/AGENTS.md` are not part of an OMP prompt. Each serves its own harness; never assume the contract is read twice.
