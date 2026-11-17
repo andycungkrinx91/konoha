@@ -87,6 +87,16 @@ async function main() {
   d = await sj.judgeDrift({ agent: 'anbu', goal: 'add retry', plan: 'edit bridge', summary: 'added retry to bridge fetch' });
   assert.strictEqual(d.drift, false, 'model must be able to clear a drift candidate');
 
+  // Two workers can share goal, plan and summary and still differ. The prompt
+  // sends agent and TODOs, so the cache key has to cover them too.
+  reset('{"drift":false,"confidence":0.85,"reason":"matches plan"}');
+  await sj.judgeDrift({ agent: 'anbu', goal: 'add retry', plan: 'edit bridge', todos: ['edit bridge'], summary: 'added retry to bridge fetch' });
+  assert.strictEqual(calls, 1);
+  await sj.judgeDrift({ agent: 'jonin', goal: 'add retry', plan: 'edit bridge', todos: ['edit bridge'], summary: 'added retry to bridge fetch' });
+  assert.strictEqual(calls, 2, 'a different agent must not reuse another worker\'s drift verdict');
+  await sj.judgeDrift({ agent: 'jonin', goal: 'add retry', plan: 'edit bridge', todos: ['edit header'], summary: 'added retry to bridge fetch' });
+  assert.strictEqual(calls, 3, 'a different TODO list must not reuse the verdict');
+
   // Empty summary never reaches the model.
   reset('{"drift":true,"confidence":0.9}');
   d = await sj.judgeDrift({ summary: '   ' });

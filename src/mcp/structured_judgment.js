@@ -131,11 +131,11 @@ async function judgeDrift({ agent = 'worker', goal = '', plan = '', todos = [], 
   const summaryText = String(summary || '');
   if (!summaryText.trim()) return { source: 'heuristic', reason: 'empty summary' };
 
-  const key = _cacheKey('drift', `${crypto.createHash('sha256').update(`${goal}\0${plan}\0${summaryText}`).digest('hex').slice(0, 16)}`);
+  const todoList = (Array.isArray(todos) ? todos : []).slice(0, 8).map((t) => `- ${typeof t === 'string' ? t : (t && (t.content || t.task)) || ''}`).join('\n');
+  const key = _cacheKey('drift', `${crypto.createHash('sha256').update(`${agent}\0${goal}\0${plan}\0${todoList}\0${summaryText}`).digest('hex').slice(0, 16)}`);
   const cached = _cacheGet(key);
   if (cached) return { ...cached, usage: null };
 
-  const todoList = (Array.isArray(todos) ? todos : []).slice(0, 8).map((t) => `- ${typeof t === 'string' ? t : (t && (t.content || t.task)) || ''}`).join('\n');
   try {
     const { json: verdict, usage } = await _ask(
       'You audit whether an agent summary stays inside its goal and plan. Answer with JSON only: {"drift": true|false, "confidence": <0..1>, "reason": "<12 words max>"}.',
