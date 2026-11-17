@@ -44,6 +44,7 @@
     "patches/",
     "README.md",
     "LICENSE",
+    "!assets/models/**",
     "!**/anthropic-cybersecurity-skills-assets/**",
     "!**/PLAN.md",
     "!**/PLAN*.md",

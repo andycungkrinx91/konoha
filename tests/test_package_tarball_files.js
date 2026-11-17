@@ -24,6 +24,17 @@ test("pnpm pack excludes docs/ and preserves bin/cli.js, apps/web/build, src/tem
   const packed = JSON.parse(out);
   const paths = packed.files.map((f) => f.path);
 
+  // npm rejects a tarball the registry cannot store: konoha-mcp@2.2.22 died with
+  // `413 Payload Too Large` because `files: ["assets/"]` packs from disk, so six
+  // alternate ONNX exports (3.2 GB) left behind by a dtype experiment rode along.
+  // They are inert regardless: resolveCacheSearchDirs() only inspects the
+  // package-local transformers cache and the hub cache, never assets/models.
+  assert.strictEqual(
+    paths.filter((p) => p.startsWith("assets/models/")).length,
+    0,
+    "tarball must not ship the ONNX weights under assets/models"
+  );
+
   assert.strictEqual(
     paths.filter((p) => p.startsWith("docs/")).length,
     0,
