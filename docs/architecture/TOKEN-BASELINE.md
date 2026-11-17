@@ -467,8 +467,8 @@ Measured with `tests/test_token_budget_gate.js` and `tests/test_shared_context_l
 | Dispatch payload `tool_block` | 2,107–2,509 B per delegated turn | 0 (child regenerates it) | `test_token_budget_gate.js` |
 | Soul tenets in envelope | `[object Object] · [object Object]` | `name: summary` | `test_token_budget_gate.js` |
 | Recall noise rows (`flow_skill`, checkpoint, progress) | up to 3 of the returned rows | excluded at SQL level | `test_token_budget_gate.js` |
-| Sibling findings in child prompt | n/a | ≤ 700 B, sized to real headroom | `test_shared_context_layer.js` (505 B for 2 findings) |
+| Sibling findings in child prompt | n/a | ≤ 700 B, reserved before the tail is assembled so a near-ceiling prompt evicts background recall, not findings | `test_shared_context_layer.js` (505 B for 2 findings) |
 | Advisor steers for one unfixed violation | one per turn | one per 90 s | `test_advisor_steer_dedupe.js` |
-| Model calls for routing | 0 | 0 on clear, zero-signal, and `/agent` prompts; 1 on ambiguity, cached thereafter | `test_sannin_judgment_integration.js` |
+| Model calls for routing | 0 | 0 on clear, zero-signal, and `/agent` prompts; 1 on ambiguity, cached thereafter. One call is 3–5 s and ~300 output tokens on the host model | `test_sannin_judgment_integration.js` |
 
 The last row is the point of the gating: routing cost is unchanged for the prompts that were already decided correctly, and the model is consulted only where the keyword scorer is provably within `SJ_AMBIGUITY_MARGIN` of a coin flip.
