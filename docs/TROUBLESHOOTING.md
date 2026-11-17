@@ -169,9 +169,9 @@ node --version  # Must be >= 24.0.0
 ### ⚠️ `The "pnpm" field in package.json is no longer read` / `ignored: "pnpm.auditConfig"`
 
 - **Cause**: pnpm 12 no longer reads the `package.json#pnpm` block, and the `package.json#overrides` copy that duplicated the YAML was dead config (pnpm reads `pnpm-workspace.yaml#overrides`). Both were removed in 2.2.19.
-- **Current state**: `pnpm-workspace.yaml` carries `overrides` plus `audit:\n  ignore:\n    - "GHSA-gcqx-w48m-w2h4"`. CVE-2026-93753 is **no longer suppressed** — pnpm 12 has no CVE-level suppression, and this is a documented accepted change.
+- **Current state**: `pnpm-workspace.yaml` carries `overrides` plus `audit:\n  ignore:\n    - "GHSA-gcqx-w48m-w2h4"\n    - "GHSA-fc5q-39xc-vjpf"`. CVE-2026-93753 is **no longer suppressed** — pnpm 12 has no CVE-level suppression, and this is a documented accepted change. `GHSA-fc5q-39xc-vjpf` (`picomatch <=4.0.7`, ReDoS) has no patched release upstream and reaches the tree only through dev tooling (`vite`, `svelte-check`), so it stays listed until upstream ships a fix; `pnpm audit --prod` reports nothing. Removing either entry turns the audit gate in `tests/test_socket_security_audit.js` red.
 - **2.2.20 exception**: `package.json#overrides` is back for exactly one entry, `image-size: ">=2.0.3"`. npm ignores a dependency's own `overrides`, so the shipped copy is what carries the CVE-2025-71330 / CVE-2025-71329 patch to npm consumers; pnpm still reads its own `>=2.0.4` floor from the YAML. Do not remove it, and do not re-add `package.json#pnpm` or any other override.
-- **Fix**: if you see the warning, you are on an old checkout. Pull 2.2.19+, run `pnpm install --frozen-lockfile`, and verify with `pnpm config get audit` → `{"ignore":["GHSA-gcqx-w48m-w2h4"]}`.
+- **Fix**: if you see the warning, you are on an old checkout. Pull 2.2.19+, run `pnpm install --frozen-lockfile`, and verify with `pnpm config get audit` → `{"ignore":["GHSA-gcqx-w48m-w2h4","GHSA-fc5q-39xc-vjpf"]}`.
 
 ---
 
