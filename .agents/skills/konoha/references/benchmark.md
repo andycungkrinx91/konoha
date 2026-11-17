@@ -70,14 +70,14 @@ with no relevance signal and no bounded read. Chunked retrieval wins on both axe
 | Cost of one answer | `O(top-k)` — ranked, bounded | `O(file)` — every line read and injected |
 | Relevance signal | BM25 + cross-encoder + vector | none (append order only) |
 | Failure mode | stale row → reindex | unbounded context growth |
-| Measured here | 6,268 rows, avg 551 B, all embedded | no retrieval path exists |
+| Measured here | 6,382 rows, avg 556 B, all embedded | no retrieval path exists |
 
 **Measured chunk economics** (`src/code_intel/config.js`): `CHUNK_MAX_LINES=40`,
-`CHUNK_MAX_CHARS=1800`, `CHUNK_OVERLAP_LINES=8`, `CHUNK_TOKEN_TARGET=420` — 6,268 rows
-across 275 skills, avg 551 B, all embedded. `skill_top_k: 5`, `skill_candidate_k: 25`
+`CHUNK_MAX_CHARS=1800`, `CHUNK_OVERLAP_LINES=8`, `CHUNK_TOKEN_TARGET=420` — 6,382 rows
+across 285 skills, avg 556 B, all embedded. `skill_top_k: 5`, `skill_candidate_k: 25`
 (`bin/lib/config_defaults.js:61-62`). A `find_skill` answer measures **301–439 tok**
 across five probe queries because it returns ranked metadata rows, not chunk text; the
-chunk budget is what `use_skills`/`get_skill` spend. One full skill digest is **1,955 tok**,
+chunk budget is what `use_skills`/`get_skill` spend. One full skill digest is **1,956 tok**,
 so retrieval already wins the moment the task needs to consult more than one skill.
 
 **External evidence** (the accuracy half of the question, not just cost):
