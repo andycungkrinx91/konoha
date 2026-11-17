@@ -556,9 +556,7 @@ function _prepareAgentRun(agentName, task = null, context = null, constraints = 
   const effTaskDir = getResolvedTaskDir(opts.taskDir, resolvedProjPath, resolvedSessionId);
   const steerCtx = consumeAdvisorSteerContext(effTaskDir, dbAgentName);
   if (steerCtx.block) instructions = `${steerCtx.block}\n\n${instructions}`;
-  // Sibling findings for this task: cheaper than re-deriving another agent's work.
-  // Rendered in _finalizeAgentRun once the prompt size (and thus the remaining
-  // headroom under the ceiling) is known.
+  // Sibling findings, rendered in _finalizeAgentRun once the real headroom is known.
   const sharedRows = readSharedContext({
     taskId: resolveTaskId({ taskDir: effTaskDir }),
     excludeAgent: dbAgentName,
@@ -656,10 +654,8 @@ function _finalizeAgentRun(p, projectContextBlock) {
     maxBytes: PROMPT_CEILING_BYTES - Buffer.byteLength(tailBlocks, 'utf8') - 2
   });
   const instruction = clampToBytes(`${systemPrompt}\n\n${tailBlocks}`.trim(), PROMPT_CEILING_BYTES);
-  // Sibling findings are appended only if they fit under the same ceiling.
-  // A fixed-size block would overflow high-baseline agents (jonin runs within
-  // ~20 bytes of the ceiling) and clampToBytes would then eat the middle of the
-  // system prompt, so the budget is whatever is actually left.
+  // Budgeted to actual headroom: a fixed block overflows jonin (within ~20 B of the
+  // ceiling) and clampToBytes would then eat the middle of the system prompt.
   const sharedRoom = PROMPT_CEILING_BYTES - Buffer.byteLength(instruction, 'utf8') - 2;
   const sharedBlock = formatSharedContextBlock(p.sharedRows, sharedRoom);
   const finalInstruction = sharedBlock ? `${instruction}\n\n${sharedBlock}` : instruction;

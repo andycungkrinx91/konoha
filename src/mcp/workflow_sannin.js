@@ -660,10 +660,9 @@ const dispatchParallelSlices = (ws, opts) => _parallelMod.dispatchParallelSlices
 const dispatchParallelSlicesAsync = (ws, opts) => _parallelMod.dispatchParallelSlicesAsync(ws, opts, _resolveRoutedSkills);
 
 /**
- * Keyword routing is right most of the time and free; it is also the only path
- * available to the sync caller. When the top two candidates are within
- * `SJ_AMBIGUITY_MARGIN`, ask the host's own model once and let it break the tie.
- * Any failure leaves `precomputedAgent` unset, so the heuristic verdict stands.
+ * Keyword routing is free and usually right. When the top two candidates fall
+ * within SJ_AMBIGUITY_MARGIN, ask the host model once; any failure leaves the
+ * heuristic verdict standing.
  */
 async function _judgeAmbiguousRoute(prompt, projectPath) {
   const empty = { source: 'heuristic', reason: 'not ambiguous' };
@@ -682,14 +681,9 @@ async function _judgeAmbiguousRoute(prompt, projectPath) {
 }
 
 async function _prepareSanninDispatchAsync(prompt = null, taskDir = null, projectPath = null, sessionId = null, options = {}) {
-  let opts = options;
-  let judgment = null;
-  if (!opts.precomputedAgent) {
-    judgment = await _judgeAmbiguousRoute(prompt, projectPath);
-    if (judgment.source === 'model') opts = { ...opts, precomputedAgent: judgment.agent };
-  }
-  const prep = _prepareSanninDispatch(prompt, taskDir, projectPath, sessionId, { ...opts, judgment: judgment || { source: 'heuristic', reason: 'not ambiguous' } });
-  return prep;
+  const judgment = options.precomputedAgent ? null : await _judgeAmbiguousRoute(prompt, projectPath);
+  const opts = judgment && judgment.source === 'model' ? { ...options, precomputedAgent: judgment.agent } : options;
+  return _prepareSanninDispatch(prompt, taskDir, projectPath, sessionId, { ...opts, judgment: judgment || { source: 'heuristic', reason: 'not ambiguous' } });
 }
 
 const runSanninAsync = (prompt = null, taskDir = null, projectPath = null, sessionId = null, options = {}) =>
