@@ -1107,3 +1107,17 @@ Authoritative verification matrix for the `PreToolUse` guardrail's human decisio
 | **7. The deployed plugin copy still resolves `src/`** | `tests/test_project_konoha_mcp_guardrail.js` (tests 6, 7) | The tracked `.agents/plugins/konoha-mcp-guard/scripts/konoha_project_mcp_guard.js` is a regular file byte-identical to the generator's output, every path under `.agents/` is a regular file rather than a symlink, and running the copy with `--hitl` and no controlling terminal exits `2` with the fail-closed briefing rather than a bare `Cannot find module` error | `PASS` |
 | **8. The gated agent cannot mint its own exception** | `tests/test_project_konoha_mcp_guardrail.js` (test 15) | A `Write` and an `rtk cp` naming `guardrail-exceptions.json` or `guardrail-audit.jsonl` are denied `GUARDRAIL_STATE_WRITE_DENIED`; an unconditional rule refuses to be recorded and is not covered by a forged store entry; an entry past the one-hour ceiling is pruned; a requested TTL is clamped; an ordinary write to `src/` stays allowed | `PASS` |
 | **9. A schema row no build can parse is neutralised, not fatal** | `tests/test_db_recovery.js` (test 8) | `createSchemaNeutralizedProbe` reproduces the source byte-for-byte except for the two bytes it comments out, the probe salvages the healthy sibling's rows while the poisoned table and its trigger stay absent, the staging probe is unlinked afterwards, a reason naming no object yields `null`, an object name that is not a bare identifier yields `null`, and a record with no separator is not repaired by reaching into the next row | `PASS` |
+
+
+## Section 45: Code-Intel First-Use Indexing & the Resident Supervisor (v2.2.23)
+
+Authoritative verification matrix for auto-indexing a root named for the first time, the async/read-only split, and the advisor charter that a row-less supervisor needs.
+
+| # | Test Case / Feature | Verification Method | Expected Result | Status |
+|---|---|---|---|---|
+| **1. A named-but-unindexed directory is indexed on first query** | `tests/test_code_intel_tools.js` (auto-index leg) | `code_status` reports the root absent, `code_search` answers from it, `code_status` then reports one root | ✅ |
+| **2. A directory that does not exist names what is indexed** | `tests/test_code_intel_tools.js` (auto-index leg) | Error reads `root not indexed: <path> (indexed roots: …)` instead of a bare refusal | ✅ |
+| **3. The async path never takes the blocking indexer** | `tests/test_code_intel_tools.js` (async leg) | `indexRepository` is replaced by a throwing stub; `code_search_async` and `code_symbol_async` still return hits | ✅ |
+| **4. `code_status` stays read-only** | `tests/test_code_intel_tools.js` (auto-index leg), `src/code_intel/query.js#status` | A root cleared by `code_remove` is not resurrected by a status call | ✅ |
+| **5. A resident supervisor with no `agents` row still gets its charter** | `tests/test_advisor_realtime_monitor.js` (charter leg) | Spawned advisor carries title, purpose, constraints, and instructions; the table stays at 9 rows | ✅ |
+| **6. The sannin briefing carries an executable advisor spawn call** | `tests/test_cross_client_workflow_matrix.js` (spawn-call leg) | Instructions name `spawn_call` or the CLI fallback for every client, not just `--idle` prose | ✅ |

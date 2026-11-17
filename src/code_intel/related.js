@@ -8,6 +8,7 @@
 
 const path = require('path');
 const store = require('./store');
+const { ensureRootIndexed, ensureRootIndexedAsync, describeMissingRoot } = require('./auto_index');
 const provenance = require('./provenance');
 const { SEARCH_MAX_HITS, SEARCH_SNIPPET_MAX_CHARS } = require('./config');
 const {
@@ -71,14 +72,23 @@ function _lookupAnchorSymbol(conn, root, fileRow, symbolName) {
         WHERE s.name = ? ORDER BY f.rel_path ASC, s.start_line ASC LIMIT 1`).get(symbolName);
 }
 
+async function _resolveAnchorAsync(conn, options) {
+  if (options.rootPath && !store.getRoot(conn, options.rootPath)) {
+    await ensureRootIndexedAsync(conn, options.rootPath, options.indexTimeoutMs);
+  }
+  return _resolveAnchor(conn, options);
+}
+
 function _resolveAnchor(conn, options) {
   const relPath = _normalizeRelPath(options.relPath || options.file || '');
   const symbolName = String(options.symbol || options.name || '').trim();
   if (!relPath && !symbolName) return { error: 'file or symbol is required' };
 
-  const root = options.rootPath ? store.getRoot(conn, options.rootPath) : null;
+  const root = options.rootPath
+    ? (store.getRoot(conn, options.rootPath) || ensureRootIndexed(conn, options.rootPath))
+    : null;
   if (options.rootPath && !root) {
-    return { error: `root not indexed: ${options.rootPath}` };
+    return { error: describeMissingRoot(conn, options.rootPath) };
   }
 
   let fileRow = _lookupAnchorFile(conn, root, relPath);
@@ -466,7 +476,7 @@ async function relatedAsync(options = {}) {
     runtime
   });
   const conn = options.conn || store.openConnection();
-  const anchor = _resolveAnchor(conn, options);
+  const anchor = await _resolveAnchorAsync(conn, options);
   if (anchor.error) {
     return { anchor: null, related: [], total: 0, semantic_status: baseSem.semanticStatus, semantic_applied: false, reranked: false, degraded: false, error: anchor.error };
   }

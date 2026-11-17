@@ -53,6 +53,16 @@ The `aislop_scan`, `aislop_why`, `aislop_fix`, and `aislop_baseline` tools are *
 
 Guards: `tests/test_project_konoha_mcp_guardrail.js` tests 9-15, including a pty leg driven by `tests/helpers/pty_driver.py` that proves the CLI exits on its own.
 
+
+### A Query Indexes What It Names, and Only on the Path That Can Afford It
+
+`code_search` used to answer `root not indexed: <path>` for any directory named for the first time, which is the normal state of a sibling project. `src/code_intel/auto_index.js` stats the directory and runs a lexical-only pass (`embed: false`, `maxFiles: 5000`, `timeoutMs: 15000`); `code_index` adds vectors later.
+
+- **Sync handlers index inline.** `resolveRoot` is one choke point, so `code_search`, `code_symbol`, `code_context`, `code_impact`, and `code_related` all inherit the behaviour.
+- **Async handlers never take the blocking pass.** `prepareSearchSetupAsync` and `_resolveAnchorAsync` await `indexRepositoryAsync` (yields every four files) before the sync base runs, which is what keeps `tools/list` answerable during a first-use index.
+- **`code_status` stays read-only.** It calls `store.getRoot`; indexing there would resurrect a root `code_remove` just cleared.
+
+Guards: `tests/test_code_intel_tools.js` (auto-index leg plus an async leg that replaces `indexRepository` with a throwing stub).
 ---
 
 ## 📡 Transports & Communications

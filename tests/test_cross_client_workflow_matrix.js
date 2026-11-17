@@ -131,6 +131,10 @@ for (const client of CLIENTS) {
   }
   assert.ok(sanninRes.advisor_supervisor && sanninRes.advisor_supervisor.started_from_beginning === true && sanninRes.advisor_supervisor.state === 'idle', `Sannin must start @advisor idle from turn 0 for ${client}`);
   assert.ok(sanninRes.advisor_spawn_directive && sanninRes.advisor_spawn_directive.agent === 'advisor' && sanninRes.advisor_spawn_directive.started_from_beginning === true, `Sannin must return advisor_spawn_directive for ${client}`);
+  // The turn-0 instruction must be a call the client can actually make. A bare
+  // `--idle` CLI flag is meaningless to `task`/`Agent`/`Task`/`spawn_agent`.
+  assert.ok(typeof sanninRes.advisor_spawn_directive.spawn_call === 'string' && sanninRes.advisor_spawn_directive.spawn_call.length > 0, `Sannin must return an executable advisor spawn call for ${client}`);
+  assert.ok(sanninRes.instructions.includes(sanninRes.advisor_spawn_directive.spawn_call), `Sannin instructions must carry the executable advisor spawn call for ${client}`);
   console.log(`  ✓ Reached Sannin router: task_id=${sanninRes.task_id}, agent=${sanninRes.selected_agent}, advisor=${sanninRes.advisor_supervisor.state}`);
 
   // C. Genin invoked for exploration

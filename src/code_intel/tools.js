@@ -9,6 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { ensureRootIndexedAsync } = require('./auto_index');
 const { indexRepository, indexRepositoryAsync } = require('./indexer');
 const store = require('./store');
 const query = require('./query');
@@ -121,6 +122,24 @@ function _resolveContainedFile(rootPath, rawFile) {
 
 function _conn() {
   return store.openConnection();
+}
+
+/**
+ * The `*Async` handlers below call a sync base, so a first-use index has to be
+ * awaited before that base runs. Indexing inside the sync handler would block
+ * the event loop and stall `tools/list` for the whole pass.
+ */
+async function _prewarmRoot(args = {}) {
+  let rootPath = null;
+  try {
+    rootPath = _optionalRoot(args);
+  } catch (_) {
+    return; // the sync handler reports the containment error with its own message
+  }
+  if (!rootPath) return;
+  const conn = _conn();
+  if (store.getRoot(conn, rootPath)) return;
+  await ensureRootIndexedAsync(conn, rootPath, args.timeout_ms !== undefined ? Number(args.timeout_ms) : undefined);
 }
 
 function _buildIndexOptions(args = {}, extra = {}) {
@@ -298,6 +317,7 @@ function _resolveRootForLsp(args, relPath = '') {
 }
 
 async function codeSymbolAsync(args = {}) {
+  await _prewarmRoot(args);
   const base = codeSymbol(args);
   if (base.error || args.lsp === false || !Array.isArray(base.symbols) || base.symbols.length === 0) {
     return base;
@@ -351,6 +371,7 @@ function codeContext(args = {}) {
 }
 
 async function codeContextAsync(args = {}) {
+  await _prewarmRoot(args);
   const base = codeContext(args);
   if (base.error || base.out_of_range || base.empty || args.lsp === false) return base;
   const rootPath = _resolveRootForLsp(args, base.path);
@@ -397,6 +418,7 @@ function codeImpact(args = {}) {
 }
 
 async function codeImpactAsync(args = {}) {
+  await _prewarmRoot(args);
   const base = codeImpact(args);
   if (base.error || args.lsp === false) return base;
   const conn = _conn();

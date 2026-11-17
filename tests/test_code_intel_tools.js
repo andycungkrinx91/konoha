@@ -276,6 +276,54 @@ async function run() {
   assert.strictEqual(tools.code_related({ root: REPO, file: 'app.js', limit: -1 }).related.length, 1);
   assert.throws(() => tools.code_context({ file: '/etc/passwd' }), /Path outside workspace/i);
 
+  // --- a query against an existing but unindexed directory indexes it ----
+  // `root not indexed` used to dead-end the caller on a real directory, which
+  // reads as "the tool is broken", not "call code_index first".
+  const LATE = path.join(tmpRoot, 'late-repo');
+  fs.mkdirSync(LATE, { recursive: true });
+  fs.writeFileSync(path.join(LATE, 'auth.js'), 'function authenticate(user) {\n  return user;\n}\n', 'utf8');
+  assert.deepStrictEqual(tools.code_status({ root: LATE }).roots, [], 'A never-indexed root must start absent');
+  const lateHits = tools.code_search({ root: LATE, query: 'authenticate', limit: 5 });
+  assert.ok(!lateHits.error, `Search must index an existing directory instead of failing: ${lateHits.error}`);
+  assert.strictEqual(lateHits.total, 1, 'The first-use index must make the file searchable');
+  assert.strictEqual(lateHits.hits[0].path, 'auth.js');
+  assert.strictEqual(tools.code_status({ root: LATE }).roots.length, 1, 'The first query must leave the root indexed');
+
+  const missingRoot = tools.code_search({ root: path.join(tmpRoot, 'no-such-dir'), query: 'authenticate' });
+  assert.match(missingRoot.error || '', /root not indexed: .*no-such-dir \(indexed roots: /, 'A missing directory must say what is indexed instead of failing bare');
+
+  // --- the async handlers must not use the blocking indexer --------------
+  // ARCHITECTURE.md:134 promises `tools/list` stays answerable during an index.
+  // A first-use index reached from the async path is still an index, so it must
+  // go through `indexRepositoryAsync` and never the synchronous pass.
+  const ASYNC_ROOT = path.join(tmpRoot, 'async-repo');
+  fs.mkdirSync(ASYNC_ROOT, { recursive: true });
+  for (let idx = 0; idx < 40; idx += 1) {
+    fs.writeFileSync(path.join(ASYNC_ROOT, `svc_${idx}.js`), `function fn_${idx}(v) { return v + ${idx}; }\n`, 'utf8');
+  }
+  const indexer = require('../src/code_intel/indexer');
+  const syncIndex = indexer.indexRepository;
+  indexer.indexRepository = () => {
+    throw new Error('the async path must not run the blocking indexer');
+  };
+  let asyncHits = null;
+  let asyncSymbols = null;
+  try {
+    asyncHits = await tools.code_search_async({ root: ASYNC_ROOT, query: 'fn_1' });
+    // `codeSymbolAsync` wraps a sync handler, so its first-use index is warmed
+    // before the sync base runs rather than inside it.
+    const SYM_ROOT = path.join(tmpRoot, 'sym-repo');
+    fs.mkdirSync(SYM_ROOT, { recursive: true });
+    fs.writeFileSync(path.join(SYM_ROOT, 'util.js'), 'function greet(name) {\n  return name;\n}\n', 'utf8');
+    asyncSymbols = await tools.code_symbol_async({ root: SYM_ROOT, name: 'greet' });
+  } finally {
+    indexer.indexRepository = syncIndex;
+  }
+  assert.ok(!asyncHits.error, `Async search must auto-index through the async indexer: ${asyncHits.error}`);
+  assert.ok(asyncHits.total >= 1, 'The async first-use index must make the tree searchable');
+  assert.ok(!asyncSymbols.error, `Async symbol lookup must auto-index through the async indexer: ${asyncSymbols.error}`);
+  assert.strictEqual(asyncSymbols.symbols[0].path, 'util.js');
+
   // --- removal -----------------------------------------------------------
   // Dispatched last: removal is the one case with an order dependency.
   const rawRemove = dispatchTool('code_remove', { root: REPO });

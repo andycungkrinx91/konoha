@@ -345,6 +345,19 @@ async function runTests() {
 
   assert.strictEqual(planRouter({ hitlPending: true, budgetExceeded: true }), '__end__', 'HITL pause must take precedence over budgetExceeded');
 
+  // @advisor is deployable but outside the 9-ninja roster, so it has no
+  // agents-table row. Without the definition fallback it spawns with an empty
+  // charter and sits there doing nothing — the "advisor never idles" report.
+  const advisorResp = JSON.parse(runMcpAgent('advisor', {
+    task: 'ADVISOR_IDLE_TURN: sit idle and report drift.',
+    project_path: budgetProjDir
+  }));
+  const advisorInstr = advisorResp.instructions || '';
+  assert.ok(advisorInstr.includes('Always-On Idle Foreman'), 'Advisor must carry its charter title without an agents-table row');
+  assert.ok(advisorInstr.includes('Idle turn-0 supervisor monitoring plan'), 'Advisor must carry its purpose without an agents-table row');
+  assert.ok(advisorInstr.includes('STRICT READ-ONLY idle supervision'), 'Advisor must carry its read-only constraints without an agents-table row');
+  assert.ok(advisorInstr.includes('ADVISOR_IDLE_TURN'), 'Advisor must still receive the task instructions');
+
   fs.rmSync(tmpDir, { recursive: true, force: true });
   console.log('PASS test_advisor_realtime_monitor.js');
 }

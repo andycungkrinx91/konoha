@@ -380,7 +380,7 @@ function _buildInstructionText(ctx) {
   );
 
   const advisorLine = ctx.advisorStartup
-    ? `\n\n### Idle Supervision\n- Start \`@advisor\` in idle mode from turn 0 via \`${ctx.advisorStartup.tool || 'run_command'}\` (\`--idle\`).`
+    ? `\n\n### Idle Supervision\n- Start \`@advisor\` in idle mode from turn 0: \`${ctx.advisorStartup.spawn_call || ctx.advisorStartup.cli_fallback}\`\n- Steer a drifted agent with \`${(ctx.advisorStartup.steer_protocol || {}).tool || 'the client steer call'}\`.`
     : '';
   const spawnBlock = ctx.parallelSpawnDirective
     ? `\n\n${ctx.parallelSpawnDirective}`
@@ -606,7 +606,16 @@ function _finalizeSanninDispatch(prep, envelope) {
     parallel_workstreams: parallelWorkstreams.length > 1 ? parallelWorkstreams : undefined,
     parallel_spawn_directive: parallelSpawnDirective || undefined,
     advisor_supervisor: { state: advisorSupervisor.state, started_from_beginning: advisorSupervisor.started_from_beginning },
-    advisor_spawn_directive: { agent: 'advisor', started_from_beginning: true, tool: advisorStartup.tool || 'run_command' },
+    advisor_spawn_directive: {
+      agent: 'advisor',
+      started_from_beginning: true,
+      tool: advisorStartup.tool || 'run_command',
+      supported_native: advisorStartup.supported_native,
+      spawn_call: advisorStartup.spawn_call || advisorStartup.cli_fallback,
+      cli_fallback: advisorStartup.cli_fallback,
+      steer_tool: (advisorStartup.steer_protocol || {}).tool || null,
+      directive: advisorStartup.directive
+    },
     todos: (syncBundle.todos || []).map((t) => ({ id: t.id, content: t.content, status: t.status, agent: t.agent })),
     walkthrough_steps: (syncBundle.walkthrough_steps || []).map((w) => ({ id: w.id, status: w.status })),
     client_todo_directive: { native_tool: syncBundle.client_todo_directive.native_tool, progress_summary: syncBundle.client_todo_directive.progress_summary },

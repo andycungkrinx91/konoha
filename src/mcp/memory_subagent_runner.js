@@ -23,6 +23,7 @@ const { getResolvedTaskDir, loadWorkflowStatus, saveWorkflowStatus } = require('
 const { prepareAgentTurnEnvelope } = require('../context_compaction');
 const { syncTodoAndWalkthrough, formatTodoSyncBlock, markAgentTodoInProgress } = require('./todo_walkthrough_sync');
 const { buildSpawnDirective } = require('./lazy_subagent');
+const { isResidentSupervisorAgent, getAdvisorAgentDefinition } = require('../canonical_agents');
 const { buildSubagentMcpBlock } = require('./subagent_tool_contract');
 const { consumeAdvisorSteerContext } = require('../workflow/kage-reviewer/advisor_monitor');
 const { authorizeSkillAccess, lookupSkillTags, findUnauthorizedSkill } = require('../skill_authorization');
@@ -216,10 +217,12 @@ function _resolveAgentDbMetadata(dbAgentName) {
   let assignedModel = 'inherit';
 
   let rowConn = null;
+  let hasRow = false;
   try {
     rowConn = getDb();
     const row = queryAgentRow(rowConn, dbAgentName);
     if (row) {
+      hasRow = true;
       title = row.title || title;
       purpose = row.purpose || purpose;
       agentConstraints = cleanRedundantPersonaText(row.constraints_text || agentConstraints);
@@ -234,6 +237,18 @@ function _resolveAgentDbMetadata(dbAgentName) {
       try { rowConn.close(); } catch (_) { /* best-effort */ }
     }
   }
+
+  // Resident supervisors are deployable but deliberately outside the 9-ninja
+  // roster, so `seedAgents` never writes their row. Without this fallback the
+  // spawned child gets `Purpose: ` and no constraints, and does nothing.
+  if (!hasRow && isResidentSupervisorAgent(dbAgentName)) {
+    const def = getAdvisorAgentDefinition();
+    title = def.title || title;
+    purpose = def.purpose || purpose;
+    agentConstraints = cleanRedundantPersonaText(def.constraints || '');
+    personaInstructions = cleanRedundantPersonaText(def.instructions || '');
+  }
+
   return { title, purpose, agentConstraints, personaInstructions, skillsList, assignedModel };
 }
 

@@ -8,9 +8,9 @@
  */
 
 const store = require('./store');
+const { resolveRoot, prepareSearchSetup, prepareSearchSetupAsync, describeMissingRoot } = require('./search_setup');
 const provenance = require('./provenance');
 const {
-  SEARCH_MAX_HITS,
   SEARCH_SNIPPET_MAX_CHARS,
   IMPACT_MAX_DEPTH,
   IMPACT_MAX_NODES
@@ -61,11 +61,6 @@ function _snippet(body) {
   return text.length > SEARCH_SNIPPET_MAX_CHARS
     ? `${text.slice(0, SEARCH_SNIPPET_MAX_CHARS)}\n…`
     : text;
-}
-
-function _resolveRoot(conn, rootPath) {
-  const root = store.getRoot(conn, rootPath);
-  return root || null;
 }
 
 function _queryFtsChunks(conn, params) {
@@ -135,31 +130,12 @@ function _queryLikeChunks(conn, query, rootHash, limit, contentKind = null) {
  * `degraded: true` rather than failing — a slow answer beats no answer, but
  * the caller is told which one it got.
  */
-function _prepareSearchSetup(options, semanticStatus) {
-  const query = options.query;
-  const baseEmpty = { hits: [], degraded: false, semantic_status: semanticStatus, semantic_applied: false, reranked: false, total: 0 };
-  if (!query || !String(query).trim()) {
-    return { earlyReturn: { query: '', ...baseEmpty } };
-  }
-  const conn = options.conn || store.openConnection();
-  const rawLimit = Number(options.limit);
-  const limit = Number.isFinite(rawLimit)
-    ? Math.max(1, Math.min(Math.floor(rawLimit), SEARCH_MAX_HITS))
-    : SEARCH_MAX_HITS;
-  const contentKind = store.normalizeContentFilter(options.filter);
-  const root = options.rootPath ? _resolveRoot(conn, options.rootPath) : null;
-  if (options.rootPath && !root) {
-    return { earlyReturn: { query, ...baseEmpty, error: `root not indexed: ${options.rootPath}` } };
-  }
-  return { query, conn, limit, contentKind, root, rootHash: root ? root.root_hash : null };
-}
-
 function search(options = {}) {
   const semState = provenance.classifySemanticStatus({
     enabled: isSemanticSearchEnabled() && (options.semantic !== false || options.rerank !== false),
     runtime: getRuntimeStatus()
   });
-  const setup = _prepareSearchSetup(options, semState.semanticStatus);
+  const setup = prepareSearchSetup(options, semState.semanticStatus);
   if (setup.earlyReturn) return setup.earlyReturn;
   const { query, conn, limit, contentKind, root, rootHash } = setup;
 
@@ -311,7 +287,7 @@ async function searchAsync(options = {}) {
     enabled: envEnabled && (wantSemantic || wantRerank),
     runtime
   });
-  const setup = _prepareSearchSetup(options, baseSem.semanticStatus);
+  const setup = await prepareSearchSetupAsync(options, baseSem.semanticStatus);
   if (setup.earlyReturn) return setup.earlyReturn;
   const { query, conn, limit, contentKind, root, rootHash } = setup;
   const candidateK = Math.max(limit * 3, 40);
@@ -452,9 +428,9 @@ function findSymbol(options = {}) {
   const name = String(options.name || '').trim();
   if (!name) return { name: '', symbols: [], ambiguous: false };
   const conn = options.conn || store.openConnection();
-  const root = options.rootPath ? _resolveRoot(conn, options.rootPath) : null;
+  const root = options.rootPath ? resolveRoot(conn, options.rootPath) : null;
   if (options.rootPath && !root) {
-    return { name, symbols: [], ambiguous: false, error: `root not indexed: ${options.rootPath}` };
+    return { name, symbols: [], ambiguous: false, error: describeMissingRoot(conn, options.rootPath) };
   }
   const rows = root
     ? conn.prepare(`SELECT s.*, f.rel_path, f.content_hash, f.parser_version, f.metrics_json FROM code_symbols s
@@ -492,9 +468,9 @@ function getContext(options = {}) {
   const relPath = options.relPath;
   if (!relPath) return { relPath: '', text: '', error: 'relPath is required' };
   const conn = options.conn || store.openConnection();
-  const root = options.rootPath ? _resolveRoot(conn, options.rootPath) : null;
+  const root = options.rootPath ? resolveRoot(conn, options.rootPath) : null;
   if (options.rootPath && !root) {
-    return { relPath, text: '', error: `root not indexed: ${options.rootPath}` };
+    return { relPath, text: '', error: describeMissingRoot(conn, options.rootPath) };
   }
   const file = root
     ? conn.prepare('SELECT * FROM code_files WHERE root_hash = ? AND rel_path = ?').get(root.root_hash, relPath)
@@ -609,9 +585,9 @@ function impact(options = {}) {
   const name = String(options.name || '').trim();
   if (!name) return { name: '', nodes: [], truncated: false };
   const conn = options.conn || store.openConnection();
-  const root = options.rootPath ? _resolveRoot(conn, options.rootPath) : null;
+  const root = options.rootPath ? resolveRoot(conn, options.rootPath) : null;
   if (options.rootPath && !root) {
-    return { name, nodes: [], truncated: false, error: `root not indexed: ${options.rootPath}` };
+    return { name, nodes: [], truncated: false, error: describeMissingRoot(conn, options.rootPath) };
   }
   const maxDepth = Math.min(Number(options.maxDepth) || IMPACT_MAX_DEPTH, IMPACT_MAX_DEPTH);
   const maxNodes = Math.min(Number(options.maxNodes) || IMPACT_MAX_NODES, IMPACT_MAX_NODES);
@@ -673,7 +649,9 @@ function status(options = {}) {
     return snap ? { ...r, snapshot_consistent: snap.snapshot_consistent, stale_head: snap.stale_head, current_head_sha: snap.current_head_sha } : r;
   };
   if (options.rootPath) {
-    const root = _resolveRoot(conn, options.rootPath);
+    // Read-only by contract: `status` reports what is indexed. Indexing here
+    // would resurrect a root that `code_remove` just cleared.
+    const root = store.getRoot(conn, options.rootPath);
     return root ? { roots: [enrichRoot(root)] } : { roots: [] };
   }
   return { roots: store.listRoots(conn).map(enrichRoot) };
