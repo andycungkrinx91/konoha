@@ -990,7 +990,7 @@ Every specialist in a task re-derives facts its siblings already established, an
 | Storage | `persona_memories` with `domain='shared_task'`, `memory_type='finding'`; no new table |
 | Task identity | `source_ref` = root task id (never the per-slice dispatch id, which would defeat reuse) |
 | Producer | `report_from_agent` → `recordFinding`, delete-then-insert with an identical-content short-circuit |
-| Consumer | `_prepareAgentRun` reads, `_finalizeAgentRun` renders — the block is sized to the *measured* remaining headroom, so it can never truncate the system prompt |
+| Consumer | `_prepareAgentRun` reads, `_finalizeAgentRun` renders — the block is rendered first and its bytes reserved from the prompt ceiling, so it is never silently dropped and can never truncate the system prompt |
 | Budget | 5 items, 320 chars per snippet, ≤ 700 B hard cap; header bytes counted against the cap |
 | Isolation | Findings are excluded from every agent-facing generic recall (`excludeDomains: ['shared_task']`) so the same content is never billed twice |
 
