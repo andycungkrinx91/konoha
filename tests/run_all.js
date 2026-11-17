@@ -333,6 +333,9 @@ function createSuiteSnapshot(name) {
     PYTHONUSERBASE: process.env.PYTHONUSERBASE || path.join(realHome, '.local'),
     PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(realHome, '.cache', 'ms-playwright'),
     KONOHA_TEST_SANDBOX: '1',
+    // The parity gate compares templates against ~/.agents/skills, which only means something
+    // when HOME is this sandboxed seed snapshot rather than the developer's ambient install.
+    KONOHA_TEST_SKILL_PARITY_HOME: '1',
     ...(GUARD_MODE === 'host-isolated' ? { [HOST_ISOLATED_MARKER]: '1' } : {}),
     NODE_PATH: suiteNodePath
   };

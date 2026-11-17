@@ -18,7 +18,12 @@ function _treeComplete(dir) {
     return fs.existsSync(path.join(dir, 'konoha', 'SKILL.md')) && fs.existsSync(path.join(dir, 'genin-skill', 'SKILL.md'));
   } catch (_) { return false; }
 }
-const DEPLOYED = _treeComplete(_homeSkills) ? _homeSkills : (_treeComplete(_projSkills) ? _projSkills : _homeSkills);
+// ~/.agents/skills is ambient state: a developer whose install is a release behind would fail
+// this gate for reasons outside the diff, and the tracked project mirror is only a partial
+// published subset, so it cannot stand in for the deployed tree either. The suite exports
+// KONOHA_TEST_SKILL_PARITY_HOME=1 because its HOME is a sandboxed seed snapshot rebuilt from
+// these templates whenever src/ changes; a standalone run stays deterministic.
+const DEPLOYED = process.env.KONOHA_TEST_SKILL_PARITY_HOME === '1' && _treeComplete(_homeSkills) ? _homeSkills : null;
 const IGNORED_DEPLOYED = new Set(['test-e2e-skill', 'test-e2e-skill/SKILL.md']);
 const ALLOWED_DEPLOYED_ONLY = new Set();
 const ALLOWED_EXTS = new Set(['.md', '.yaml', '.yml', '.json', '.py', '.js']);
@@ -63,9 +68,9 @@ async function run() {
 
   // The project mirror is tracked in git, but nothing regenerates it — sync_skills.js writes
   // only the home mirror. So every subtree it carries must stay byte-identical to the
-  // canonical templates, or the published copy answers with stale instructions. Checked
-  // before the deployed-mirror early return below, which fires on a clean checkout.
-  const projMirror = path.join(ROOT, '.agents', 'skills');
+  // canonical templates, or the published copy answers with stale instructions. This runs
+  // unconditionally, above the deployed-tree gate below.
+  const projMirror = _projSkills;
   for (const slug of fs.existsSync(projMirror) ? fs.readdirSync(projMirror) : []) {
     const template = path.join(SOURCE, slug);
     assert.ok(fs.existsSync(template), `.agents/skills/${slug} has no counterpart in src/templates/skills`);
@@ -90,8 +95,18 @@ async function run() {
   }
   if (fs.existsSync(projMirror)) console.log('✓ Tracked project skill mirror matches src/templates/skills');
 
-  if (!fs.existsSync(DEPLOYED)) {
-    console.log(`✓ Deployed mirror absent in workspace (canonical in src/templates/skills)`);
+  // Cursor runtime mirror is not required, but it must never be a symlink out of the repo.
+  const cursorSkills = path.join(ROOT, '.cursor', 'skills');
+  let isSymlink = false;
+  try {
+    const st = fs.lstatSync(cursorSkills);
+    isSymlink = st.isSymbolicLink();
+  } catch (_) {}
+  assert.strictEqual(isSymlink, false, '.cursor/skills must not be a symlink');
+  console.log('✓ Cursor runtime mirror check passed');
+
+  if (!DEPLOYED) {
+    console.log('✓ Deployed mirror comparison skipped (set KONOHA_TEST_SKILL_PARITY_HOME=1 to compare ~/.agents/skills)');
     return;
   }
 
@@ -123,16 +138,6 @@ async function run() {
     assert.ok(!fs.existsSync(path.join(SOURCE, rel)), `${rel} must not exist in source`);
   }
   console.log('✓ Compatibility files check passed');
-
-  // Cursor runtime mirror is not required
-  const cursorSkills = path.join(ROOT, '.cursor', 'skills');
-  let isSymlink = false;
-  try {
-    const st = fs.lstatSync(cursorSkills);
-    isSymlink = st.isSymbolicLink();
-  } catch (_) {}
-  assert.strictEqual(isSymlink, false, '.cursor/skills must not be a symlink');
-  console.log('✓ Cursor runtime mirror check passed');
 
   console.log('\nAll test_skill_tree_parity tests passed!');
 }
