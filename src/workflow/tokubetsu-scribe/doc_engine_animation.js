@@ -78,8 +78,26 @@ async function _captureAnimationFrames(page, durationSec, fps, tmpFramesDir) {
       });
     }, frameTime);
     const framePath = path.join(tmpFramesDir, `frame_${String(f).padStart(4, '0')}.png`);
-    await page.screenshot({ path: framePath, type: 'png' });
+    // `animations: 'disabled'` settles CSS animations before capture, so the
+    // compositor is idle when the screenshot lands — the protocol-level
+    // "Unable to capture screenshot" error only shows up on a busy page.
+    // The retry covers the remaining window: a headless Chromium under memory
+    // pressure still drops an occasional capture, and one lost frame should not
+    // abort the whole export.
+    await _screenshotWithRetry(page, framePath);
     await page.waitForTimeout(1000 / fps);
+  }
+}
+
+async function _screenshotWithRetry(page, framePath, attempts = 3) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await page.screenshot({ path: framePath, type: 'png', animations: 'disabled' });
+      return;
+    } catch (err) {
+      if (attempt >= attempts) throw err;
+      await page.waitForTimeout(100 * attempt);
+    }
   }
 }
 
