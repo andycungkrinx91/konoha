@@ -53,11 +53,6 @@ async function dispatchNode(state) {
     const parallelDispatches = parsed.map((d) => {
       const assignedAgent = d.agent || status.assigned_agent;
       const skills = d.skills || status.routed_skills || status.skills || [];
-      let toolBlock = '';
-      try {
-        const { buildSubagentMcpBlock } = require('../../memory_subagent_runner');
-        toolBlock = buildSubagentMcpBlock(client, assignedAgent);
-      } catch (_) { /* ignore */ }
       const steerCtx = consumeAdvisorSteerContext(taskDir, assignedAgent);
       const taskPrompt = steerCtx.block ? `${d.task || state.prompt || ''}\n\n${steerCtx.block}` : (d.task || state.prompt || '');
       const spawnDirective = buildSpawnDirective({
@@ -71,7 +66,6 @@ async function dispatchNode(state) {
       return {
         ...d,
         skills,
-        tool_block: toolBlock,
         turn_budget: state.tokenBudget || 8192,
         spawn_directive: spawnDirective,
         advisor_steers: steerCtx.pending.length > 0 ? steerCtx.pending : undefined,
@@ -126,12 +120,6 @@ async function dispatchNode(state) {
   if (parsed && typeof parsed === 'object') {
     const assignedAgent = parsed.agent || status.assigned_agent;
     parsed.skills = status.routed_skills || status.skills || [];
-    try {
-      const { buildSubagentMcpBlock } = require('../../memory_subagent_runner');
-      parsed.tool_block = buildSubagentMcpBlock(client, assignedAgent);
-    } catch (_) {
-      // safe fallback
-    }
     parsed.turn_budget = state.tokenBudget || 8192;
     const steerCtx = consumeAdvisorSteerContext(taskDir, assignedAgent);
     const taskPrompt = steerCtx.block ? `${parsed.task || state.prompt || ''}\n\n${steerCtx.block}` : (parsed.task || state.prompt || '');
