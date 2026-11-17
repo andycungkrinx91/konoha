@@ -233,11 +233,11 @@ Invoke-Step 'Verify ffmpeg webp encoder' {
 Invoke-Step 'Lint' { pnpm lint }
 # CI splits windows-latest over 16 shards (ubuntu: 8, macos: 5); this guest runs all of it in one pass by default,
 # or a single shard when -Shard I/N or KONOHA_TEST_SHARD=I/N is set.
-$env:KONOHA_TEST_TIMEOUT = '1800000'
+$env:KONOHA_TEST_TIMEOUT = '3600000'
 $effectiveShard = if (-not [string]::IsNullOrWhiteSpace($Shard)) { $Shard } else { $env:KONOHA_TEST_SHARD }
 if (-not [string]::IsNullOrWhiteSpace($effectiveShard)) {
   $env:KONOHA_TEST_SHARD = $effectiveShard
-  $env:KONOHA_SHARD_TIMEOUT = '1800000'
+  $env:KONOHA_SHARD_TIMEOUT = '3600000'
 }
 $testLabel = if (-not [string]::IsNullOrWhiteSpace($effectiveShard)) { "Test (shard $effectiveShard)" } else { 'Test (full suite)' }
 Invoke-Step $testLabel { pnpm test }

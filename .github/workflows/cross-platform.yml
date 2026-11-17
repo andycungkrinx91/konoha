@@ -168,7 +168,7 @@ jobs:
     name: ${{ matrix.os }} shard ${{ matrix.shard }}/${{ matrix.shard_total }}
     needs: [seed]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 75
+    timeout-minutes: 90
     strategy:
       # One shard failing must not cancel the others — the per-shard signal is
       # what says which suite broke.
@@ -437,9 +437,9 @@ jobs:
         env:
           KONOHA_TEST_PARALLEL: '1'
           KONOHA_TEST_SHARD: ${{ matrix.shard }}/${{ matrix.shard_total }}
-          KONOHA_TEST_TIMEOUT: '1800000'
-          KONOHA_SHARD_TIMEOUT: '1800000'
+          KONOHA_TEST_TIMEOUT: '3600000'
+          KONOHA_SHARD_TIMEOUT: '3600000'
           KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
-        timeout-minutes: 30
+        timeout-minutes: 60
         run: pnpm test

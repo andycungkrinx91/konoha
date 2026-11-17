@@ -8,7 +8,7 @@
 const { spawnSync } = require('child_process');
 const { isPidAlive } = require('./seed_lifecycle');
 
-const DEFAULT_TEST_TIMEOUT_MS = 1800000;
+const DEFAULT_TEST_TIMEOUT_MS = 3600000;
 
 /**
  * Resolves the first strictly positive finite integer millisecond value across

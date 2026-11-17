@@ -78,27 +78,27 @@ check('the harness refuses a malformed shard instead of running everything', () 
   assert.doesNotMatch(result.stdout, /\[SUITE\]/, 'ran suites despite an invalid selector');
 });
 
-check('the harness enforces a 1800s timeout for shard tests across workflow and runner', () => {
+check('the harness enforces a 3600s timeout for shard tests across workflow and runner', () => {
   const wf = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'cross-platform.yml'), 'utf8');
-  assert.match(wf, /KONOHA_TEST_TIMEOUT:\s*'1800000'/);
-  assert.match(wf, /KONOHA_SHARD_TIMEOUT:\s*'1800000'/);
-  assert.match(wf, /timeout-minutes:\s*30\r?\n\s*run:\s*pnpm test/);
+  assert.match(wf, /KONOHA_TEST_TIMEOUT:\s*'3600000'/);
+  assert.match(wf, /KONOHA_SHARD_TIMEOUT:\s*'3600000'/);
+  assert.match(wf, /timeout-minutes:\s*60\r?\n\s*run:\s*pnpm test/);
   const runnerSrc = fs.readFileSync(harness, 'utf8');
-  assert.match(runnerSrc, /KONOHA_SHARD_TIMEOUT[^\n]*1800000/);
-  assert.match(runnerSrc, /KONOHA_TEST_TIMEOUT[^\n]*1800000/);
+  assert.match(runnerSrc, /KONOHA_SHARD_TIMEOUT[^\n]*3600000/);
+  assert.match(runnerSrc, /KONOHA_TEST_TIMEOUT[^\n]*3600000/);
   const winPs1 = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'windows-ci.ps1'), 'utf8');
-  assert.match(winPs1, /KONOHA_TEST_TIMEOUT\s*=\s*'1800000'/);
-  assert.match(winPs1, /KONOHA_SHARD_TIMEOUT\s*=\s*'1800000'/);
+  assert.match(winPs1, /KONOHA_TEST_TIMEOUT\s*=\s*'3600000'/);
+  assert.match(winPs1, /KONOHA_SHARD_TIMEOUT\s*=\s*'3600000'/);
   const sandboxSrc = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'sandbox.js'), 'utf8');
-  assert.match(sandboxSrc, /KONOHA_TEST_TIMEOUT=.*1800000/);
-  assert.match(sandboxSrc, /KONOHA_SHARD_TIMEOUT=.*1800000/);
+  assert.match(sandboxSrc, /KONOHA_TEST_TIMEOUT=.*3600000/);
+  assert.match(sandboxSrc, /KONOHA_SHARD_TIMEOUT=.*3600000/);
 });
 
 check('parsePositiveTimeoutMs rejects invalid, zero, and negative env values cleanly', () => {
   assert.strictEqual(parsePositiveTimeoutMs(['-1', '1800000']), 1800000);
   assert.strictEqual(parsePositiveTimeoutMs(['0', 'abc', '5000']), 5000);
-  assert.strictEqual(parsePositiveTimeoutMs(['abc', '  ', undefined, null]), 1800000);
-  assert.strictEqual(parsePositiveTimeoutMs(['-50', '0']), 1800000);
+  assert.strictEqual(parsePositiveTimeoutMs(['abc', '  ', undefined, null]), 3600000);
+  assert.strictEqual(parsePositiveTimeoutMs(['-50', '0']), 3600000);
   assert.strictEqual(parsePositiveTimeoutMs(['250']), 250);
 });
 

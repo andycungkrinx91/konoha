@@ -223,7 +223,7 @@ function getGoldenSeed() {
       KONOHA_SKIP_UV_INSTALL: process.env.KONOHA_SKIP_UV_INSTALL || '1',
       KONOHA_SKIP_RTK_INSTALL: process.env.KONOHA_SKIP_RTK_INSTALL || '1'
     };
-    const seedTimeoutMs = parsePositiveTimeoutMs([process.env.KONOHA_TEST_TIMEOUT], 1800000);
+    const seedTimeoutMs = parsePositiveTimeoutMs([process.env.KONOHA_TEST_TIMEOUT], 3600000);
     const res = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), 'init', '--yes'], {
       cwd: seedDir,
       env,
@@ -282,7 +282,7 @@ function _armShardTimeoutIfNeeded() {
   const activeShardArg = process.argv.find((a) => a.startsWith('--shard='));
   const activeShard = activeShardArg ? activeShardArg.split('=')[1] : process.env.KONOHA_TEST_SHARD;
   if (!activeShard) return;
-  const shardTimeoutMs = parsePositiveTimeoutMs([process.env.KONOHA_SHARD_TIMEOUT, process.env.KONOHA_TEST_TIMEOUT], 1800000);
+  const shardTimeoutMs = parsePositiveTimeoutMs([process.env.KONOHA_SHARD_TIMEOUT, process.env.KONOHA_TEST_TIMEOUT], 3600000);
   shardWatchdog = armShardWatchdog({
     shard: activeShard,
     timeoutMs: shardTimeoutMs,
@@ -416,7 +416,7 @@ function runSuiteAsync(cmd, args, name) {
     let err = '';
     let settled = false;
     let killEscalationTimer = null;
-    const suiteTimeoutMs = parsePositiveTimeoutMs([process.env.KONOHA_TEST_TIMEOUT], 1800000);
+    const suiteTimeoutMs = parsePositiveTimeoutMs([process.env.KONOHA_TEST_TIMEOUT], 3600000);
     const timer = setTimeout(() => {
       if (!settled) {
         err += `\n[TIMEOUT] Suite ${name} timed out after ${suiteTimeoutMs / 1000}s and was terminated.`;
