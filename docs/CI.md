@@ -505,6 +505,60 @@ expectation, and no `continue-on-error` was added anywhere.
   comparing against it would classify every sandbox as the real home. `tests/test_omp_manager.js`
   pins the byte-identity of the project file.
 
+- **An LSP override path containing spaces resolved to `C:\Program`
+  (`test_code_intel_lsp`, `test_genin_unified_retrieval`, windows)** — `_parseCommandSpec`
+  split the override on `/\s+/`, which is correct for `/usr/bin/node /tmp/mock.js` and
+  wrong for `C:\Program Files\nodejs\node.exe C:\Temp\mock.js`. Both suites build their
+  override from `process.execPath`, so the same source line passed on Linux and macOS and
+  failed on Windows with `server binary missing: C:\Program` — reported as
+  `code_symbol async route must include LSP enrichment` and `9. Async retrieval must attach
+  LSP enrichment`. Reproduce on any platform by putting the interpreter behind a spaced
+  directory:
+
+  ```
+  node -e "const fs=require('fs'),os=require('os'),p=require('path');
+  const d=fs.mkdtempSync(p.join(os.tmpdir(),'sp-')),dir=p.join(d,'Program Files','nodejs');
+  fs.mkdirSync(dir,{recursive:true});
+  const bin=p.join(dir,process.platform==='win32'?'node.exe':'node');
+  fs.copyFileSync(process.execPath,bin);fs.chmodSync(bin,0o755);
+  const m=require('./src/code_intel/lsp_manager').defaultManager;
+  const spec=(o)=>m.resolveServerSpec('typescript','a.ts',{commandOverride:o});
+  console.log('unquoted:', spec(bin+' x.js').reason || spec(bin+' x.js').available);
+  console.log('array   :', spec([bin,'x.js']).available);
+  console.log('quoted  :', spec('\"'+bin+'\" x.js').available);"
+  # before: unquoted: server binary missing: /tmp/sp-…/Program   array: server binary missing: /tmp/sp-…/Program   quoted: server binary missing: "/tmp/sp-…/Program
+  # after:  unquoted: server binary missing: /tmp/sp-…/Program   array: true   quoted: true
+  ```
+
+  Both the array and the quoted form used to fail; the array form failed because
+  `String([bin, 'x.js'])` joins on `,`, and the quoted form because the quote characters
+  survived into the command. The array form is now the unambiguous one and is what the
+  suites pass; the string form honours `"…"`/`'…'` quoting, and an unquoted path with
+  spaces is reported as a missing binary instead of resolving a prefix.
+  `tests/test_code_intel_lsp.js` covers all three forms in `testOverridePathWithSpaces`.
+
+- **An emptied directory was read as a shipped browser bundle (`test_dependency_posture`,
+  windows)** — the gate asserted `!fs.existsSync(node_modules/xlsx-populate/browser)`, and
+  pnpm prunes the emptied directory on Linux but leaves it behind on Windows, so the patch
+  had done its job and the gate failed anyway with
+  `xlsx-populate/browser must not ship`. The assertion is now `shipsAnyFile`, which walks
+  the subtree and treats an empty directory as absent; it still fails the moment a real
+  bundle file reappears. Reproduce the platform split without Windows:
+
+  ```
+  mkdir -p node_modules/xlsx-populate/browser && node tests/test_dependency_posture.js   # passes
+  printf x > node_modules/xlsx-populate/browser/probe.js && node tests/test_dependency_posture.js  # fails
+  rm -rf node_modules/xlsx-populate/browser
+  ```
+
+- **A temp-tree cleanup aborted the whole suite (`test_genin_unified_retrieval`,
+  windows)** — the `finally` block called `fs.rmSync(tmpRoot, {recursive:true, force:true})`
+  unguarded, and a mock LSP child killed moments earlier can still hold a handle on Windows.
+  The resulting `EPERM` was thrown from the `finally`, which killed the process *after* the
+  real assertion had already been recorded — the run then ended with no summary at all.
+  Cleanup now retries and, if the tree is still locked, prints which path it could not
+  remove and carries on: a disposable temp tree is never a reason to lose the suite.
+
 The engine gate (`src/workflow/akatsuki/lab.js`) still fails closed on a host with
 neither LXC nor Docker. That is product behavior, so the suite supplies a mocked
 engine instead of weakening the gate.

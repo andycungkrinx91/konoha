@@ -70,6 +70,12 @@ function _findExecutable(cmd) {
 
 function _parseCommandSpec(spec) {
   if (!spec) return null;
+  // An array is the unambiguous form: element 0 is the command verbatim, so a
+  // path containing spaces (`C:\Program Files\nodejs\node.exe`) survives.
+  if (Array.isArray(spec)) {
+    if (!spec.length) return null;
+    return { command: String(spec[0]), args: spec.slice(1).map(String), languageId: null };
+  }
   if (typeof spec === 'object' && spec.command) {
     return {
       command: spec.command,
@@ -79,7 +85,16 @@ function _parseCommandSpec(spec) {
   }
   const raw = String(spec).trim();
   if (!raw) return null;
-  const parts = raw.split(/\s+/);
+  // Env vars can only be strings, so honour quoting there: splitting on bare
+  // whitespace turns `"C:\Program Files\nodejs\node.exe" mock.js` into a command
+  // named `"C:\Program`, which no Windows install would ever find.
+  const parts = [];
+  const tokenRe = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let match;
+  while ((match = tokenRe.exec(raw)) !== null) {
+    parts.push(match[1] !== undefined ? match[1] : (match[2] !== undefined ? match[2] : match[3]));
+  }
+  if (!parts.length) return null;
   return { command: parts[0], args: parts.slice(1), languageId: null };
 }
 

@@ -310,6 +310,45 @@ async function assertCancelLruAndProcessCleanup(mgr, mockScript, logPath, r1, r2
   console.log('✓ LSP $/cancelRequest, LRU eviction, pool cap, idle/shutdown & SIGTERM/SIGKILL cleanup verified');
 }
 
+async function testOverridePathWithSpaces(mockScript) {
+  // `process.execPath` is `/usr/bin/node` on Linux but
+  // `C:\Program Files\nodejs\node.exe` on Windows, and the string form of the
+  // override used to be split on bare whitespace — so on Windows every LSP
+  // leg resolved the command `C:\Program` and reported `server binary missing`.
+  const spacedDir = path.join(tmpRoot, 'Program Files', 'nodejs');
+  fs.mkdirSync(spacedDir, { recursive: true });
+  const spacedNode = path.join(spacedDir, process.platform === 'win32' ? 'node.exe' : 'node');
+  fs.copyFileSync(process.execPath, spacedNode);
+  fs.chmodSync(spacedNode, 0o755);
+  const spacedMock = path.join(spacedDir, 'mock_lsp.js');
+  fs.copyFileSync(mockScript, spacedMock);
+
+  const mgr = new LspManager();
+  try {
+    const quoted = mgr.resolveServerSpec('typescript', 'src/auth.ts', {
+      commandOverride: `"${spacedNode}" "${spacedMock}"`
+    });
+    assert.strictEqual(quoted.available, true, `A quoted override path with spaces must resolve: ${quoted.reason}`);
+    assert.strictEqual(quoted.command, path.resolve(spacedNode));
+    assert.deepStrictEqual(quoted.args, [spacedMock]);
+
+    const asArray = mgr.resolveServerSpec('typescript', 'src/auth.ts', {
+      commandOverride: [spacedNode, spacedMock]
+    });
+    assert.strictEqual(asArray.available, true, `An array override must resolve a path with spaces: ${asArray.reason}`);
+    assert.strictEqual(asArray.command, path.resolve(spacedNode));
+
+    const unquoted = mgr.resolveServerSpec('typescript', 'src/auth.ts', {
+      commandOverride: `${spacedNode} ${spacedMock}`
+    });
+    assert.strictEqual(unquoted.available, false, 'An unquoted path with spaces is ambiguous and must not silently pick a prefix');
+    assert.match(unquoted.reason, /server binary missing/, 'The ambiguous case must still report a missing binary');
+  } finally {
+    await mgr.shutdownAll();
+  }
+  console.log('✓ LSP command override survives a path containing spaces (quoted and array forms)');
+}
+
 (async () => {
   const conn = db.getConnection();
   try {
@@ -325,6 +364,7 @@ async function assertCancelLruAndProcessCleanup(mgr, mockScript, logPath, r1, r2
     const logPath = writeMockLspServer(mockScript);
     await testRouterAndToolsLspEnrichment(conn, repo, mockScript, logPath);
     await defaultManager.shutdownAll();
+    await testOverridePathWithSpaces(mockScript);
     await testCancelLruAndProcessCleanup(mockScript, logPath);
     console.log('test_code_intel_lsp passed cleanly.');
   } catch (err) {

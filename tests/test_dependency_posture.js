@@ -39,6 +39,20 @@ console.log('  ok   xlsx-populate patch removes lodash and the browser bundle');
 //    browser builds whose `setImmediate` polyfill calls `new Function(""+e)`; Konoha only ever
 //    loads the Node entry points, so the patches delete those builds. A stale node_modules after
 //    a patch edit re-ships them, so assert the resolved trees, not just the patch files.
+// A path "ships" only if something regular lives at or under it. pnpm prunes
+// emptied directories on Linux but not on Windows, so an `existsSync` check on
+// a directory reports a false positive there.
+function shipsAnyFile(target) {
+  let st;
+  try {
+    st = fs.lstatSync(target);
+  } catch (_) {
+    return false;
+  }
+  if (!st.isDirectory()) return true;
+  return fs.readdirSync(target, { withFileTypes: true }).some((entry) => shipsAnyFile(path.join(target, entry.name)));
+}
+
 const BUNDLED_SINKS = {
   pptxgenjs: ['dist/pptxgen.bundle.js', 'dist/pptxgen.bundle.js.map'],
   'xlsx-populate': ['browser', 'examples'],
@@ -55,7 +69,10 @@ for (const [pkg, entries] of Object.entries(BUNDLED_SINKS)) {
       }));
   assert.ok(fs.existsSync(path.join(root, 'package.json')), `${pkg} must be installed to validate its shipped tree`);
   for (const entry of entries) {
-    assert.ok(!fs.existsSync(path.join(root, entry)), `${pkg}/${entry} must not ship: it carries an eval sink or is dead weight`);
+    // pnpm removes the deleted files but may leave the now-empty parent
+    // directory behind — on Windows it does, on Linux it prunes. An empty
+    // directory ships nothing, so the claim is "no file survives here".
+    assert.ok(!shipsAnyFile(path.join(root, entry)), `${pkg}/${entry} must not ship: it carries an eval sink or is dead weight`);
   }
 }
 
