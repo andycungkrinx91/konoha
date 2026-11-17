@@ -324,6 +324,87 @@ async function run() {
   assert.ok(!asyncSymbols.error, `Async symbol lookup must auto-index through the async indexer: ${asyncSymbols.error}`);
   assert.strictEqual(asyncSymbols.symbols[0].path, 'util.js');
 
+  // --- a row that a pass never finished must be indexed, not answered from --
+  // `ensureRoot` inserts `stale` with `indexed_at NULL` before the walk starts,
+  // so a timed-out first-use pass leaves exactly this row behind.
+  const codeStore = require('../src/code_intel/store');
+  const conn = codeStore.openConnection();
+  const UNFINISHED = path.join(tmpRoot, 'unfinished-repo');
+  fs.mkdirSync(UNFINISHED, { recursive: true });
+  fs.writeFileSync(path.join(UNFINISHED, 'u.js'), 'function unfinishedFn() { return 1; }\n', 'utf8');
+  codeStore.ensureRoot(conn, UNFINISHED);
+  const aborted = codeStore.getRoot(conn, UNFINISHED);
+  assert.strictEqual(aborted.status, 'stale');
+  assert.strictEqual(aborted.indexed_at, null, 'A row created before the walk must carry no completion time');
+  const unfinishedSearch = tools.code_search({ root: UNFINISHED, query: 'unfinishedFn' });
+  assert.strictEqual(unfinishedSearch.total, 1, 'A row from an aborted pass must be indexed, not answered from');
+
+  // --- a root that a previous pass left unusable is retried ---------------
+  // `store.getRoot` returns the row whatever its status, so answering from a
+  // `failed` row would turn the old loud error into an empty result set.
+  codeStore.markRootStatus(conn, codeStore.computeRootHash(LATE), 'failed', 'simulated');
+  const retried = tools.code_search({ root: LATE, query: 'authenticate', limit: 5 });
+  assert.ok(!retried.error, `A failed root must be retried, not answered from: ${retried.error}`);
+  assert.strictEqual(retried.total, 1, 'The retry must repopulate a root marked failed');
+  assert.strictEqual(codeStore.getRoot(conn, LATE).status, 'fresh', 'A successful retry must clear the failed status');
+
+  // --- an incomplete pass says so instead of answering silently -----------
+  codeStore.markRootStatus(conn, codeStore.computeRootHash(LATE), 'stale', 'file cap reached during walk');
+  const staleSearch = tools.code_search({ root: LATE, query: 'authenticate', limit: 5 });
+  assert.strictEqual(staleSearch.index_incomplete, true, 'A stale root must be reported as an incomplete index');
+  codeStore.markRootStatus(conn, codeStore.computeRootHash(LATE), 'fresh', '');
+
+  // --- a read-only session must not write an index ------------------------
+  // @genin and @advisor run with KONOHA_READONLY=1; auto-indexing on their
+  // behalf is exactly the index write the read-only guard exists to prevent.
+  const RO_ROOT = path.join(tmpRoot, 'readonly-repo');
+  fs.mkdirSync(RO_ROOT, { recursive: true });
+  fs.writeFileSync(path.join(RO_ROOT, 'ro.js'), 'function roOnly() { return 1; }\n', 'utf8');
+  process.env.KONOHA_READONLY = '1';
+  try {
+    const roSearch = tools.code_search({ root: RO_ROOT, query: 'roOnly' });
+    assert.match(roSearch.error || '', /root not indexed: /, 'A read-only session must not index on a read');
+    assert.deepStrictEqual(tools.code_status({ root: RO_ROOT }).roots, [], 'A read-only search must leave the root unindexed');
+  } finally {
+    delete process.env.KONOHA_READONLY;
+  }
+
+  // An enforced read-only *agent* carries the same prohibition, even with the
+  // env var absent: `@genin` and `@advisor` are read-only by role.
+  const detection = require('../src/mcp/client_detection');
+  const realDetect = detection.detectActiveAgent;
+  detection.detectActiveAgent = () => 'genin';
+  try {
+    const geninSearch = tools.code_search({ root: RO_ROOT, query: 'roOnly' });
+    assert.match(geninSearch.error || '', /root not indexed: /, '@genin must not index on a read');
+    assert.deepStrictEqual(tools.code_status({ root: RO_ROOT }).roots, [], '@genin must leave the root unindexed');
+  } finally {
+    detection.detectActiveAgent = realDetect;
+  }
+
+  // --- concurrent first-use queries share one pass ------------------------
+  const DEDUPE_ROOT = path.join(tmpRoot, 'dedupe-repo');
+  fs.mkdirSync(DEDUPE_ROOT, { recursive: true });
+  for (let idx = 0; idx < 12; idx += 1) {
+    fs.writeFileSync(path.join(DEDUPE_ROOT, `d_${idx}.js`), `function d_${idx}() { return ${idx}; }\n`, 'utf8');
+  }
+  let passes = 0;
+  const realAsyncIndex = indexer.indexRepositoryAsync;
+  indexer.indexRepositoryAsync = async (...args) => {
+    passes += 1;
+    return realAsyncIndex(...args);
+  };
+  try {
+    await Promise.all([
+      tools.code_search_async({ root: DEDUPE_ROOT, query: 'd_1' }),
+      tools.code_search_async({ root: DEDUPE_ROOT, query: 'd_2' }),
+      tools.code_search_async({ root: DEDUPE_ROOT, query: 'd_3' })
+    ]);
+  } finally {
+    indexer.indexRepositoryAsync = realAsyncIndex;
+  }
+  assert.strictEqual(passes, 1, 'Concurrent first-use queries must share one index pass');
+
   // --- removal -----------------------------------------------------------
   // Dispatched last: removal is the one case with an order dependency.
   const rawRemove = dispatchTool('code_remove', { root: REPO });

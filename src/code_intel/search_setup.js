@@ -10,13 +10,15 @@
  */
 
 const store = require('./store');
-const { ensureRootIndexed, ensureRootIndexedAsync, describeMissingRoot } = require('./auto_index');
+const { ensureRootIndexed, ensureRootIndexedAsync, isUsableRoot, describeMissingRoot } = require('./auto_index');
 const { SEARCH_MAX_HITS } = require('./config');
 
 /** Resolve a root path to its index row, indexing an existing directory on first use. */
 function resolveRoot(conn, rootPath) {
   if (!rootPath) return null;
-  return store.getRoot(conn, rootPath) || ensureRootIndexed(conn, rootPath);
+  // `ensureRootIndexed` re-checks the row's status, so a `failed` or `indexing`
+  // row is retried rather than answered from.
+  return ensureRootIndexed(conn, rootPath);
 }
 
 function prepareSearchSetup(options, semanticStatus) {
@@ -49,10 +51,14 @@ async function prepareSearchSetupAsync(options, semanticStatus) {
     return prepareSearchSetup(options, semanticStatus);
   }
   const conn = options.conn || store.openConnection();
-  if (!store.getRoot(conn, options.rootPath)) {
-    await ensureRootIndexedAsync(conn, options.rootPath, options.indexTimeoutMs);
+  let rootResolved = store.getRoot(conn, options.rootPath);
+  if (!isUsableRoot(rootResolved)) {
+    rootResolved = await ensureRootIndexedAsync(conn, options.rootPath, options.indexTimeoutMs);
   }
-  return prepareSearchSetup({ ...options, conn }, semanticStatus);
+  // Pin the resolution even when it is null: falling back to the sync setup
+  // would re-run the whole index on the event loop, which is the stall this
+  // function exists to avoid.
+  return prepareSearchSetup({ ...options, conn, rootResolved }, semanticStatus);
 }
 
 module.exports = {

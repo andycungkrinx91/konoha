@@ -98,7 +98,7 @@ function buildPiWorkflowAddendum() {
 ## Konoha Workflow Mandate (Pi) — MANDATORY
 
 - **Route through the village, never free-run**: for any non-trivial task, start from the \`konoha\` MCP tool \`sannin\` (task triage + \`get_resolved_task_dir\`) and follow the structured phases — explore with \`genin\`, plan with \`kage\`, execute with \`jonin\`/\`anbu\`/\`chunin\`, secure with \`akatsuki\`, build 3D assets with \`yamanaka\`, document with \`tokubetsu-jonin\`, review with \`kage\`. Do NOT decompose and execute multi-step engineering work yourself.
-- **Always-on idle @advisor from turn 0**: start \`@advisor\` immediately via \`advisor_spawn_directive\` (or \`rtk konoha run-agent --agent advisor --idle\`) in idle supervision mode (0 tokens when compliant). \`@advisor\` reviews all agent work against the plan, TODOs, and goals and delivers \`[ADVISOR STEER]\` directly whenever drift occurs.
+- **Always-on idle @advisor from turn 0**: start \`@advisor\` immediately via \`advisor_spawn_directive\` (or \`rtk konoha run-agent --agent advisor --idle --execute\`) in idle supervision mode (0 tokens when compliant). \`@advisor\` reviews all agent work against the plan, TODOs, and goals and delivers \`[ADVISOR STEER]\` directly whenever drift occurs.
 - **Step 0: Classify request — ALWAYS FIRST (Branch A vs Branch B)**:
   - **Website build intent** (build/create/scaffold/generate/make + website/web app/landing page/UI/frontend/site/e-commerce/storefront/portfolio/dashboard/app, OR framework-specific like "next.js project"/"svelte app"/"nuxt site") → **BRANCH B (Website Scaffolding)**.
   - **Design mockups provided** (source-image-design, mockup images, figma) → **BRANCH B** with \`konoha.build_from_source\`.

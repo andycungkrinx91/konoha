@@ -14,6 +14,7 @@
  */
 
 const fs = require('node:fs');
+const path = require('node:path');
 const store = require('./store');
 
 // ponytail: cap the first-use pass so a query cannot stall on a 20k-file tree.
@@ -21,8 +22,38 @@ const store = require('./store');
 const AUTO_INDEX_MAX_FILES = 5000;
 const AUTO_INDEX_TIMEOUT_MS = 15000;
 
+// Concurrent first-use queries on the same root share one pass; the indexer has
+// no lock of its own, and both would otherwise walk and write the whole tree.
+const inFlightIndexes = new Map();
+
+// `store.getRoot` returns a row whatever its status. `ensureRoot` creates one as
+// `stale` with `indexed_at NULL` before the first pass finishes, so status alone
+// cannot tell "partially indexed" from "never finished": a timed-out pass would
+// otherwise answer every later query from an empty index.
+function isUsableRoot(row) {
+  if (!row) return false;
+  const status = String(row.status || '');
+  if (status === 'fresh') return true;
+  return status === 'stale' && Boolean(row.indexed_at);
+}
+
+function _readOnlySession() {
+  // @genin and @advisor run under strict read-only enforcement. Auto-indexing on
+  // a read would be exactly the index write that guard exists to prevent, so a
+  // read-only caller gets the actionable error instead of a silent write.
+  if (process.env.KONOHA_READONLY === '1') return true;
+  try {
+    const { detectActiveAgent } = require('../mcp/client_detection');
+    const active = String(detectActiveAgent() || '').trim().toLowerCase().replace(/^@/, '');
+    return active === 'genin' || active === 'advisor';
+  } catch (_) {
+    return false;
+  }
+}
+
 function _shouldIndex(rootPath) {
   if (!rootPath) return false;
+  if (_readOnlySession()) return false;
   let stat = null;
   try {
     stat = fs.statSync(rootPath);
@@ -63,7 +94,7 @@ function _indexer() {
 function ensureRootIndexed(conn, rootPath, timeoutMs) {
   if (!rootPath) return null;
   const existing = store.getRoot(conn, rootPath);
-  if (existing) return existing;
+  if (isUsableRoot(existing)) return existing;
   if (!_shouldIndex(rootPath)) return null;
   const indexer = _indexer();
   if (!indexer) return null;
@@ -72,23 +103,34 @@ function ensureRootIndexed(conn, rootPath, timeoutMs) {
   } catch (_) {
     return null;
   }
-  return store.getRoot(conn, rootPath);
+  const row = store.getRoot(conn, rootPath);
+  return isUsableRoot(row) ? row : null;
 }
 
 /** Async twin of `ensureRootIndexed`: yields so other tools stay responsive. */
 async function ensureRootIndexedAsync(conn, rootPath, timeoutMs) {
   if (!rootPath) return null;
   const existing = store.getRoot(conn, rootPath);
-  if (existing) return existing;
+  if (isUsableRoot(existing)) return existing;
   if (!_shouldIndex(rootPath)) return null;
-  const indexer = _indexer();
-  if (!indexer) return null;
-  try {
-    await indexer.indexRepositoryAsync(_indexOptions(rootPath, conn, timeoutMs));
-  } catch (_) {
-    return null;
-  }
-  return store.getRoot(conn, rootPath);
+  const key = path.resolve(rootPath);
+  const pending = inFlightIndexes.get(key);
+  if (pending) return pending;
+  const run = (async () => {
+    try {
+      const indexer = _indexer();
+      if (!indexer) return null;
+      await indexer.indexRepositoryAsync(_indexOptions(rootPath, conn, timeoutMs));
+    } catch (_) {
+      return null;
+    } finally {
+      inFlightIndexes.delete(key);
+    }
+    const row = store.getRoot(conn, rootPath);
+    return isUsableRoot(row) ? row : null;
+  })();
+  inFlightIndexes.set(key, run);
+  return run;
 }
 
 /** Actionable replacement for a bare `root not indexed: <path>`. */
@@ -109,6 +151,7 @@ function describeMissingRoot(conn, rootPath) {
 module.exports = {
   AUTO_INDEX_MAX_FILES,
   AUTO_INDEX_TIMEOUT_MS,
+  isUsableRoot,
   ensureRootIndexed,
   ensureRootIndexedAsync,
   describeMissingRoot

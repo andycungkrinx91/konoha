@@ -327,7 +327,11 @@ function buildAdvisorStartupDirective({
   const desc = resolveSpawnDescriptor(client, resolveOpts);
   const advisorPrompt = 'Idle turn-0 @advisor: watch Plan/TODO/Goals; steer drift.';
   const taskArg = spawnTaskArg(advisorPrompt, null);
-  const cliFallback = 'rtk node ~/.konoha/bin/cli.js run-agent --agent advisor --idle';
+  // `--execute` is load-bearing: without it `run-agent` only prints another
+  // spawn directive, so the harnesses that fall back here (pi, gemini,
+  // universal, cli) would be handed a command that never starts a supervisor.
+  // `--idle` supplies the task text for an advisor, so no `--task` is needed.
+  const cliFallback = 'rtk node ~/.konoha/bin/cli.js run-agent --agent advisor --idle --execute';
   const sampleSteer = buildClientSteerCall({
     client: client || 'universal',
     targetAgent: '<drifting-agent>',

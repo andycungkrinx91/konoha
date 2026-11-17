@@ -162,6 +162,7 @@ function search(options = {}) {
     semantic_applied: false,
     reranked: false,
     ...(snapshot ? { snapshot } : {}),
+    ...(root && root.status === 'stale' ? { index_incomplete: true } : {}),
     total: rows.length,
     hits: rows.map((r) => provenance.formatSyncHit(r, degraded ? 0 : Number(r.score), _snippet(r.body)))
   };
@@ -269,6 +270,10 @@ function _finalizeAsyncSearch({ query, root, envEnabled, wantSemantic, wantReran
     semantic_applied: vecCount > 0,
     reranked: didRerank,
     ...(snapshot ? { snapshot } : {}),
+    // `stale` means the pass finished short of the tree: the file cap was hit or
+    // directories were unreadable. Saying so beats an empty result that looks
+    // like a successful search over a small repo.
+    ...(root && root.status === 'stale' ? { index_incomplete: true } : {}),
     ...(outcome.reason ? { reason: outcome.reason } : {}),
     total: hits.length,
     hits

@@ -8,7 +8,7 @@
 
 const path = require('path');
 const store = require('./store');
-const { ensureRootIndexed, ensureRootIndexedAsync, describeMissingRoot } = require('./auto_index');
+const { ensureRootIndexed, ensureRootIndexedAsync, isUsableRoot, describeMissingRoot } = require('./auto_index');
 const provenance = require('./provenance');
 const { SEARCH_MAX_HITS, SEARCH_SNIPPET_MAX_CHARS } = require('./config');
 const {
@@ -73,10 +73,14 @@ function _lookupAnchorSymbol(conn, root, fileRow, symbolName) {
 }
 
 async function _resolveAnchorAsync(conn, options) {
-  if (options.rootPath && !store.getRoot(conn, options.rootPath)) {
-    await ensureRootIndexedAsync(conn, options.rootPath, options.indexTimeoutMs);
+  if (!options.rootPath) return _resolveAnchor(conn, options);
+  let rootResolved = store.getRoot(conn, options.rootPath);
+  if (!isUsableRoot(rootResolved)) {
+    rootResolved = await ensureRootIndexedAsync(conn, options.rootPath, options.indexTimeoutMs);
   }
-  return _resolveAnchor(conn, options);
+  // Pin even a null resolution: the sync resolver would otherwise index the
+  // whole tree on the event loop, which is what this wrapper exists to avoid.
+  return _resolveAnchor(conn, { ...options, rootResolved });
 }
 
 function _resolveAnchor(conn, options) {
@@ -85,7 +89,9 @@ function _resolveAnchor(conn, options) {
   if (!relPath && !symbolName) return { error: 'file or symbol is required' };
 
   const root = options.rootPath
-    ? (store.getRoot(conn, options.rootPath) || ensureRootIndexed(conn, options.rootPath))
+    ? (options.rootResolved !== undefined
+      ? options.rootResolved
+      : (store.getRoot(conn, options.rootPath) || ensureRootIndexed(conn, options.rootPath)))
     : null;
   if (options.rootPath && !root) {
     return { error: describeMissingRoot(conn, options.rootPath) };

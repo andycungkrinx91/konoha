@@ -9,7 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ensureRootIndexedAsync } = require('./auto_index');
+const { ensureRootIndexedAsync, isUsableRoot } = require('./auto_index');
 const { indexRepository, indexRepositoryAsync } = require('./indexer');
 const store = require('./store');
 const query = require('./query');
@@ -138,7 +138,7 @@ async function _prewarmRoot(args = {}) {
   }
   if (!rootPath) return;
   const conn = _conn();
-  if (store.getRoot(conn, rootPath)) return;
+  if (isUsableRoot(store.getRoot(conn, rootPath))) return;
   await ensureRootIndexedAsync(conn, rootPath, args.timeout_ms !== undefined ? Number(args.timeout_ms) : undefined);
 }
 
@@ -224,6 +224,7 @@ function _formatSearchResponse(result) {
     reranked: Boolean(result.reranked),
     ...(result.snapshot ? { snapshot: result.snapshot } : {}),
     ...(result.reason ? { reason: result.reason } : {}),
+    ...(result.index_incomplete ? { index_incomplete: true } : {}),
     ...(result.error ? { error: result.error } : {}),
     hits: result.hits.map((h) => ({
       path: h.relPath,

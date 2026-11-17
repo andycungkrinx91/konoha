@@ -62,7 +62,9 @@ Guards: `tests/test_project_konoha_mcp_guardrail.js` tests 9-15, including a pty
 - **Async handlers never take the blocking pass.** `prepareSearchSetupAsync` and `_resolveAnchorAsync` await `indexRepositoryAsync` (yields every four files) before the sync base runs, which is what keeps `tools/list` answerable during a first-use index.
 - **`code_status` stays read-only.** It calls `store.getRoot`; indexing there would resurrect a root `code_remove` just cleared.
 
-Guards: `tests/test_code_intel_tools.js` (auto-index leg plus an async leg that replaces `indexRepository` with a throwing stub).
+A row is not proof of an index. `ensureRoot` inserts `stale` with `indexed_at NULL` *before* the walk, so a pass that timed out or threw leaves behind exactly the row every later query would trust — turning the old loud error into an empty result set. `isUsableRoot` therefore requires `fresh`, or `stale` with a completion time, and retries anything else; a `stale` row that a completed walk left partial is surfaced as `index_incomplete: true` rather than passing for a small repo. Only a writer may create a row: `@genin` and `@advisor` are read-only by role, `checkGeninToolAccess` guards `code_index` but not `code_search`, so the first-use pass is skipped for them (`KONOHA_READONLY=1` or the detected agent) and the caller gets the actionable error. Concurrent first-use queries on one root share a single pass through a module-level in-flight map, because the indexer holds no lock of its own.
+
+Guards: `tests/test_code_intel_tools.js` — the auto-index leg, an async leg that replaces `indexRepository` with a throwing stub, a never-finished-row leg, an `index_incomplete` leg, two read-only legs (`KONOHA_READONLY` and a detected `@genin`), and a dedupe leg that asserts three concurrent `code_search_async` calls reach the indexer once.
 ---
 
 ## 📡 Transports & Communications
