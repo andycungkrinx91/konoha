@@ -58,6 +58,48 @@ Konoha computes authentic token savings on every MCP tool call, persisting recor
 
 ---
 
+## 🔍 Chunk Store vs Append-Only Log: Why Retrieval Beats Injection
+
+The question is not "FTS5 or JSONL" but *inject everything* vs *retrieve chunks on demand*.
+Konoha has exactly one retrieval store (`skill_chunks`: FTS5 + embeddings) and JSONL
+appears only as an audit trail (`.konoha/guardrail-audit.jsonl`, client `transcript.jsonl`),
+with no relevance signal and no bounded read. Chunked retrieval wins on both axes:
+
+| Property | FTS5 chunk store | JSONL append log |
+|---|---|---|
+| Cost of one answer | `O(top-k)` — ranked, bounded | `O(file)` — every line read and injected |
+| Relevance signal | BM25 + cross-encoder + vector | none (append order only) |
+| Failure mode | stale row → reindex | unbounded context growth |
+| Measured here | 18,464 rows, avg 484 B, all embedded | no retrieval path exists |
+
+**Measured chunk economics** (`src/code_intel/config.js`): `CHUNK_MAX_LINES=40`,
+`CHUNK_MAX_CHARS=1800`, `CHUNK_OVERLAP_LINES=8`, `CHUNK_TOKEN_TARGET=420` — 18,464 rows,
+avg 484 B, all embedded. `skill_top_k: 5`, `skill_candidate_k: 25`
+(`bin/lib/config_defaults.js:61-62`). A `find_skill` answer measures **301–439 tok**
+across five probe queries because it returns ranked metadata rows, not chunk text; the
+chunk budget is what `use_skills`/`get_skill` spend. One full skill digest is **1,806 tok**,
+so retrieval already wins the moment the task needs to consult more than one skill.
+
+**External evidence** (the accuracy half of the question, not just cost):
+- *Context Length Alone Hurts LLM Performance Despite Perfect Retrieval* (EMNLP 2025 Findings 1264): accuracy drops **13.9%–85%** as input length grows even with the gold passage present. Long context is a quality hazard, not only a bill.
+- *SELF-ROUTE* (EMNLP 2024 Industry 66, Google DeepMind): long context wins on average quality when resourced, but RAG's cost advantage is decisive; the hybrid route matches long-context quality at far lower cost.
+- arXiv 2505.21700: **64–128 tok** chunks are optimal for fact-based QA, **512–1024 tok** for broad contextual understanding — Konoha's 420-token target sits between the two regimes, correct for procedure-heavy skills.
+- NVIDIA chunking study: page-level chunks give the best mean end-to-end accuracy (**0.648**) and the lowest variance (**0.107**); both extremes (128, 2048 tok) underperform; **15% overlap** is the sweet spot (Konoha: 8/40 lines = 20%).
+
+**Boundary that used to defeat this**: `get_skill(name, {tokenBudget})` with no `section`
+sliced to `rawSections[0]` — the frontmatter plus preamble — and returned ~250 tok for a
+1,500-token request. A budget now produces a whole-document digest with head/middle/tail
+anchors and lists the top-level sections still available. Covered by
+`tests/test_skill_budget_digest.js`.
+
+**Known ceiling**: the 27 Cardinal Maintenance Invariants are a single 7.8 KB `##` section,
+so `get_skill({section: 'Cardinal Maintenance Invariants'})` (1,964 tok) costs *more* than
+the full digest (1,806 tok). The upgrade path is invariant-level chunking (one `###` or
+numbered item per chunk, 400–600 tok, 15% overlap) reusing the existing `skill_chunks`
+rows rather than adding an index.
+
+---
+
 ## ⚡ SQLite FTS5 Benchmark & Query Performance
 
 | Operation | Workload / Ops | Throughput | Latency (p95) | Mechanism |
