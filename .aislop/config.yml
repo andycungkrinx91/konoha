@@ -48,3 +48,4 @@ exclude:
   - "editors"
   - ".ruff_cache"
   - ".svelte-kit"
+  - "package.json"

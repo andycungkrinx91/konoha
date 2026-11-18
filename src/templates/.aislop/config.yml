@@ -17,10 +17,10 @@ engines:
   # - Manager/handler functions are deliberately long, self-contained TUI/CLI
   #   dispatchers. Thresholds are set at the measured max of this codebase (JSON-RPC
 quality:
-  maxFunctionLoc: 150
-  maxFileLoc: 700
+  maxFunctionLoc: 40
+  maxFileLoc: 400
   maxNesting: 3
-  maxParams: 5
+  maxParams: 4
 
 security:
   audit: true
