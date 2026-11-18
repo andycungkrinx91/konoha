@@ -18,7 +18,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const sc = require(path.join(ROOT, 'src', 'mcp', 'shared_context'));
-const { reportFromAgent, getProjectContext } = require(path.join(ROOT, 'src', 'mcp', 'memory_project_context'));
+const { reportFromAgent, getProjectContext, queryProjectMemory } = require(path.join(ROOT, 'src', 'mcp', 'memory_project_context'));
 const { runMcpAgent } = require(path.join(ROOT, 'src', 'mcp', 'memory_subagent_runner'));
 const { saveWorkflowStatus, getResolvedTaskDir } = require(path.join(ROOT, 'src', 'mcp', 'workflow_common'));
 
@@ -108,6 +108,12 @@ assert(!genin.instructions.includes('Shared Task Context'), 'producer prompt mus
 const recall = JSON.parse(getProjectContext(projectPath));
 assert(!recall.memories.some((m) => m.domain === 'shared_task'),
   'project recall must not surface task-scoped findings as durable project memory');
+
+// Same rule for the generic recall tool, which takes a query string and has no
+// domain awareness of its own.
+const recalled = JSON.parse(queryProjectMemory('Routing lives in src/mcp/sannin_router.js', projectPath));
+assert(!recalled.memories.some((m) => m.domain === 'shared_task'),
+  'query_project_memory must not surface task-scoped findings');
 
 console.log(`  block bytes: ${Buffer.byteLength(fullBlock, 'utf8')} (cap ${sc.SC_MAX_BYTES})`);
 console.log('PASS test_shared_context_layer.js');

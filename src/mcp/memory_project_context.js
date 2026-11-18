@@ -480,6 +480,7 @@ function queryProjectMemory(query = '', projectPath = null, agentName = null, me
     query,
     memoryType,
     excludeMemoryTypes: memoryType ? null : RECALL_NOISE_TYPES,
+    excludeDomains: ['shared_task'],
     projectPath: pPath,
     sessionId: sess,
     limit: effLimit
