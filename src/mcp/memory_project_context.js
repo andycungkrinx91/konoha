@@ -43,7 +43,10 @@ function _parseReportOptions(agentName, summary, status, filesCreated, rest) {
   if (agentName && typeof agentName === 'object') {
     const opts = agentName;
     return {
-      agentName: opts.agent || opts.agentName || opts.agent_name,
+      // `??` not `||`: an empty agent is a legitimate "unresolved" value that the
+      // positional path already passes through; collapsing it to undefined makes
+      // _updateWorkflowStatus call .replace on nothing.
+      agentName: opts.agent ?? opts.agentName ?? opts.agent_name ?? '',
       summary: opts.summary || opts.task || '',
       status: opts.status || 'completed',
       filesCreated: opts.filesCreated || opts.files_created || opts.deliverables || null,
