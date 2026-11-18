@@ -360,6 +360,22 @@ function _isDuplicateSteer(queue, record, cooldownMs) {
   return false;
 }
 
+/**
+ * Inserts one steer record under the queue lock. A duplicate inside the cooldown
+ * returns the queued twin so the caller can tell a suppression from a fresh steer.
+ */
+function _enqueueSteerRecord(taskDir, record, cooldownMs) {
+  return _withSteerQueueLock(taskDir, () => {
+    const queue = _readSteerQueue(taskDir);
+    if (_isDuplicateSteer(queue, record, cooldownMs)) {
+      return queue.filter((s) => s && _steerSignature(s) === _steerSignature(record)).pop() || record;
+    }
+    queue.push(record);
+    _writeSteerQueue(taskDir, queue.slice(-ADVISOR_STEER_QUEUE_CAP));
+    return record;
+  }, record);
+}
+
 function enqueueAdvisorSteer(options = {}) {
   const targetAgent = _normalizeAgentName(options.targetAgent || options.agent || 'worker');
   const steerCall = options.clientSteerCall || buildClientSteerCall({
@@ -383,18 +399,7 @@ function enqueueAdvisorSteer(options = {}) {
   };
 
   const cooldownMs = options.cooldownMs === undefined ? ADVISOR_STEER_COOLDOWN_MS : Number(options.cooldownMs);
-  let enqueued = record;
-  if (options.taskDir) {
-    enqueued = _withSteerQueueLock(options.taskDir, () => {
-      const queue = _readSteerQueue(options.taskDir);
-      if (_isDuplicateSteer(queue, record, cooldownMs)) {
-        return queue.filter((s) => s && _steerSignature(s) === _steerSignature(record)).pop() || record;
-      }
-      queue.push(record);
-      _writeSteerQueue(options.taskDir, queue.slice(-ADVISOR_STEER_QUEUE_CAP));
-      return record;
-    }, record);
-  }
+  const enqueued = options.taskDir ? _enqueueSteerRecord(options.taskDir, record, cooldownMs) : record;
   // A suppressed duplicate must not re-mark the supervisor as steering.
   if (enqueued !== record) return enqueued;
   if (options.workflowStatus && typeof options.workflowStatus === 'object') {

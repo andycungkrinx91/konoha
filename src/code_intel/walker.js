@@ -118,7 +118,7 @@ function _buildFileEntry(relPath, absPath, language, stat) {
   };
 }
 
-function _mapLstatResult(entry, relPath, absPath, rules, ctx, stat, err) {
+function _mapLstatResult(entry, relPath, absPath, ctx, { stat, err }) {
   if (err) {
     const code = err && err.code;
     if (code === 'ENOENT') return { skip: `transient enoent: ${code}` };
@@ -147,9 +147,9 @@ function _considerEntry(entry, relPath, rules, ctx) {
   if (pre.done !== null) return pre.done;
   const absPath = path.join(ctx.root, relPath);
   try {
-    return _mapLstatResult(entry, relPath, absPath, rules, ctx, fs.lstatSync(absPath), null);
+    return _mapLstatResult(entry, relPath, absPath, ctx, { stat: fs.lstatSync(absPath), err: null });
   } catch (err) {
-    return _mapLstatResult(entry, relPath, absPath, rules, ctx, null, err);
+    return _mapLstatResult(entry, relPath, absPath, ctx, { stat: null, err });
   }
 }
 
@@ -159,9 +159,9 @@ async function _considerEntryAsync(entry, relPath, rules, ctx) {
   const absPath = path.join(ctx.root, relPath);
   try {
     const stat = await fs.promises.lstat(absPath);
-    return _mapLstatResult(entry, relPath, absPath, rules, ctx, stat, null);
+    return _mapLstatResult(entry, relPath, absPath, ctx, { stat, err: null });
   } catch (err) {
-    return _mapLstatResult(entry, relPath, absPath, rules, ctx, null, err);
+    return _mapLstatResult(entry, relPath, absPath, ctx, { stat: null, err });
   }
 }
 
@@ -242,12 +242,30 @@ function walk(root, options = {}) {
 }
 
 /**
+ * Walks one directory's entries in `walkAsync`, yielding to the event loop every
+ * 32 entries or 8ms. `pace.lastYieldMs` carries the yield clock across dirs.
+ */
+async function _drainDirAsync({ entries, relDir, rules }, ctx, acc, pace) {
+  for (let idx = 0; idx < entries.length; idx++) {
+    if (acc.files.length >= ctx.maxFiles) return;
+    const entry = entries[idx];
+    const relPath = relDir ? `${relDir}/${entry.name}` : entry.name;
+    const outcome = await _considerEntryAsync(entry, relPath, rules, ctx);
+    _recordOutcome(outcome, relPath, rules, acc);
+    if ((idx + 1) % 32 === 0 || Date.now() - pace.lastYieldMs >= 8) {
+      await new Promise((resolve) => setImmediate(resolve));
+      pace.lastYieldMs = Date.now();
+    }
+  }
+}
+
+/**
  * Asynchronous counterpart to `walk` that uses non-blocking directory/stat calls
  * and yields periodically to the event loop across large trees.
  */
 async function walkAsync(root, options = {}) {
   const { respectGitignore, ctx, acc } = _createWalkState(root, options);
-  let lastYieldMs = Date.now();
+  const pace = { lastYieldMs: Date.now() };
   let dirsVisited = 0;
 
   while (acc.stack.length > 0 && acc.files.length < ctx.maxFiles) {
@@ -256,23 +274,12 @@ async function walkAsync(root, options = {}) {
     const rules = _collectDirRules(absDir, frame.relDir, frame.rules, respectGitignore);
     const entries = await _readDirAsync(root, frame.relDir, acc);
     if (!entries) continue;
-
-    for (let idx = 0; idx < entries.length; idx++) {
-      if (acc.files.length >= ctx.maxFiles) break;
-      const entry = entries[idx];
-      const relPath = frame.relDir ? `${frame.relDir}/${entry.name}` : entry.name;
-      const outcome = await _considerEntryAsync(entry, relPath, rules, ctx);
-      _recordOutcome(outcome, relPath, rules, acc);
-      if ((idx + 1) % 32 === 0 || Date.now() - lastYieldMs >= 8) {
-        await new Promise((resolve) => setImmediate(resolve));
-        lastYieldMs = Date.now();
-      }
-    }
+    await _drainDirAsync({ entries, relDir: frame.relDir, rules }, ctx, acc, pace);
 
     dirsVisited += 1;
-    if (dirsVisited % 16 === 0 || Date.now() - lastYieldMs >= 8) {
+    if (dirsVisited % 16 === 0 || Date.now() - pace.lastYieldMs >= 8) {
       await new Promise((resolve) => setImmediate(resolve));
-      lastYieldMs = Date.now();
+      pace.lastYieldMs = Date.now();
     }
   }
 

@@ -49,35 +49,53 @@ function calculateAgentKeywordScore(promptLower, delegationKeywords) {
   return score;
 }
 
-function _loadAgentScores(promptLower) {
-  const ranked = [];
+/**
+ * Run `fn(conn)` against a best-effort database handle and return `fallback`
+ * when the database cannot be opened or the query throws. A supplied
+ * `existingConn` is borrowed and never closed here.
+ */
+function _withDbConn(fn, fallback = null, existingConn = null) {
+  if (existingConn) {
+    try {
+      return fn(existingConn);
+    } catch (error) {
+      console.warn(`[sannin] database query failed: ${error && error.message ? error.message : error}`);
+      return fallback;
+    }
+  }
   let conn = null;
   try {
     conn = getDb();
-    const agents = conn.prepare(`
-      SELECT name, delegation_keywords FROM agents
-      WHERE delegation_keywords IS NOT NULL AND delegation_keywords != ''
-    `).all();
-
-    for (const agent of agents) {
-      const score = calculateAgentKeywordScore(promptLower, agent.delegation_keywords);
-      if (score > 0) ranked.push({ agent: agent.name, score });
-    }
-  } catch (_) { /* ignore */ } finally {
+    return fn(conn);
+  } catch (error) {
+    console.warn(`[sannin] database unavailable: ${error && error.message ? error.message : error}`);
+    return fallback;
+  } finally {
     if (conn) {
       try { conn.close(); } catch (_) { /* intentional best-effort fallback */ }
     }
   }
-  return ranked.sort((a, b) => b.score - a.score);
 }
 
 /** Ranked keyword candidates, best first. Empty when the DB has no signal. */
 function rankAgentCandidates(promptLower) {
-  return _loadAgentScores(promptLower);
+  const ranked = _withDbConn((conn) => {
+    const agents = conn.prepare(`
+      SELECT name, delegation_keywords FROM agents
+      WHERE delegation_keywords IS NOT NULL AND delegation_keywords != ''
+    `).all();
+    const scored = [];
+    for (const agent of agents) {
+      const score = calculateAgentKeywordScore(promptLower, agent.delegation_keywords);
+      if (score > 0) scored.push({ agent: agent.name, score });
+    }
+    return scored;
+  }, []);
+  return ranked.sort((a, b) => b.score - a.score);
 }
 
 function _findBestAgentFromDb(promptLower) {
-  const ranked = _loadAgentScores(promptLower);
+  const ranked = rankAgentCandidates(promptLower);
   return ranked.length > 0 ? ranked[0].agent : null;
 }
 
@@ -86,7 +104,7 @@ function _findBestAgentFromDb(promptLower) {
  * the heuristic is guessing. Requires at least two scored candidates.
  */
 function isRoutingAmbiguous(promptLower, margin = 0.15) {
-  const ranked = _loadAgentScores(promptLower);
+  const ranked = rankAgentCandidates(promptLower);
   if (ranked.length < 2) return false;
   const top = ranked[0].score;
   if (top <= 0) return false;
@@ -266,9 +284,7 @@ function _collectRoutedSkills(effPrompt, selectedAgent, sharedConn = null) {
   const { autoloadSkillsFromPrompt } = require('./memory_reporting');
   const { authorizeSkillAccess, lookupSkillTags } = require('../skill_authorization');
   const routedSkills = [];
-  let localConn = null;
-  try {
-    const conn = sharedConn || (localConn = getDb());
+  const collect = (conn) => {
     // Prompt autoload matches across the whole skill table, so it can surface a
     // red (akatsuki-only) skill for a prompt like "trace the auth flow". Keep
     // only skills this agent may use; the agent's own bindings are added below
@@ -279,46 +295,26 @@ function _collectRoutedSkills(effPrompt, selectedAgent, sharedConn = null) {
     _mergeUnique(routedSkills, autoLoaded);
     const agentRow = conn.prepare('SELECT skills FROM agents WHERE name = ? OR name = ?').get(selectedAgent, `mcp_${selectedAgent}`);
     _extractAgentSkills(agentRow, routedSkills);
-  } catch (_) { /* ignore */ } finally {
-    if (localConn) {
-      try { localConn.close(); } catch (_) { /* best effort */ }
-    }
-  }
+  };
+  _withDbConn(collect, routedSkills, sharedConn);
   return routedSkills;
 }
 
 function _resolveRoutedSkills(effPrompt, selectedAgent, options = {}) {
-  let localConn = null;
-  let activeConn = options.conn || null;
-  if (!activeConn) {
-    try { localConn = getDb(); activeConn = localConn; } catch (_) { activeConn = null; }
-  }
-  try {
-    const collected = _collectRoutedSkills(effPrompt, selectedAgent, activeConn);
-    return _filterAuthorizedSkills(collected, selectedAgent, { ...options, conn: activeConn });
-  } finally {
-    if (localConn) {
-      try { localConn.close(); } catch (_) { /* best effort */ }
-    }
-  }
+  const collected = _collectRoutedSkills(effPrompt, selectedAgent, options.conn);
+  return _filterAuthorizedSkills(collected, selectedAgent, options);
 }
 
 function _loadAgentDescriptions() {
   const agentDescriptions = {};
-  let descConn = null;
-  try {
-    descConn = getDb();
-    const rows = descConn.prepare('SELECT name, title, purpose FROM agents').all();
+  _withDbConn((conn) => {
+    const rows = conn.prepare('SELECT name, title, purpose FROM agents').all();
     for (const row of rows) {
       const desc = row.purpose || row.title;
       agentDescriptions[row.name] = desc;
       if (row.name.startsWith('mcp_')) agentDescriptions[row.name.substring(4)] = desc;
     }
-  } catch (_) { /* ignore */ } finally {
-    if (descConn) {
-      try { descConn.close(); } catch (_) { /* intentional best-effort fallback */ }
-    }
-  }
+  });
   return agentDescriptions;
 }
 
@@ -515,15 +511,11 @@ function _handlePendingGateSannin(status, prompt, options, resolvedTaskDir, sdlc
 function _authorizeSanninRouteSkills(effPrompt, selectedAgent) {
   const candidateSkills = _resolveRoutedSkills(effPrompt, selectedAgent, { includeBlocked: true });
   const { findUnauthorizedSkill } = require('../skill_authorization');
-  let authConn = null;
-  try {
-    try { authConn = getDb(); } catch (_) { authConn = null; }
-    const deniedEntry = findUnauthorizedSkill(candidateSkills, selectedAgent, authConn);
-    const routedSkills = _filterAuthorizedSkills(candidateSkills, selectedAgent, { conn: authConn });
-    return { deniedEntry, routedSkills };
-  } finally {
-    if (authConn) { try { authConn.close(); } catch (_) { /* best effort */ } }
-  }
+  const authorize = (conn) => ({
+    deniedEntry: findUnauthorizedSkill(candidateSkills, selectedAgent, conn),
+    routedSkills: _filterAuthorizedSkills(candidateSkills, selectedAgent, { conn })
+  });
+  return _withDbConn(authorize) || authorize(null);
 }
 
 function _prepareSanninDispatch(prompt = null, taskDir = null, projectPath = null, sessionId = null, options = {}) {

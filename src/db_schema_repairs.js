@@ -61,7 +61,7 @@ function _mergeLegacyAgyClientRows(conn) {
     'telegram_session_targets', 'llm_requests_3d', 'generation_jobs'];
   for (const table of tables) {
     const cols = conn.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
-    for (const col of cols.filter((name) => /^client/.test(name))) {
+    for (const col of cols.filter((name) => name.startsWith('client'))) {
       const legacy = conn.prepare(`SELECT count(*) c FROM ${table} WHERE ${col} = 'agy'`).get();
       if (!legacy || legacy.c === 0) continue;
       conn.prepare(`UPDATE OR IGNORE ${table} SET ${col} = 'antigravity' WHERE ${col} = 'agy'`).run();

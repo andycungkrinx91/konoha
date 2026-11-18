@@ -98,14 +98,7 @@ function autoloadSkillsFromPrompt(prompt, conn, maxMatches = 3) {
     if (row.skill_name.startsWith('antislop') || row.skill_name === 'i-have-adhd') continue;
     const nameLower = row.skill_name.toLowerCase();
     const haystack = (nameLower + ' ' + (row.content || '').substring(0, 300)).toLowerCase();
-    let score = 0;
-    for (const t of tokens) {
-      if (nameLower === t || nameLower.includes(t)) {
-        score += 5;
-      } else if (haystack.includes(t)) {
-        score += 1;
-      }
-    }
+    const score = tokens.reduce((s, t) => s + (nameLower.includes(t) ? 5 : (haystack.includes(t) ? 1 : 0)), 0);
     if (score > 0) scored.push({ score, name: row.skill_name });
   }
   scored.sort((a, b) => b.score - a.score);
@@ -339,17 +332,23 @@ function _loadSkillsContent(skillsList, agentName) {
   return skillsContent;
 }
 
+/** Parses a directive that reports an unsupported native spawn or a denied skill. */
+function _unsupportedSpawnError(raw) {
+  if (!raw || !raw.startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && (parsed.error_code === 'UNSUPPORTED_NATIVE_SPAWN' || parsed.code === 'SKILL_AUTHORIZATION_DENIED')) {
+      return parsed;
+    }
+  } catch (_) { /* keep raw directive */ }
+  return null;
+}
+
 function _resolveSpawnDirective({ isChildWorker, client, agent, skills, projectPath, prompt, worktree, piSubagentSupported }) {
   if (isChildWorker) return { spawnDirective: undefined, spawnError: undefined };
   const raw = buildSpawnDirective({ client, agent, skills, projectPath, prompt, worktree: worktree || null, piSubagentSupported });
-  if (raw && raw.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && (parsed.error_code === 'UNSUPPORTED_NATIVE_SPAWN' || parsed.code === 'SKILL_AUTHORIZATION_DENIED')) {
-        return { spawnDirective: undefined, spawnError: parsed };
-      }
-    } catch (_) { /* keep raw directive */ }
-  }
+  const spawnError = _unsupportedSpawnError(raw);
+  if (spawnError) return { spawnDirective: undefined, spawnError };
   return { spawnDirective: raw || undefined, spawnError: undefined };
 }
 

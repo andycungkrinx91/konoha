@@ -279,8 +279,8 @@ function _evaluateAndRecordEvidence(ctx, useModelJudge = false) {
   return { finalStatus, actClient };
 }
 
-function _reportFromAgent(agentName, summary, status, filesCreated, rest, useModelJudge) {
-  const opts = _parseReportOptions(agentName, summary, status, filesCreated, rest);
+function _reportFromAgent(delivery, rest, useModelJudge) {
+  const opts = _parseReportOptions(delivery.agentName, delivery.summary, delivery.status, delivery.filesCreated, rest);
   const rawAgent = (opts.agentName || '').toLowerCase().trim();
   if (rawAgent.startsWith('delegate_to_') || rawAgent.startsWith('delegated_to_')) {
     const msg = `Legacy delegate_to_* name rejected: "${opts.agentName}". Direct specialist names (e.g. "kage", "jonin") must be used without delegate_to_ prefix.`;
@@ -393,11 +393,11 @@ function _finalizeReport(ctx, evalOutcome) {
 }
 
 function reportFromAgent(agentName, summary, status = 'completed', filesCreated = null, ...rest) {
-  return _reportFromAgent(agentName, summary, status, filesCreated, rest, false);
+  return _reportFromAgent({ agentName, summary, status, filesCreated }, rest, false);
 }
 
 async function reportFromAgentAsync(agentName, summary, status = 'completed', filesCreated = null, ...rest) {
-  return _reportFromAgent(agentName, summary, status, filesCreated, rest, true);
+  return _reportFromAgent({ agentName, summary, status, filesCreated }, rest, true);
 }
 
 function _formatBoundedMemories(mems) {
