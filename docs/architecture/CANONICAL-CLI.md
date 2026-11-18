@@ -24,7 +24,7 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha akatsuki` | `<subcommand> [options]` | Manage Akatsuki red-team security controls, lab sandbox, and tool isolation |
 | `konoha auth` | `reset` | Reset local Web console administrative password to default (`konohagakure`) |
 | `konoha bridge` | `<subcommand> [options]` | Manage Konoha Bridge Router (status, list, create, delete, enable, disable, start, stop, restart, models) |
-| `konoha browser` | `<start\|status\|logs\|stop\|cleanup\|qa> [options]` | Manage isolated live headed Docker browser workspaces and QA execution |
+| `konoha browser` | `<open\|interact\|shot\|status\|logs\|stop\|cleanup\|qa> [options]` | Manage isolated live headed Docker browser workspaces and QA execution |
 | `konoha clean` | `[--no-vacuum]` | Clean stale runtime artifacts, dead PIDs, old backups, and reclaim disk space in `~/.konoha/` |
 | `konoha config` | `<list\|get\|set\|unset\|backup\|backups\|restore> [args]` | Manage global config in `~/.konoha/config.json` and client configuration backups/restores |
 | `konoha data` | `<subcommand> [options]` | Manage SQLite session history, Schema v8 knowledge brain (correct, withdraw, history, graph, maintain, revert), backup, and FTS5 |
@@ -171,12 +171,14 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 - `konoha webhook enable <id>` / `disable <id>` — Toggle webhook delivery.
 
 ### 2.15 Live Headed Browser Workspace (`konoha browser`)
-- `konoha browser start [--url <url>] [--project <dir>] [--playwright-ui] [--build-image] [--no-reuse]` — Start or reuse an isolated headed Chromium workspace container bound to `127.0.0.1` (`noVNC` viewer).
-- `konoha browser status` — Show Docker availability and active/stopped browser workspace sessions.
-- `konoha browser logs <session_id> [--tail <n>]` — Print container browser workspace logs.
+- `konoha browser open [--url <url>] [--project <dir>] [--build-image] [--no-reuse]` — Start (or reuse) the session's headed Chromium workspace container and print `session_id`, `viewer_url`, and `artifacts_path`.
+- `konoha browser interact <session_id> [--action <action>] [--target <selector>] [--value <text>] [--key <key>] [--url <url>]` — Drive the one Chromium instance already running in the container (`status`, `goto`, `click`, `fill`, `press`, `snapshot`, `screenshot`, …); the printed `path` is already mapped to the host artifacts directory.
+- `konoha browser shot <session_id> [--full-page]` — Screenshot the live page and print the host path.
+- `konoha browser status` — Show Docker availability and active/stopped browser workspace sessions discovered from Docker labels.
+- `konoha browser logs <session_id> [--tail <n>]` — Print container browser workspace logs, including from another process.
 - `konoha browser stop <session_id>` — Stop and remove a browser workspace session.
 - `konoha browser cleanup` — Reap expired or orphaned managed browser workspace containers.
-- `konoha browser qa [--project <dir>] [--grep <pattern>] [--headed] [--playwright-ui]` — Run bounded Playwright QA with optional headed/live workspace integration.
+- `konoha browser qa [--project <dir>] [--grep <pattern>] [--live] [--start-url <url>] [--keep-session]` — Run bounded Playwright QA; `--live` (an explicit session id as a positional argument also enables it) runs the project's own Playwright inside the live workspace container on `DISPLAY=:99`.
 
 ### 2.16 Client Configuration Backup & Restore (`konoha config`)
 - `konoha config backup --client=<name|all> [--scope=<global|project|all>]` — Back up client configurations under `~/.konoha/backups/configs/`.

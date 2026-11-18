@@ -118,6 +118,92 @@ class BrowserSessionManager {
     return null;
   }
 
+  /**
+   * Managed containers carry konoha.browser.* labels, so the CLI, the web UI, and any
+   * later QA process see the same live workspace the current process did not create.
+   * No session state file exists; Docker is the registry.
+   */
+  _dockerRecords() {
+    const ps = this._execSync(
+      'docker',
+      ['ps', '-a', '--filter', 'label=konoha.browser.managed=true', '--format', '{{.Names}}'],
+      { timeout: 5000 }
+    );
+    if (ps.status !== 0 || !ps.stdout) return [];
+    const names = ps.stdout.split(/\r?\n/).map((n) => n.trim()).filter(Boolean);
+    if (names.length === 0) return [];
+
+    const info = this._execSync(
+      'docker',
+      ['inspect', '--format', '{{json .Config.Labels}}{{"\\t"}}{{json .Config.Env}}{{"\\t"}}{{.State.Status}}', ...names],
+      { timeout: 8000 }
+    );
+    if (info.status !== 0 || !info.stdout) return [];
+
+    const records = [];
+    info.stdout.split(/\r?\n/).filter((line) => line.trim()).forEach((line, idx) => {
+      const containerName = names[idx];
+      if (!containerName) return;
+      const [labelJson, envJson, state] = line.split('\t');
+      let labels = {};
+      let env = [];
+      try { labels = JSON.parse(labelJson || '{}') || {}; } catch (_) { /* unlabelled container */ }
+      try { env = JSON.parse(envJson || '[]'); } catch (_) { env = []; }
+      records.push(this._sessionFromDocker(containerName, labels, Array.isArray(env) ? env : [], String(state || '').trim()));
+    });
+    return records;
+  }
+
+  _sessionFromDocker(containerName, labels, env, state) {
+    const envMap = new Map();
+    for (const entry of env) {
+      const text = String(entry || '');
+      const eq = text.indexOf('=');
+      if (eq > 0) envMap.set(text.slice(0, eq), text.slice(eq + 1));
+    }
+    const sessionId = labels['konoha.browser.session'] || containerName.replace(/^konoha-browser-/, '');
+    const bindHost = labels['konoha.browser.bind_host'] || '127.0.0.1';
+    const novncPort = Number(labels['konoha.browser.novnc_port']) || null;
+    const startedAt = labels['konoha.browser.started_at'] || new Date().toISOString();
+    const startedMs = Date.parse(startedAt) || Date.now();
+    const expiresAt = labels['konoha.browser.expires_at'] || new Date(startedMs + DEFAULT_MAX_DURATION_MS).toISOString();
+    return {
+      session_id: sessionId,
+      container_name: containerName,
+      status: state === 'running' ? 'running' : (state || 'unknown'),
+      purpose: labels['konoha.browser.purpose'] || 'unknown',
+      project_path: labels['konoha.browser.project'] || '',
+      artifacts_path: labels['konoha.browser.artifacts_host'] || null,
+      target_url: labels['konoha.browser.target_url'] || '',
+      build_id: labels['konoha.browser.build_id'] || '',
+      bind_host: bindHost,
+      novnc_port: novncPort,
+      vnc_password: envMap.get('KONOHA_VNC_PASSWORD') || null,
+      viewer_url: novncPort ? `http://${bindHost}:${novncPort}/vnc.html?autoconnect=1&resize=scale` : null,
+      startedMs,
+      lastActivityMs: startedMs,
+      idleTimeoutMs: DEFAULT_IDLE_TIMEOUT_MS,
+      maxDurationMs: Math.max(1000, (Date.parse(expiresAt) || 0) - startedMs) || DEFAULT_MAX_DURATION_MS,
+      started_at: startedAt,
+      last_activity_at: startedAt,
+      expires_at: expiresAt,
+      logs: [],
+      _timer: null,
+      _dockerOnly: true
+    };
+  }
+
+  /** Memory first, then Docker; a discovered session is cached without a watchdog. */
+  _hydrate(sessionId) {
+    const id = String(sessionId || '');
+    const known = this._sessions.get(id);
+    if (known) return known;
+    const found = this._dockerRecords().find((s) => s.session_id === id || s.container_name === id);
+    if (!found) return null;
+    this._sessions.set(found.session_id, found);
+    return found;
+  }
+
   async _waitForViewerReady(session, waitTimeoutMs = 15000) {
     const deadline = Date.now() + waitTimeoutMs;
     const probeUrl = `http://${session.bind_host}:${session.novnc_port}/vnc.html`;
@@ -137,18 +223,18 @@ class BrowserSessionManager {
       headed: true,
       purpose: session.purpose,
       project_path: session.project_path,
+      artifacts_path: session.artifacts_path || null,
       target_url: session.target_url,
       build_id: session.build_id,
       bind_host: session.bind_host,
       novnc_port: session.novnc_port,
-      playwright_ui_port: session.playwright_ui_port,
       viewer_url: session.viewer_url,
-      playwright_ui_url: session.playwright_ui_url,
       vnc_password: session.vnc_password,
       started_at: session.started_at,
       last_activity_at: session.last_activity_at,
       expires_at: session.expires_at,
-      log_count: session.logs.length
+      log_count: session.logs.length,
+      discovered_via: session._dockerOnly ? 'docker' : 'memory'
     };
   }
 
@@ -157,7 +243,7 @@ class BrowserSessionManager {
     const purpose = options.purpose || 'frontend-dev';
     const projectPath = options.projectPath || options.project_path || null;
     if (reuse && !options.forceNew) {
-      const existing = options.sessionId ? this._sessions.get(options.sessionId) : this._findReusableSession(projectPath, purpose);
+      const existing = options.sessionId ? this._hydrate(options.sessionId) : this._findReusableSession(projectPath, purpose);
       if (existing && existing.status === 'running') {
         if (options.buildId) existing.build_id = String(options.buildId);
         if (options.targetUrl && options.targetUrl !== existing.target_url) {
@@ -195,13 +281,14 @@ class BrowserSessionManager {
     const sessionId = options.sessionId || `bs-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
     const containerName = `konoha-browser-${sessionId}`;
     const novncPort = await this._allocatePort(Number(options.preferredPort) || 0);
-    const pwUiPort = options.playwrightUi ? await this._allocatePort(Number(options.preferredPwUiPort) || 0) : null;
     const vncPassword = options.vncPassword || crypto.randomBytes(12).toString('hex');
     const buildId = String(options.buildId || `build-${Date.now().toString(36)}`);
     const targetUrl = String(options.targetUrl || '');
     const idleTimeoutMs = Number(options.idleTimeoutMs) || DEFAULT_IDLE_TIMEOUT_MS;
     const maxDurationMs = Number(options.maxDurationMs) || DEFAULT_MAX_DURATION_MS;
     const nowMs = Date.now();
+    const startedAtIso = new Date(nowMs).toISOString();
+    const expiresAtIso = new Date(nowMs + maxDurationMs).toISOString();
 
     const runArgs = buildDockerRunArgs({
       image,
@@ -209,11 +296,15 @@ class BrowserSessionManager {
       containerName,
       bindHost,
       novncPort,
-      playwrightUiPort: pwUiPort,
       vncPassword,
       targetUrl,
       buildId,
+      purpose,
+      projectPath: projectPath ? path.resolve(projectPath) : '',
+      startedAt: startedAtIso,
+      expiresAt: expiresAtIso,
       workspacePath: options.workspaceMount || null,
+      artifactsPath: options.artifactsMount || null,
       width: options.width || 1440,
       height: options.height || 900,
       platform: this._platform
@@ -231,21 +322,20 @@ class BrowserSessionManager {
       status: 'running',
       purpose,
       project_path: projectPath ? path.resolve(projectPath) : '',
+      artifacts_path: options.artifactsMount ? path.resolve(options.artifactsMount) : null,
       target_url: targetUrl,
       build_id: buildId,
       bind_host: bindHost,
       novnc_port: novncPort,
-      playwright_ui_port: pwUiPort,
       vnc_password: vncPassword,
       viewer_url: `http://${bindHost}:${novncPort}/vnc.html?autoconnect=1&resize=scale`,
-      playwright_ui_url: pwUiPort ? `http://${bindHost}:${pwUiPort}` : null,
       startedMs: nowMs,
       lastActivityMs: nowMs,
       idleTimeoutMs,
       maxDurationMs,
-      started_at: new Date(nowMs).toISOString(),
-      last_activity_at: new Date(nowMs).toISOString(),
-      expires_at: new Date(nowMs + maxDurationMs).toISOString(),
+      started_at: startedAtIso,
+      last_activity_at: startedAtIso,
+      expires_at: expiresAtIso,
       logs: [],
       _timer: null
     };
@@ -267,13 +357,20 @@ class BrowserSessionManager {
   }
 
   getSession(sessionId) {
-    const s = this._sessions.get(String(sessionId || ''));
+    const s = this._hydrate(sessionId);
     return s ? this._publicView(s) : null;
   }
 
   listSessions({ includeStopped = false } = {}) {
     const out = [];
+    const seen = new Set();
     for (const s of this._sessions.values()) {
+      seen.add(s.session_id);
+      if (!includeStopped && s.status !== 'running') continue;
+      out.push(this._publicView(s));
+    }
+    for (const s of this._dockerRecords()) {
+      if (seen.has(s.session_id)) continue;
       if (!includeStopped && s.status !== 'running') continue;
       out.push(this._publicView(s));
     }
@@ -281,19 +378,35 @@ class BrowserSessionManager {
   }
 
   getSessionLogs(sessionId, { tail = 100 } = {}) {
-    const s = this._sessions.get(String(sessionId || ''));
-    if (!s) return null;
     const count = Math.min(Math.max(Number(tail) || 50, 1), MAX_LOG_LINES);
+    const s = this._hydrate(sessionId);
+    if (!s) return null;
+    if (!s._dockerOnly || s.logs.length > 0) {
+      return {
+        session_id: s.session_id,
+        status: s.status,
+        build_id: s.build_id,
+        logs: s.logs.slice(-count)
+      };
+    }
+    // Another process owns this container: its in-memory log ring is unreachable,
+    // so stream the container's own stdout/stderr instead of reporting nothing.
+    const res = this._execSync('docker', ['logs', '--tail', String(count), s.container_name], { timeout: 8000 });
+    const text = `${res.stdout || ''}${res.stderr || ''}`;
     return {
       session_id: s.session_id,
       status: s.status,
       build_id: s.build_id,
-      logs: s.logs.slice(-count)
+      logs: text.split(/\r?\n/).filter((line) => line.trim()).map((line) => ({
+        ts: new Date().toISOString(),
+        stream: 'docker',
+        text: line.slice(0, 1000)
+      }))
     };
   }
 
   async interact(sessionId, command = {}) {
-    const s = this._sessions.get(String(sessionId || ''));
+    const s = this._hydrate(sessionId);
     if (!s || s.status !== 'running') {
       throw new Error(`Browser session '${sessionId}' is not running.`);
     }
@@ -341,7 +454,7 @@ class BrowserSessionManager {
   }
 
   async stopSession(sessionId, { reason = 'stopped', status = 'stopped' } = {}) {
-    const s = this._sessions.get(String(sessionId || ''));
+    const s = this._hydrate(sessionId);
     if (!s) return { ok: false, found: false, session_id: sessionId };
     if (s._timer) {
       clearTimeout(s._timer);
@@ -369,20 +482,16 @@ class BrowserSessionManager {
         cleaned.push(s.session_id);
       }
     }
-    const ps = this._execSync(
-      'docker',
-      ['ps', '-a', '--filter', 'label=konoha.browser.managed=true', '--format', '{{.Names}}'],
-      { timeout: 5000 }
-    );
-    if (ps.status === 0 && ps.stdout) {
-      for (const name of ps.stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)) {
-        const sid = name.replace(/^konoha-browser-/, '');
-        const tracked = this._sessions.get(sid);
-        if (!tracked || tracked.status !== 'running') {
-          this._execSync('docker', ['rm', '-f', name], { timeout: 8000 });
-          if (!cleaned.includes(sid)) cleaned.push(sid);
-        }
-      }
+    // Containers owned by another live process stay untouched until they age out;
+    // cleanup must never kill a session a sibling CLI/web process is still using.
+    for (const rec of this._dockerRecords()) {
+      const tracked = this._sessions.get(rec.session_id);
+      if (tracked && tracked.status === 'running' && !tracked._dockerOnly) continue;
+      const age = now - rec.startedMs;
+      if (age <= maxIdleMs) continue;
+      this._execSync('docker', ['rm', '-f', rec.container_name], { timeout: 8000 });
+      if (tracked) tracked.status = 'expired';
+      if (!cleaned.includes(rec.session_id)) cleaned.push(rec.session_id);
     }
     return { cleaned_count: cleaned.length, cleaned_session_ids: cleaned };
   }

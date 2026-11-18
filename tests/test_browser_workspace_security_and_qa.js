@@ -12,6 +12,7 @@ const qaTools = require('../src/workflow/qa-automation/qa_tools');
 const {
   validateBindHost,
   validateWorkspaceMountPath,
+  validateArtifactsMountPath,
   translateTargetUrlForContainer,
   buildDockerRunArgs
 } = require('../src/workflow/qa-automation/browser_workspace_security');
@@ -64,16 +65,35 @@ async function run() {
       image: 'konoha-browser-workspace:local', sessionId: 's1', containerName: 'c1',
       bindHost: '127.0.0.1', novncPort: 6080, vncPassword: ''
     }), /BROWSER_SECURITY_VIOLATION/);
+    const artifactsDir = path.join(tmpDir, 'artifacts');
+    fs.mkdirSync(artifactsDir, { recursive: true });
+    assert.strictEqual(validateArtifactsMountPath(artifactsDir), path.resolve(artifactsDir));
+    assert.throws(() => validateArtifactsMountPath(home), /BROWSER_ISOLATION_VIOLATION/);
+    assert.throws(() => validateArtifactsMountPath(path.join(home, '.konoha', 'db')), /BROWSER_ISOLATION_VIOLATION/);
+    assert.throws(() => validateArtifactsMountPath(path.join(home, '.ssh')), /BROWSER_ISOLATION_VIOLATION/);
+
     const dockerArgs = buildDockerRunArgs({
       image: 'konoha-browser-workspace:local', sessionId: 's1', containerName: 'konoha-browser-s1',
-      bindHost: '127.0.0.1', novncPort: 46080, playwrightUiPort: 49323,
+      bindHost: '127.0.0.1', novncPort: 46080, artifactsPath: artifactsDir,
       vncPassword: 'secret-per-session', targetUrl: 'http://127.0.0.1:4173', platform: 'linux'
     });
     assert.ok(dockerArgs.includes('127.0.0.1:46080:6080'));
-    assert.ok(dockerArgs.includes('127.0.0.1:49323:9323'));
+    assert.ok(!dockerArgs.some((a) => String(a).includes('9323')), 'the dead 9323 Playwright UI port must not be published');
+    assert.ok(dockerArgs.includes(`${path.resolve(artifactsDir)}:/artifacts:rw`), 'artifacts must be the only read-write mount');
+    assert.ok(dockerArgs.includes('--label') && dockerArgs.includes('konoha.browser.managed=true'));
+    assert.ok(dockerArgs.includes('konoha.browser.session=s1'));
     assert.ok(dockerArgs.includes('--add-host=host.docker.internal:host-gateway'));
     assert.strictEqual(translateTargetUrlForContainer('http://localhost:4173/app', 'win32'), 'http://host.docker.internal:4173/app');
     assert.strictEqual(translateTargetUrlForContainer('http://127.0.0.1:3000/', 'darwin'), 'http://host.docker.internal:3000/');
+    const inContainerExec = qaTools._buildContainerQaExec('konoha-browser-s1', {
+      workdir: '/workspace', configRel: 'apps/web/playwright.config.js',
+      startUrl: 'http://127.0.0.1:4173', headed: true
+    });
+    assert.ok(
+      inContainerExec.includes('KONOHA_PW_BASE_URL=http://host.docker.internal:4173/'),
+      'a loopback start_url must reach the container as host.docker.internal, not the container loopback'
+    );
+    assert.ok(inContainerExec.includes('--config') && inContainerExec.includes('apps/web/playwright.config.js'));
     console.log('  ✓ Endpoint binding, mount isolation, and cross-platform URL translation passed');
 
     // Existing Web UI API preserves auth/CSRF and surfaces live browser_sessions via /api/v1/activity/live
@@ -127,6 +147,27 @@ async function run() {
       else process.env.CI = prevCi;
     }
     console.log('  ✓ Async QA blocked state, headless CI compatibility, and report preservation passed');
+
+    // `last_failed` cannot work on the live path: Playwright keeps `.last-run.json`
+    // in its output dir, and a live run gets a fresh one per run. It must refuse
+    // before any container is created, not run the whole suite silently.
+    const prevCiLive = process.env.CI;
+    delete process.env.CI;
+    try {
+      let sessionCreated = false;
+      const lastFailedLive = await qaTools.qaE2eRunAsync({
+        project_path: path.resolve(__dirname, '..'),
+        live: true,
+        last_failed: true,
+        sessionManager: { createSession: async () => { sessionCreated = true; throw new Error('no container expected'); } }
+      });
+      assert.strictEqual(lastFailedLive.reason, 'last-failed-unavailable-live');
+      assert.strictEqual(sessionCreated, false, 'the guard must run before a container is created');
+    } finally {
+      if (prevCiLive === undefined) delete process.env.CI;
+      else process.env.CI = prevCiLive;
+    }
+    console.log('  ✓ Live QA refuses last_failed without touching Docker passed');
 
     // Real Playwright rendering + interactive dialog + WebGL + responsive check
     const htmlFixture = `<!DOCTYPE html>

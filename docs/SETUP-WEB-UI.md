@@ -254,7 +254,8 @@ pnpm run build:web
 
 ### 15. 🖥️ Live Headed Browser Session Visibility & Provenance-Aware Memory Behavior
 - **Live Browser Session Visibility (`/api/v1/activity/live`)**:
-  - Existing authenticated `GET /api/v1/activity/live` (`src/web/controllers/activity_controller.js`) includes active `browser_sessions` (status, `build_id`, `fresh`, loopback `viewer_url`, and optional `playwright_ui_url`) without introducing separate REST endpoints.
+  - Existing authenticated `GET /api/v1/activity/live` (`src/web/controllers/activity_controller.js`) includes active `browser_sessions` without introducing separate REST endpoints. Each entry carries `session_id`, `status`, `build_id`, `fresh`, loopback `viewer_url`, `artifacts_path`, and `discovered_via` (`memory` when this process started it, `docker` when it was found from container labels).
+  - Discovery reads `konoha.browser.*` Docker labels, so a session started by another process is still visible and stoppable from `konoha browser status` / `stop`.
   - Interactive live browser viewing serves directly over loopback `127.0.0.1` (`noVNC` with per-session `-rfbauth` authentication); management uses `konoha browser` CLI and `qa_e2e_run` / `live_browser_monitor.js`.
 - **Provenance-Aware Memory API Compatibility (`/api/v1/persona`)**:
   - Existing `/api/v1/persona` routes (`src/web/controllers/skills_controller.js`) delegate cleanly to `src/persona_memory.js` / `src/memory_brain.js` (returning provenance metadata on `GET`, filtering active records by default, and supporting optional `action: 'correct'` or provenance fields on `POST /api/v1/persona` without expanding REST route surface).

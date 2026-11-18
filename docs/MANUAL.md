@@ -34,6 +34,17 @@ Konoha is one product with five surfaces. Each feature section names its surface
 | Telegram | remote chat bridge | `konoha telegram` |
 | MCP | tools exposed to AI harnesses | configured by `konoha init` |
 
+### Start here
+
+| If you want to… | Read |
+|---|---|
+| Install Konoha and see it work once | [§2 Install](#2-install) → [§3 First run](#3-first-run) |
+| Understand what a "task", "gate", or "surface" is | [§4 Core concepts](#4-core-concepts) |
+| Look up one command or flag | [§5 CLI reference](#5-cli-reference) |
+| Watch a browser task run in a real Chromium | [§7.2.1 Watching a build in a real browser](#721-watching-a-build-in-a-real-browser) |
+| Diagnose a broken install | [§13 Diagnostics and health](#13-diagnostics-and-health) → [§14 Troubleshooting](#14-troubleshooting) |
+| Know which numbers can be quoted | [§12 Token economy and what the numbers mean](#12-token-economy-and-what-the-numbers-mean) |
+
 ## Contents
 
 1. What Konoha is
@@ -517,7 +528,7 @@ Global options, valid anywhere: `--force` (clean re-installation, used with `ini
 | `akatsuki` | red-team / blue-team lab | `status`, `init`, `tools` |
 | `auth` | web console credentials | `konoha auth reset` |
 | `bridge` | bridge router to local and remote models | `status`, `list`, `create`, `delete`, `enable`, `disable`, `start`, `stop`, `restart`, `models` |
-| `browser` | live headed Docker browser workspace | `start`, `status`, `logs`, `stop`, `cleanup`, `qa` |
+| `browser` | live headed Docker browser workspace | `open`, `interact`, `shot`, `status`, `logs`, `stop`, `cleanup`, `qa` |
 | `clean` | reclaim `~/.konoha` space | removes stale backups and dead PIDs |
 | `config` | CLI configuration | `list`, `get`, `set`, `unset`, `backup`, `backups`, `restore` |
 | `data` | session history, knowledge brain, DB size | `view`, `memory`, `add`, `search`, `delete`, `correct`, `withdraw`, `history`, `graph`, `maintain`, `revert`, `export`, `prune`, `vacuum`, `backup`, `rebuild-fts`, `check`, `restore` |
@@ -784,6 +795,16 @@ Logging out is triggered from the sidebar menu. Posting to `/logout` clears the 
 
 `/3d`, `/3d/setup` and `/3d/maker` exist in the build but are hidden: `SHOW_3D_STUDIO_MENU = false`
 (`apps/web/src/routes/+layout.svelte:54`). The APIs remain; the menu does not. Out of scope for this manual.
+
+### 7.2.1 Watching a build in a real browser
+
+`/activity` also carries the live browser sessions. That is not a separate UI: a session started with
+`konoha browser open` appears there through the existing `GET /api/v1/activity/live` payload, and its `viewer_url`
+opens a loopback `noVNC` page showing the container's one headed Chromium instance. Frontend work and live QA share
+that instance, so a QA run started with `konoha browser qa --live` is watchable in the same tab while it executes.
+Sessions are discovered from Docker labels, so sessions opened in another terminal show up without a restart.
+`docs/QA-AUTOMATION.md` covers the container, its mount allowlist, and the QA invocation in full;
+`docs/TROUBLESHOOTING.md` covers the preflight refusals.
 
 ### 7.3 Authentication and the bootstrap gate
 
@@ -1609,7 +1630,7 @@ lives in `docs/SecurityCompliance/`, and the interesting findings there concern 
 | Path | Contents |
 |---|---|
 | `~/.konoha/` | runtime: scripts, `server.js`, `migrate.js`, `migrations/`, `apps/web/`, `assets/`, `patches/` |
-| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 45 base tables (33 declared) in schema v8 |
+| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 45 base tables (33 declared) in schema v9 |
 | `~/.konoha/config.json` | overrides for 16.2 |
 | `~/.konoha/web_auth.json` | password hash, mode `0600` |
 | `~/.konoha/.vault_key` | AES key for stored secrets, mode `0600` |

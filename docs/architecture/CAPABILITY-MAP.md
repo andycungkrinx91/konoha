@@ -441,11 +441,11 @@ Do not mark a platform verified from static tests; update this table only after 
 
 ### 2.23 Live Headed Docker Browser Workspace & QA Automation (`src/workflow/qa-automation/`)
 
-* **Purpose:** Provide an interactive headed Chromium workspace container (`docker/browser-workspace.Dockerfile`) with loopback `noVNC` live viewing while preserving headless Playwright CI execution and Anbu/Jonin QA workflows.
+* **Purpose:** Provide an interactive headed Chromium workspace container (`docker/browser-workspace.Dockerfile`) with loopback `noVNC` live viewing. One browser instance per session on `DISPLAY=:99` serves both the human viewer and live QA: `live` QA runs the project's own Playwright inside that container, so headless CI execution stays untouched.
 * **Canonical Implementation:** `src/workflow/qa-automation/{browser_session_manager,browser_container_agent,browser_workspace_security,qa_tools,qa_runner}.js`, `src/workflow/jonin-builder/live_browser_monitor.js`, `bin/commands/browser.js`.
 * **Entry Points:**
-  - MCP Tools: `qa_codify`, `qa_e2e_run` (`headed`, `live`, `session_id`, `playwright_ui`, `timeout_ms`).
-  - CLI: `konoha browser {start|status|logs|stop|cleanup|qa}`.
+  - MCP Tools: `qa_codify`, `qa_e2e_run` (`headed`, `live`, `session_id`, `start_url`, `keep_session`, `timeout_ms`).
+  - CLI: `konoha browser {open|interact|shot|status|logs|stop|cleanup|qa}`.
   - Web API: Surfaces `browser_sessions` on existing `GET /api/v1/activity/live` (`zero new REST endpoints`).
 * **Tests:** `tests/test_browser_workspace_lifecycle.js`, `tests/test_browser_workspace_security_and_qa.js`, `tests/test_qa_codify.js`, `tests/test_qa_e2e_run.js`.
 * **Documentation:** `docs/QA-AUTOMATION.md`, `docs/QA-TEST-CHECKLIST.md`, `src/templates/skills/anbu-skill/references/qa-automation.md`.

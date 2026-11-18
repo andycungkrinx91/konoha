@@ -1739,15 +1739,19 @@
           },
           "live": {
             "type": "boolean",
-            "description": "Attach or launch a host-accessible live headed browser session."
+            "description": "Run the suite inside the live headed Docker browser workspace so the visible Chromium is the one under test. Ignored when CI is set."
           },
           "session_id": {
             "type": "string",
-            "description": "Existing live browser session ID to reuse."
+            "description": "Existing live browser session ID (bs-...) to reuse instead of launching one. The caller keeps ownership; the session is not stopped after the run."
           },
-          "playwright_ui": {
+          "start_url": {
+            "type": "string",
+            "description": "URL the app under test answers on from the host (default http://127.0.0.1:4173). Translated to host.docker.internal for the container."
+          },
+          "keep_session": {
             "type": "boolean",
-            "description": "Optionally expose loopback-bound Playwright UI Mode."
+            "description": "Leave the live browser workspace running after the run so it can be inspected in noVNC."
           },
           "timeout_ms": {
             "type": "integer",

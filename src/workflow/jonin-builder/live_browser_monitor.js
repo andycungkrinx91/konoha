@@ -328,32 +328,65 @@ async function verifyInteractiveExperienceWithPlaywright(target = {}, options = 
   }
 }
 
+/**
+ * Evidence comes from the same Chromium a human sees in noVNC, not from a second
+ * headless run: an aria snapshot plus one screenshot prove the live session rendered.
+ */
+async function _collectWorkspaceEvidence(mgr, sessionId) {
+  const evidence = { inspected: false, snapshot: null, screenshot_path: null };
+  try {
+    const status = await mgr.interact(sessionId, { action: 'status' });
+    evidence.inspected = Boolean(status && status.ok);
+    evidence.title = (status && status.title) || null;
+    evidence.url = (status && status.url) || null;
+    const snap = await mgr.interact(sessionId, { action: 'snapshot' });
+    evidence.snapshot = (snap && snap.snapshot) || null;
+    const shot = await mgr.interact(sessionId, { action: 'screenshot' });
+    evidence.screenshot_path = (shot && shot.path) || null;
+  } catch (err) {
+    evidence.error = err.message;
+  }
+  return evidence;
+}
+
 async function _launchDockerDevPreview(options, url, buildId) {
   const { defaultBrowserSessionManager } = require('../qa-automation/browser_session_manager');
   const mgr = options.sessionManager || defaultBrowserSessionManager;
+  const os = require('os');
+  const path = require('path');
+  const fs = require('fs');
+  const artifactsMount = path.join(os.homedir(), '.konoha', 'tmp', 'browser-shots', buildId);
   try {
+    fs.mkdirSync(artifactsMount, { recursive: true });
     const workspaceSession = await mgr.createSession({
       sessionId: options.sessionId || undefined,
       purpose: 'frontend-dev',
       projectPath: options.projectPath || null,
       targetUrl: url,
       buildId,
+      artifactsMount,
       reuse: options.reuse !== false
     });
+    const evidence = options.collectEvidence === false
+      ? null
+      : await _collectWorkspaceEvidence(mgr, workspaceSession.session_id);
     return {
       workspaceSession,
+      evidence,
       browserLaunch: {
         opened: true,
         mode: 'docker-headed',
         session_id: workspaceSession.session_id,
         viewer_url: workspaceSession.viewer_url,
         vnc_password: workspaceSession.vnc_password,
+        artifacts_path: workspaceSession.artifacts_path,
         reused: Boolean(workspaceSession.reused)
       }
     };
   } catch (err) {
     return {
       workspaceSession: null,
+      evidence: null,
       browserLaunch: { opened: false, mode: 'docker-headed', error: err.message }
     };
   }
@@ -369,12 +402,14 @@ async function runLiveBrowserMonitor(options = {}) {
     : { ready: true, attempts: 0, status: 200, html: htmlOverride || '' };
 
   let workspaceSession = null;
+  let workspaceEvidence = null;
   let browserLaunch = { opened: false, skipped_reason: 'server_not_ready' };
   const wantDockerWorkspace = options.workspaceMode === 'docker-headed' || (options.liveWorkspace === true && !isCi);
 
   if (serverState.ready && wantDockerWorkspace && !isCi) {
     const launchRes = await _launchDockerDevPreview(options, url, buildId);
     workspaceSession = launchRes.workspaceSession;
+    workspaceEvidence = launchRes.evidence;
     browserLaunch = launchRes.browserLaunch;
   } else if (serverState.ready) {
     browserLaunch = openSystemBrowser(url, options);
@@ -401,6 +436,7 @@ async function runLiveBrowserMonitor(options = {}) {
     server_ready: serverState.ready,
     browser_launch: browserLaunch,
     workspace_session: workspaceSession,
+    workspace_evidence: workspaceEvidence,
     inspection
   };
 }

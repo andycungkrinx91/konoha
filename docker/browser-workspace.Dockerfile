@@ -28,11 +28,11 @@ RUN npm install --no-save --no-audit --no-fund playwright@1.64.1 \
 COPY src/workflow/qa-automation/browser_container_agent.js /opt/konoha-browser/browser_container_agent.js
 COPY docker/browser-workspace-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh \
- && mkdir -p /workspace /tmp/konoha-artifacts \
+ && mkdir -p /workspace /artifacts /tmp/konoha-artifacts \
  && useradd --create-home --shell /bin/bash konohabrowser \
- && chown -R konohabrowser:konohabrowser /opt/konoha-browser /tmp/konoha-artifacts /ms-playwright
+ && chown -R konohabrowser:konohabrowser /opt/konoha-browser /artifacts /tmp/konoha-artifacts /ms-playwright
 
 USER konohabrowser
-EXPOSE 6080 9323
+EXPOSE 6080
 
 ENTRYPOINT ["/entrypoint.sh"]

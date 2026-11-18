@@ -55,9 +55,9 @@ pnpm exec playwright install chromium   # browsers, when the probe says the bina
 > Playwright is invoked through the project's own package manager (`pnpm exec playwright`), so the target project owns the version, the browser cache, and `PLAYWRIGHT_BROWSERS_PATH`. Do not reach for a global CLI or `npx`: a second install diverges from the project's pinned browser build and produces version-skew failures that look like product bugs.
 
 ## Live Headed Docker Browser Workspace (Optional Interactive Mode)
-- Pass `headed: true, live: true` (plus optional `session_id`, `playwright_ui`, `timeout_ms`) to `qa_e2e_run` / `qaE2eRunAsync` (or run `konoha browser qa`) to run Chromium headed inside `docker/browser-workspace.Dockerfile` (`Xvfb :99`, `x11vnc`, `noVNC`, `/tmp/konoha-browser-agent.sock`).
-- `CI=1` automatically forces headless Playwright and skips Docker viewer startup so CI runs stay unaffected.
-- Viewer and Playwright UI endpoints bind exclusively to `127.0.0.1` and never mount host home dirs, personal browser profiles, `.env*`, or `konoha.db`.
+- Pass `headed: true, live: true` (plus optional `session_id`, `start_url`, `keep_session`, `timeout_ms`) to `qa_e2e_run` / `qaE2eRunAsync` (or run `konoha browser qa --live`) to run the project's own Playwright *inside* `docker/browser-workspace.Dockerfile` (`Xvfb :99`, `x11vnc`, `noVNC`, `/tmp/konoha-browser-agent.sock`) against the single Chromium instance the viewer shows.
+- `CI=1` automatically forces headless Playwright and skips the container entirely so CI runs stay unaffected.
+- The viewer binds to `127.0.0.1` only, and no host home directory, personal browser profile, `.env*`, or `konoha.db` is ever mounted. Artifacts come back through an allowlisted rw mount at `/artifacts`.
 
 ## Playwright Overrides for Agent Runs
 

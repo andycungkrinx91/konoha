@@ -5,8 +5,10 @@
 <h1 align="center">KONOHA</h1>
 
 <p align="center">
-  <b>Multi-Agent MCP Orchestration and Context-Optimization Platform</b><br>
-  <sub>LangGraph state machines · 9 specialist agents · SQLite FTS5 skill retrieval · Bounded file I/O · 8 coding clients</sub>
+  <b>Give your AI coding client bounded tools instead of full-repo dumps</b><br>
+  <sub>A local MCP server that adds nine specialist subagents, SQLite FTS5 skill retrieval,<br>
+  native code search, two human approval gates, and a real Playwright QA loop<br>
+  to Cursor, [CC], Codex, OpenCode, Command Code, Antigravity, Pi and OMP.</sub>
 </p>
 
 <p align="center">
@@ -39,72 +41,154 @@
 </p>
 
 <p align="center">
-  <b>Quick navigation:</b>
-  <a href="#quick-start">Quick Start</a> ·
-  <a href="#features">Features</a> ·
-  <a href="#how-it-works">How It Works</a> ·
-  <a href="#architecture">Architecture</a> ·
-  <a href="#configuration">Configuration</a> ·
-  <a href="#documentation-index">Docs</a>
+  <b>Jump to:</b>
+  <a href="#1-the-problem-konoha-solves">Problem</a> ·
+  <a href="#2-install">Install</a> ·
+  <a href="#3-your-first-workflow">First workflow</a> ·
+  <a href="#4-what-you-get">Features</a> ·
+  <a href="#5-how-it-works">How it works</a> ·
+  <a href="#6-tools-and-agents">Tools</a> ·
+  <a href="#7-configuration">Config</a> ·
+  <a href="#8-everyday-commands">Commands</a> ·
+  <a href="#9-documentation">Docs</a>
 </p>
 
 ---
 
-## Quick Start
+## 1. The problem Konoha solves
 
-Three ways to run Konoha. Pick one.
+An AI coding client with no tools guesses. Handed a 4,000-line repository it either stuffs the context window or opens the wrong file, then writes code against a function it never read.
+
+Konoha is a local MCP server that replaces that guessing with bounded tools. Instead of "read the repo", the client gets "read 150 lines", "search this SQLite symbol index", "load the one skill that covers Playwright". Each answer is small, verifiable, and points at a real file and line.
+
+| Instead of | You call | What comes back |
+|:---|:---|:---|
+| Pasting a whole file to find one function | `read_file_range` / `get_file_structure` | A signature map, or the 40 lines around the symbol, capped at 250 |
+| `grep -r` across the tree | `token_efficient_grep` / `code_search` | 20 ranked matches (50 hard cap) with file and line |
+| Re-teaching the same conventions every session | `find_skill` / `get_skill` | The one skill that owns the rule, capped at 8,000 bytes |
+| Fixing a UI bug blind | `konoha browser open` | A real headed Chromium in a container, watchable in your browser while Playwright drives it |
+| Trusting the agent that it passed | `qa_e2e_run` | A test report with a `run_id`, capped output, and trace paths |
+
+Two things follow from that. The client spends its context on the task instead of on discovery, and every claim it makes about your code has a file behind it.
+
+Verified numbers live in [docs/BENCHMARK.md](docs/BENCHMARK.md) and [docs/architecture/TOKEN-BASELINE.md](docs/architecture/TOKEN-BASELINE.md); the honest summary is in [§4.1](#41-token-savings-what-the-8398-range-actually-covers).
+
+---
+
+## 2. Install
+
+**Prerequisites.** Node.js `>= 24.0.0` (`node:sqlite` with FTS5 is required; `bin/cli.js` exits before loading modules on older runtimes). One MCP-capable coding client. Docker is optional — needed only for the live browser workspace.
+
+> **Which version installs?** `npm` publishes `2.2.22` today. `2.2.23` is on `master` and installs from source until it is released: [CHANGELOG.md](CHANGELOG.md) is the release record.
 
 | Mode | Command | Notes |
 |:---|:---|:---|
-| Persistent install | `npm install -g konoha-mcp@latest` | Puts `konoha` on PATH. No install-time lifecycle script; runtime setup is explicit (`konoha init --yes`). |
+| Persistent install | `npm install -g konoha-mcp@latest` | Puts `konoha` on PATH. No install-time lifecycle script; runtime setup is explicit. |
 | In-place upgrade | `konoha upgrade` | Reinstalls with the detected package manager and re-runs the runtime lifecycle. Exits non-zero when no installer is available or when the PATH-resolved binary still reports the old version. |
 | Ephemeral run | `npm exec --yes --package=konoha-mcp@latest -- konoha --version` | No persistent install. `pnpm dlx konoha-mcp` works the same way. |
 
 `npx -g` is not valid syntax. Use one of the three forms above.
 
-### Minimal first run
+### 2.1 First four commands
 
 ```bash
 npm install -g konoha-mcp@latest
 
-# 1. Initialize ~/.konoha runtime and SQLite FTS5 database.
+# 1. Create ~/.konoha, the SQLite FTS5 database, and the skill index.
 #    Add --no-embed on CI or containers without ONNX support.
 konoha init --yes
 
-# 2. Attach one client, or all eight at once (append-only, timestamped backup).
+# 2. Register one client, or all eight at once (append-only, timestamped backup).
 konoha init --client=cursor
 konoha init --client=all
 
-# 3. Verify the install.
+# 3. Prove it works.
 konoha test
 konoha status
 ```
 
-Headless server: run `konoha doctor --vps` first; see [docs/VPS-INSTALL.md](docs/VPS-INSTALL.md).
+`konoha init` is safe to re-run: client configs are appended with a backup, never clobbered.
 
-From source:
+### 2.2 From source
 
 ```bash
 git clone https://github.com/andycungkrinx91/konoha.git
 cd konoha
-pnpm install
+pnpm install                     # pnpm 12.16.1, pinned in packageManager
 node bin/cli.js init --client=all
 ```
 
-### Requirements
+### 2.3 If something breaks
 
-- **Node.js** `>= 24.0.0` (`bin/cli.js` exits before loading modules on older runtimes; `node:sqlite` with FTS5 is required).
-- **Package manager for source builds:** `pnpm@12.16.1` (pinned in `package.json#packageManager`).
-- **Platform:** Linux x64 verified on this host. Windows and macOS are supported targets whose install, lint, suite, and fresh-install smoke steps run on `windows-latest` and `macos-latest` in [`.github/workflows/cross-platform.yml`](.github/workflows/cross-platform.yml) on every push, pull request, tag, manual dispatch, and nightly at 02:00 UTC; see [docs/SETUP-CLI.md](docs/SETUP-CLI.md) and [docs/CI.md](docs/CI.md). Windows under WSL2 follows the Linux path and is the lower-friction option there.
-- **Search:** native code intelligence over the same SQLite file (`code_search`, `code_symbol`, `code_impact`) — no Python, no `uvx`, no extra service; `rtk` binary auto-installed by `konoha init` when missing (no Rust toolchain needed).
+Three failures cover most first installs:
 
-The long form of this section — per-OS requirements, the non-root Linux path, and a real first-run transcript — is the [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)).
+- **`konoha` not found** — nvm/volta shim not on the PATH your client spawns from. See [TROUBLESHOOTING §`konoha` Command Not Found](docs/TROUBLESHOOTING.md#-konoha-command-not-found-nvm-path-issue).
+- **MCP server not detected in your client** — check the config path for your client in [§7](#7-configuration), then run `konoha doctor`.
+- **Node too old** — `konoha` prints the version it needs and exits 1. Install Node 24 and re-run.
+
+Full per-OS detail: [docs/SETUP-CLI.md](docs/SETUP-CLI.md), [docs/VPS-INSTALL.md](docs/VPS-INSTALL.md) for headless servers (`konoha doctor --vps` first), [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for everything else.
 
 ---
 
-## Features
+## 3. Your first workflow
 
-What Konoha gives you, in one table. Every row names the subsystem so you can verify it in source.
+Konoha is not a chat wrapper: it runs one fixed pipeline and stops twice to ask you. Here is the shape of a real exchange.
+
+```text
+You:  The /login page flashes white before the theme loads.
+      Fix it, and prove it with a test.
+```
+
+What happens next, in order:
+
+| Step | Who | What you see |
+|:---:|:---|:---|
+| 1 | `@sannin` | Registers the task, checks it is answerable, picks the specialists |
+| 2 | `@genin` | Read-only exploration into `findings.md` — no edits |
+| 3 | `@kage` | A plan: files to touch, test to add, risks |
+| 4 | **Gate 1** | The plan is put to you. Approve, or reject with feedback and it regenerates |
+| 5 | `@jonin` | Implements, then runs the framework's own build, lint, and Playwright |
+| 6 | `@tokubetsu-jonin` | Writes the handover note when documentation was requested |
+| 7 | `@kage` | Review gate: slop scan at 100/100, confidence `>= 98%` |
+| 8 | **Gate 2** | Delivery sign-off, or a bounded remediation loop (max 7 cycles) |
+| 9 | `@sannin` | `final_report.md` with the evidence ledger |
+
+Both gates are three-option pickers. In HITL mode nothing auto-advances, which is the point: Gate 1 costs you one line of reading and saves a wrong-file refactor.
+
+### 3.1 Watch a UI change happen
+
+If the task touches frontend, the browser workspace puts a real Chromium on screen:
+
+```bash
+# 1. Serve your app on the host (binds 0.0.0.0 so the container can reach it).
+pnpm dev --host 0.0.0.0
+
+# 2. Open the isolated workspace. Prints session_id, viewer_url, artifacts path.
+konoha browser open --url http://localhost:5173
+
+# 3. The viewer_url is a loopback noVNC page showing the container's browser.
+#    Live QA drives that same instance, so you watch the test run.
+konoha browser qa --live --start-url http://localhost:5173
+konoha browser shot bs-xxxx        # host path to the latest screenshot
+konoha browser stop bs-xxxx
+```
+
+One browser per session. There is no second instance, no CDP endpoint, and no `:9323` control port — the viewer *is* the browser that runs your tests. Details and the mount allowlist: [docs/QA-AUTOMATION.md](docs/QA-AUTOMATION.md).
+
+### 3.2 Check what it cost
+
+```bash
+konoha task list        # tasks, gates, readiness
+konoha savings          # measured token deltas, per tool
+```
+
+A fresh install shows `—` until its own calls are recorded. That is deliberate: nothing is estimated.
+
+---
+
+## 4. What you get
+
+Every row names the subsystem so you can verify it in source.
 
 | Area | Capability | Subsystem | Contract |
 |:---|:---|:---|:---|
@@ -114,6 +198,7 @@ What Konoha gives you, in one table. Every row names the subsystem so you can ve
 | Research | Chunin web intel, zero API key | `chunin-skill` | SearXNG + Wikipedia fallback, `rtk`-compressed |
 | Frontend | Jonin dynamic UI builder, 4 frameworks | `src/templates/skills/jonin-skill/` | Next.js 16, SvelteKit 2, Nuxt 3, Angular 19+; `Build by konoha` signature; zero emojis |
 | Backend and QA | Anbu APIs, DevOps, Playwright E2E | `anbu-skill`, `qa_codify`, `qa_e2e_run` | E2E output capped under 2,000 characters; artifacts kept outside the workspace |
+| Live browser | Headed Docker workspace with loopback noVNC, live Playwright | `src/workflow/qa-automation/`, `bin/commands/browser.js` | One Chromium per session; `CI=1` stays headless and starts no container |
 | Docs | Tokubetsu-jonin office deliverables | `src/workflow/tokubetsu-scribe/` | DOCX, PDF, XLSX, PPTX, animated WebP |
 | Security | Akatsuki Blue-Team gate; opt-in isolated Red-Team lab | `akatsuki-skill`, `src/workflow/akatsuki/` | `akatsuki-lab` isolation; 817-skill MITRE pack is explicit opt-in only |
 | 3D | Yamanaka generative 3D and Blender refinement | `yamanaka-skill` | Manifold and PBR validation |
@@ -130,7 +215,7 @@ What Konoha gives you, in one table. Every row names the subsystem so you can ve
 | Remote | Telegram dual-mode bot + prompt queue | `src/telegram/`, `src/queue/` | Numeric `chat_id` whitelist; atomic SQLite state machine |
 | Secrets | Argon2id auth, AES-256-GCM vault, scrypt key derivation | `src/auth.js`, `src/crypto_vault.js` | Automatic masking in logs and TUI; zero plaintext secrets |
 
-### Token savings: what the 83–98% range actually covers
+### 4.1 Token savings: what the 83–98% range actually covers
 
 The headline range is **bounded-retrieval only**, not whole-system. Evidence: [docs/BENCHMARK.md](docs/BENCHMARK.md) live telemetry and [docs/architecture/TOKEN-BASELINE.md](docs/architecture/TOKEN-BASELINE.md) Section 11.4.
 
@@ -143,9 +228,9 @@ Do not quote 83–98% as whole-session or cost savings.
 
 ---
 
-## How It Works
+## 5. How it works
 
-### 1. Delegate through MCP tools, never solo
+### 5.1 Delegate through MCP tools, never solo
 
 On a Konoha-configured host, non-trivial work routes through the Konoha MCP tools to a subagent:
 
@@ -157,7 +242,7 @@ On a Konoha-configured host, non-trivial work routes through the Konoha MCP tool
 
 The orchestrator coordinates and delegates; trivial edits on a known file may run inline, everything else goes to a specialist.
 
-### 2. Eight phases, two human gates
+### 5.2 Eight phases, two human gates
 
 | # | Phase | Owner | Output |
 |:---:|:---|:---|:---|
@@ -172,7 +257,7 @@ The orchestrator coordinates and delegates; trivial edits on a known file may ru
 
 Gate 1 (`pending_plan_approval`): compact-and-approve, or reject/regenerate with feedback. Gate 2 (`pending_human_sign-off`): compact-and-approve, or remediation (bounded, 7 cycles max). Structured reports use `report_from_agent`; scratch state lives outside the repo at `~/.konoha/tmp/<client>/<session>/scratch/tasks/<id>/` so `git add .` never picks it up.
 
-### Master system architecture
+### 5.3 Master system architecture
 
 Nine phases, two human gates, five quality gates. Every request enters through the Sannin router, fans out to specialist agents, and exits only through the gates. Full text flow with all 18 workflows: [ALL-WORKFLOW-DIAGRAMS.md](docs/ALL-WORKFLOW-DIAGRAMS.md).
 
@@ -268,7 +353,7 @@ flowchart TB
     class KageGate redShape;
 ```
 
-### 3. Subagent routing
+### 5.4 Subagent routing
 
 - `@sannin` triage and synthesis. `@genin` exploration. `@kage` architecture and delivery review.
 - `@chunin` research. `@jonin` frontend (SvelteKit, Next.js 16, Nuxt 3, Angular 19+; Tailwind v4). `@anbu` backend, DevOps, QA automation.
@@ -278,7 +363,7 @@ File-based IPC (`prompt.md` / `delegate.md` / `result.md`) is retired; dispatch 
 
 ---
 
-## Architecture
+## 6. Tools and agents
 
 Konoha is an **MCP Tools Orchestrator**: subagent tools emit harness-native spawn directives (`src/mcp/lazy_subagent.js`) paired with managed child-process execution (`konoha run-agent` / `src/mcp/subagent_spawner.js`) and fail-closed `UNSUPPORTED_NATIVE_SPAWN` guards when a harness lacks native subagent support. Workers communicate via structured MCP arguments, JSONL session transcripts, and `report_from_agent` — with zero disk-file IPC (`prompt.md`, `delegate.md`, `result.md`).
 
@@ -324,7 +409,7 @@ Host clients select the underlying model; Konoha defines scope and role boundari
 
 ---
 
-## Configuration
+## 7. Configuration
 
 ### Supported coding clients: 8 clients
 
@@ -334,7 +419,7 @@ Paths below were exercised on Linux x64. The same registration and MCP handshake
 |:---|:---|:---|
 | Antigravity | `~/.gemini/config/mcp_config.json` | `antigravity_tool_sanitize_hook.js` (DENY-3) |
 | Cursor | `~/.cursor/mcp.json` | `cli-config.json` permissions + `hooks.json` |
-| Claude Code | `~/.claude.json`, `~/.claude/` | `konoha-bash-guard.js` PreToolUse (`^Bash$`) |
+| [CC] | `~/.claude.json`, `~/.claude/` | `konoha-bash-guard.js` PreToolUse (`^Bash$`) |
 | OpenCode | `~/.config/opencode/opencode.json` | `permission.mcp = 'allow'` + native rules |
 | Command Code | `~/.commandcode/mcp.json` | `konoha-native-blocker-cc.js` PreToolUse |
 | Codex | `~/.codex/config.toml` | TOML MCP registration + prompt rules |
@@ -343,51 +428,82 @@ Paths below were exercised on Linux x64. The same registration and MCP handshake
 
 RTK rules deploy alongside (`~/.cursor/rules/rtk.mdc`, `~/.claude/rules/rtk.md`, `~/.config/opencode/rules/rtk.md`, `~/.commandcode/rules/rtk.md`, `~/.codex/rules/rtk.md`, `~/.pi/agent/extensions/rtk.ts`, `~/.gemini/.../rules/rtk.md`, `~/.omp/agent/AGENTS.md`). If RTK cannot install (offline host), init warns and continues without it. Konoha resolves the official [rtk-ai/rtk](https://github.com/rtk-ai/rtk) binary only — never the unrelated `rtk` crates.io package.
 
-### What gets installed
+### 7.1 What gets installed
 
 `~/.konoha/` holds the runtime (`file_tools_mcp.js`, `server.js`, `migrate.js`, `vector_search.js`, `bridge/`, `konoha.db` with `agents`, `bridges`, `sdlc_tasks`, `persona_memories`, `memory_*`, and `code_*` tables). Client configs are appended, never clobbered; every write takes a timestamped backup (`konoha config backup --client=all`, `konoha config restore --client=<name>`). Skill mirror roots include `~/.agents/skills`, `~/.cursor/skills`, `~/.claude/skills`, `~/.omp/agent/skills`, and `~/.codex/skills`.
 
-Key CLI commands: `konoha init`, `konoha migrate` (`--clean`, `--rebuild-embeddings`), `konoha test`, `konoha status`, `konoha version`, `konoha upgrade`, `konoha bridge <status|list|models|create|delete|enable|disable>`, `konoha browser <start|status|logs|stop|cleanup|qa>`, `konoha telegram <status|config|test|enable|disable|start-poller|stop-poller>`, `konoha queue <list|enqueue|cancel|complete|status>`, `konoha task <list|show|slop>`, `konoha data <view|memory|add|search|delete|correct|withdraw|history|graph|maintain|revert|export|backup|rebuild-fts|prune|vacuum|check|restore>`, `konoha db <check|restore>`, `konoha config <list|get|set|unset|backup|backups|restore>`, `konoha skill <list|search|add|remove>`, `konoha agent <list|create|skill|models|delete|status>`, `konoha run-agent <agent>`, `konoha detect-ai <path|url>`, `konoha detect-docs <path|url>`, `konoha doctor`, `konoha ui <start|build>` (port 1404), `konoha service <install|status|uninstall>`.
+Read-only inspection (`konoha status`, `konoha doctor`, `konoha test`) tells you what actually landed; `konoha config backup` before any client switch is the cheap undo.
 
-Breaking changes since v2.1.17: direct specialist tools replace `delegate_to_<agent>` wrappers; 27 legacy CLI aliases removed (canonical `konoha task|data|skill|agent|status` enforced); `konoha data prune` deletes immediately with no auto-backup. Full list in [CHANGELOG.md](CHANGELOG.md).
-`konoha embed` rebuilds vector embeddings (embed implies `--rebuild-embeddings`); `konoha reinstall` wipes and replaces configuration (reinstall implies `--force`).
-
-### Bridge router and Web UI
+### 7.2 Bridge router and Web UI
 
 - Bridge router on port `19999` (`127.0.0.1:19999`): one enabled bridge per request, `model` prefix `<bridge>-<model>`, no gateway-level retry — it does not perform gateway-level round-robin. The optional `antigravity-extension` record targets `127.0.0.1:1313` and stays disabled until `konoha bridge enable`; automated VSIX installation and directory sync into `~/.antigravity-ide/extensions/andycungkrinx91.konoha-bridge-master-universal/` were retired in `v2.2.1` (Konoha only prunes stale legacy registry entries). Bridges start empty; add with `konoha bridge create`. Reference: [docs/LLM-BRIDGE-GATEWAY.md](docs/LLM-BRIDGE-GATEWAY.md).
-- Web UI on port `1404` (`konoha ui start`): dashboard, tasks, persona, savings (`—` until measured), skills registry with vector-chunk inspector, detector page, docs with drift banner, doctor with 3D-toolchain readiness. Guide: [docs/SETUP-WEB-UI.md](docs/SETUP-WEB-UI.md).
+- Web UI on port `1404` (`konoha ui start`): dashboard, tasks, persona, savings (`—` until measured), skills registry with vector-chunk inspector, detector page, docs with drift banner, doctor with 3D-toolchain readiness, and the live browser sessions. Guide: [docs/SETUP-WEB-UI.md](docs/SETUP-WEB-UI.md).
 - Telegram: one-way completion notifications plus two-way remote prompting (`/run`, `/session`, `/status`, `/savings`, per-agent dispatch). Setup: [docs/TELEGRAM_INTEGRATION_GUIDE.md](docs/TELEGRAM_INTEGRATION_GUIDE.md).
 - SearXNG zero-API-key search for Chunin: [docs/SETUP-SEARXNG.md](docs/SETUP-SEARXNG.md).
 
-### Guardrails
+### 7.3 Guardrails
 
-Blocked at the tool-call level on capable clients (Claude Code, Command Code, Antigravity, Pi, OMP): destructive shell (`rm -rf /`, `mkfs`, `dd of=/dev/...`, `DROP DATABASE`), destructive git (`reset --hard`, `push --force`, `clean -f`), secrets (`.env*`, `*.pem`, `*.key`, credentials — never `rtk`-exempt), and read-bypass (bare `cat`/`grep`/`find`; retry with `rtk <command>` or the Konoha MCP tools). Depth circuit breaker at 7 slop-remediation cycles; rate-limit fallback runs direct tool calls instead of spawning subagents. Codex, Cursor, and OpenCode remain prompt-only (no blocking-hook capability).
+Blocked at the tool-call level on capable clients ([CC], Command Code, Antigravity, Pi, OMP): destructive shell (`rm -rf /`, `mkfs`, `dd of=/dev/...`, `DROP DATABASE`), destructive git (`reset --hard`, `push --force`, `clean -f`), secrets (`.env*`, `*.pem`, `*.key`, credentials — never `rtk`-exempt), and read-bypass (bare `cat`/`grep`/`find`; retry with `rtk <command>` or the Konoha MCP tools). Depth circuit breaker at 7 slop-remediation cycles; rate-limit fallback runs direct tool calls instead of spawning subagents. Codex, Cursor, and OpenCode remain prompt-only (no blocking-hook capability).
 
 ---
 
-## Documentation index
+## 8. Everyday commands
+
+| You want | Command |
+|:---|:---|
+| Check the install | `konoha status` · `konoha doctor` · `konoha test` |
+| Browse and search the skill corpus | `konoha skill list` · `konoha skill search <query>` |
+| Inspect a running task | `konoha task list` · `konoha task show <id>` · `konoha task slop <id>` |
+| See measured savings | `konoha savings` |
+| Query or fix the knowledge brain | `konoha data memory` · `konoha data search <q>` · `konoha data maintain` |
+| Rebuild vectors | `konoha embed` (`--rebuild-embeddings` implied) |
+| Back up or restore client configs | `konoha config backup --client=all` · `konoha config restore --client=<n>` |
+| Open the Web UI | `konoha ui start` → `http://127.0.0.1:1404/` |
+| Open the live browser workspace | `konoha browser open --url <url>` · `status` · `interact` · `shot` · `logs` · `stop` · `cleanup` |
+| Run QA against it | `konoha browser qa --live --start-url <url>` |
+| Upgrade | `konoha upgrade` |
+| Reclaim disk | `konoha clean` |
+
+Full reference with every flag: [docs/MANUAL.md §5](docs/MANUAL.md) · [docs/architecture/CANONICAL-CLI.md](docs/architecture/CANONICAL-CLI.md).
+
+Breaking changes since v2.1.17: direct specialist tools replace `delegate_to_<agent>` wrappers; 27 legacy CLI aliases removed (canonical `konoha task|data|skill|agent|status` enforced); `konoha data prune` deletes immediately with no auto-backup. Full list in [CHANGELOG.md](CHANGELOG.md).
+
+`konoha embed` rebuilds vector embeddings (embed implies `--rebuild-embeddings`); `konoha reinstall` wipes and replaces configuration (reinstall implies `--force`).
+
+---
+
+## 9. Documentation
 
 Single entry point: [docs/README.md](docs/README.md) (one topic, one source of truth; `docs/archive/` is frozen history).
 
-| Guide | Answers |
+| Start here if you… | Read |
 |:---|:---|
-| [System Architecture](docs/ARCHITECTURE.md) | Layers, data flows, query lifecycle |
-| [Token Baseline](docs/architecture/TOKEN-BASELINE.md) | Measured footprints; evidence for the retrieval-only range |
-| [Token Savings Benchmark](docs/BENCHMARK.md) | Live telemetry, byte-weighted formula, charts |
-| [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)) | v2.2.23 install, first run, CLI/TUI/Web UI/Telegram, diagnostics |
-| [Security Architecture](docs/SECURITY.md) | v2.2.23 ingress, auth, queue controls; newest external audit [2.2.23 (2026-11-17)](docs/SecurityCompliance/security_compliance_report_2.2.23_2026-11-17.md) |
-| [QA Automation](docs/QA-AUTOMATION.md) · [QA Checklist](docs/QA-TEST-CHECKLIST.md) | Playwright compiler loop and validation checklist |
-| [LLM Bridge Gateway](docs/LLM-BRIDGE-GATEWAY.md) | Port 19999 multiplexing, sidecar integration |
-| [Web UI](docs/SETUP-WEB-UI.md) · [CLI](docs/SETUP-CLI.md) · [IDE](docs/SETUP-IDE.md) · [Cursor](docs/SETUP-CURSOR.md) · [MCP clients](docs/SETUP-MCP-CLIENTS.md) | Per-client setup |
-| [SearXNG](docs/SETUP-SEARXNG.md) · [Adding Skills](docs/ADDING-SKILLS.md) · [VPS](docs/VPS-INSTALL.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) | Research, skills, servers, fixes |
+| Are installing or upgrading | [Operator's Manual](docs/MANUAL.md) ([PDF](docs/MANUAL.pdf)) · [CLI setup](docs/SETUP-CLI.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) |
+| Want the architecture | [System Architecture](docs/ARCHITECTURE.md) · [Capability map](docs/architecture/CAPABILITY-MAP.md) · [Workflow diagrams](docs/ALL-WORKFLOW-DIAGRAMS.md) |
+| Care about context cost | [Token Baseline](docs/architecture/TOKEN-BASELINE.md) · [Token Savings Benchmark](docs/BENCHMARK.md) |
+| Ship frontend or QA | [QA Automation](docs/QA-AUTOMATION.md) · [QA Checklist](docs/QA-TEST-CHECKLIST.md) |
+| Audit security | [Security Architecture](docs/SECURITY.md) · newest external audit [2.2.23 (2026-11-17)](docs/SecurityCompliance/security_compliance_report_2.2.23_2026-11-17.md) |
+| Configure a client | [Web UI](docs/SETUP-WEB-UI.md) · [IDE](docs/SETUP-IDE.md) · [Cursor](docs/SETUP-CURSOR.md) · [MCP clients](docs/SETUP-MCP-CLIENTS.md) |
+| Run it headless | [VPS install](docs/VPS-INSTALL.md) · [Bridge gateway](docs/LLM-BRIDGE-GATEWAY.md) · [SearXNG](docs/SETUP-SEARXNG.md) |
+| Add your own skills | [Adding Skills](docs/ADDING-SKILLS.md) |
 
 ---
 
-## Contributing
+## 10. Contributing
 
-Issues and pull requests are welcome at [github.com/andycungkrinx91/konoha](https://github.com/andycungkrinx91/konoha). Run the narrowest check that exercises your change, then run the 3 local cross-platform CI environments before you hand it over: (1) **Linux** — `pnpm test:sandbox [-- --shard=I/8]` (Debian clean-room container) + `pnpm ci:act` / `pnpm ci:act:shard` (Ubuntu `act` workflow); (2) **Windows** — `docker/windows-vm/oem/run-ci.cmd [-Shard I/N]` / `retest.cmd` inside `dockur/windows`; (3) **macOS** — `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox [-- --shard=I/8]` via [Apple's `container`](https://github.com/apple/container) (plus `macos-latest` or the native replay in [docs/CI.md](docs/CI.md)). Per-change checks are `rtk node tests/run_all.js` (inside the sandbox), `rtk npx aislop scan --changes` for the slop gate, and `rtk node scripts/sync_canonical_api.js --check` for tool sync. Keep changes local — do not push, tag, or publish without explicit instruction.
+Issues and pull requests are welcome at [github.com/andycungkrinx91/konoha](https://github.com/andycungkrinx91/konoha).
 
-## Support
+Run the narrowest check that exercises your change, then the three local cross-platform environments before handing over:
+
+1. **Linux** — `pnpm test:sandbox [-- --shard=I/8]` (Debian clean-room container) plus `pnpm ci:act` / `pnpm ci:act:shard` (Ubuntu `act` workflow).
+2. **Windows** — `docker/windows-vm/oem/run-ci.cmd [-Shard I/N]` / `retest.cmd` inside `dockur/windows`.
+3. **macOS** — `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox [-- --shard=I/8]` via [Apple's `container`](https://github.com/apple/container), plus `macos-latest` or the native replay in [docs/CI.md](docs/CI.md).
+
+Per-change checks are `rtk node tests/<suite>.js` for one suite and `pnpm test` for the whole set; the harness and its sharding rules are documented in [docs/CI.md](docs/CI.md).
+
+---
+
+## 11. Support, credits, license
 
 If Konoha saves you meaningful context or time, consider supporting development:
 
@@ -397,7 +513,7 @@ If Konoha saves you meaningful context or time, consider supporting development:
   </a>
 </p>
 
-## Credits
+**Credits**
 
 - [RTK](https://github.com/rtk-ai/rtk) — CLI output compaction proxy.
 - [aislop](https://github.com/scanaislop/aislop) — slop scanner behind the delivery pre-gate.
@@ -407,9 +523,7 @@ If Konoha saves you meaningful context or time, consider supporting development:
 - [vibes-plug](https://github.com/roedyrustam/vibes-plug) by Roedy Rustam — developer/cloud/security skill content.
 - [dcc-mcp-blender](https://github.com/dcc-mcp/dcc-mcp-blender) — Blender bridge behind Yamanaka refinement.
 
----
-
-## License
+**License**
 
 Konoha is licensed under the Apache License 2.0. See LICENSE and NOTICE.
 

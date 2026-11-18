@@ -427,6 +427,14 @@ jobs:
         run: |
           node -e 'const{spawnSync}=require("child_process");const enc=spawnSync("ffmpeg",["-hide_banner","-encoders"],{encoding:"utf8"});if(enc.stdout&&enc.stdout.includes("libwebp_anim")){console.log("ffmpeg exposes libwebp_anim");process.exit(0);}const ver=spawnSync("ffmpeg",["-hide_banner","-version"],{encoding:"utf8"});const which=(ver.stdout||"").split("\n")[0]||(ver.error?"ffmpeg not on PATH ("+ver.error.code+")":"ffmpeg not on PATH");console.error("ffmpeg build lacks the libwebp_anim encoder");console.error("resolved:",which);process.exit(1);'
 
+      # test_code_intel_search.js asserts the semantic tier reports `available`,
+      # which needs the Granite and MiniLM artifacts on disk. Warming them here
+      # keeps an HF download hiccup from surfacing as an unrelated failing
+      # suite, and names the network when that is what broke.
+      - name: Prefetch semantic models
+        timeout-minutes: 20
+        run: node scripts/prefetch_semantic_models.js
+
       # Full suite via tests/run_all.js, split into the shard this job owns.
       # Parallel mode is the harness's own feature (KONOHA_TEST_PARALLEL=1,
       # concurrency 4, with a sequential pool for suites that must run alone).

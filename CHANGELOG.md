@@ -161,6 +161,24 @@ Two bodies of work against token consumption and routing quality. Neither adds a
 **Fixed**
 - **Soul tenets rendered as `[object Object]` (`src/mcp/sannin_router.js`)**: `buildSoulSnippet` interpolated tenet objects directly, so the delegation envelope spent ~30 tokens per spawn on `[object Object]` and delivered no guidance. It now renders `name: summary`.
 
+### Live Browser Workspace & Onboarding (Issues #11, #18)
+
+The headed browser workspace shipped in this release reported a `playwright_ui_url` for a port nobody listened on, and the viewer it advertised was a second browser rather than the one Playwright drove. Both are gone; the workspace is now one Chromium per session, discovered from Docker labels, and live QA runs inside the container against that instance.
+
+**Added**
+- **`konoha browser` manages a live workspace (`bin/commands/browser.js`)**: `open|start|interact|shot|status|logs|stop|cleanup|qa`. `open` prints the `session_id`, the loopback `viewer_url` (noVNC), and the artifacts host path; `shot` returns a host-readable screenshot path; `qa --live` runs the suite in the session. No new MCP tool — the roster stays at 56 canonical / 58 manifest entries.
+- **Session discovery from Docker labels (`browser_session_manager.js`)**: containers carry `konoha.browser.managed`, `.session`, `.purpose`, `.build_id`, `.started_at`, `.expires_at`, `.target_url`, `.project`, `.artifacts_host`, `.bind_host`, and `.novnc_port`, so `status`, `logs`, and `stop` work from any process and mid-run inspection does not depend on the process that started the container. Sessions found this way report `discovered_via: 'docker'`.
+- **Artifacts mount with an allowlist (`browser_workspace_security.js`)**: `validateArtifactsMountPath` accepts only `os.tmpdir()`, `~/.konoha/tmp`, or the project root, rejects root/home/`.env*`/`vault*`/`konoha.db`, requires the directory to exist, and throws `BROWSER_ISOLATION_VIOLATION` otherwise. The workspace itself stays mounted `:ro`; artifacts arrive at `/artifacts` `:rw` and the container runs as the host uid so bind-mount writes are owned by the caller.
+- **In-container live QA (`qa_tools.js`)**: `live: true` resolves the nearest ancestor holding `node_modules/@playwright/test`, runs the project's own Playwright via `docker exec -e DISPLAY=:99 … node node_modules/@playwright/test/cli.js test --headed --reporter=json` against the visible browser, and remaps `/artifacts/*` report paths back to host paths. Fail-closed preflight: `browser-version-mismatch` when the container's Playwright minor differs from the project's, `browser-start-url-unreachable` when the container itself cannot fetch `start_url` (loopback is translated to `host.docker.internal`, so a dev server bound to `127.0.0.1` is refused up front), and `last-failed-unavailable-live` when `last_failed` is combined with `live` — the live path keeps Playwright's output dir per run so `.last-run.json` cannot leak between runs. `CI=1` starts no container and stays headless.
+- **`scripts/prefetch_semantic_models.js` + CI step**: warms the Granite embed and MiniLM rerank pipelines before the suite, so a query-time download cannot fail mid-run and degrade `semantic_status`.
+
+**Removed**
+- **`playwright_ui` / `:9323`**: the port had no listener, and a control endpoint is not a viewer. `/artifacts` replace it as the only surface live QA hands back from inside the container.
+
+**Changed**
+- **Docs restructured for first-run readers (`README.md`, `docs/README.md`, `docs/MANUAL.md`)**: the README now opens with the problem, a three-mode install table that states `npm latest` is `2.2.22` while `2.2.23` installs from source, a first-workflow walkthrough with both human gates, and a "watch a UI change happen" path; `docs/MANUAL.md` gained a Start-here table; the `2.2.22`/schema-`v8` version strings in the docs index were corrected.
+- **`docs/QA-AUTOMATION.md`, `docs/TROUBLESHOOTING.md`, `docs/QA-TEST-CHECKLIST.md` §42, `docs/architecture/{CANONICAL-CLI,CANONICAL-API,CAPABILITY-MAP}.md`, `docs/SETUP-WEB-UI.md`**: the live workspace is documented as one browser per session with label-based discovery, and every flag and error string in them was checked against source. `agent-browser` rows in the checklist are marked historical rather than rewritten.
+
 ## [2.2.22] - 2026-11-13
 
 ### Added

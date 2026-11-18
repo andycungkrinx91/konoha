@@ -2,7 +2,9 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
 const net = require('net');
+const os = require('os');
 const path = require('path');
 const { EventEmitter } = require('events');
 const { BrowserSessionManager } = require('../src/workflow/qa-automation/browser_session_manager');
@@ -22,7 +24,16 @@ function createMockDockerRunner() {
     if (sub === 'run') {
       const nameIdx = args.indexOf('--name');
       const cname = nameIdx !== -1 ? args[nameIdx + 1] : `mock-${containers.size}`;
-      containers.set(cname, { running: true });
+      const labels = {};
+      const env = [];
+      for (let i = 0; i < args.length; i++) {
+        if (args[i] === '--label' && args[i + 1]) {
+          const [k, ...v] = args[i + 1].split('=');
+          labels[k] = v.join('=');
+        }
+        if (args[i] === '-e' && args[i + 1]) env.push(args[i + 1]);
+      }
+      containers.set(cname, { running: true, labels, env });
       return { status: 0, stdout: `cid_${cname}\n` };
     }
     if (sub === 'exec') {
@@ -42,6 +53,22 @@ function createMockDockerRunner() {
     }
     if (sub === 'ps') {
       return { status: 0, stdout: Array.from(containers.keys()).join('\n') };
+    }
+    if (sub === 'inspect') {
+      const rest = args.slice(args.indexOf('--format') + 2);
+      return {
+        status: 0,
+        stdout: rest.map((name) => {
+          const c = containers.get(name);
+          if (!c) return '';
+          const labels = JSON.stringify(c.labels || {});
+          const env = JSON.stringify(c.env || []);
+          return `${labels}\t${env}\t${c.running ? 'running' : 'exited'}`;
+        }).join('\n')
+      };
+    }
+    if (sub === 'logs') {
+      return { status: 0, stdout: 'container log line\n' };
     }
     return { status: 0, stdout: '' };
   };
@@ -95,19 +122,42 @@ async function run() {
   assert.ok(logRes.logs.length >= 2);
   console.log('  ✓ Persistent session reuse, interaction, and log streaming passed');
 
+  // A second process (CLI, `konoha ui`, or a later agent call) discovers the live
+  // session from Docker labels: status, logs, and stop all work cross-process.
+  const otherMgr = new BrowserSessionManager({
+    execSync: mock.execSync,
+    probeReady: async () => true,
+    allocatePort: async () => nextPort++,
+    platform: 'linux'
+  });
+  const discovered = otherMgr.listSessions();
+  assert.strictEqual(discovered.length, 1);
+  assert.strictEqual(discovered[0].session_id, s1.session_id);
+  assert.strictEqual(discovered[0].discovered_via, 'docker');
+  assert.strictEqual(discovered[0].viewer_url, s1.viewer_url);
+  const discoveredLogs = otherMgr.getSessionLogs(s1.session_id, { tail: 10 });
+  assert.strictEqual(discoveredLogs.logs[0].stream, 'docker', 'foreign sessions stream container logs');
+  const discoveryInteract = await otherMgr.interact(s1.session_id, { action: 'snapshot' });
+  assert.strictEqual(discoveryInteract.ok, true);
+  console.log('  ✓ Cross-process session discovery, logs, and interaction passed');
+
   // Concurrent sessions get distinct containers and distinct loopback ports
+  const artifactsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-artifacts-'));
   const s2 = await mgr.createSession({
     purpose: 'qa-automation',
     projectPath: path.join(__dirname, '..', 'apps', 'web'),
     targetUrl: 'http://127.0.0.1:4173',
-    forceNew: true,
-    playwrightUi: true
+    artifactsMount: artifactsDir,
+    forceNew: true
   });
   assert.notStrictEqual(s2.session_id, s1.session_id);
   assert.notStrictEqual(s2.novnc_port, s1.novnc_port);
-  assert.ok(s2.playwright_ui_url && s2.playwright_ui_url.startsWith('http://127.0.0.1:'));
+  assert.strictEqual(s2.artifacts_path, path.resolve(artifactsDir));
+  assert.strictEqual(s2.playwright_ui_url, undefined, 'the dead Playwright UI endpoint must be gone');
   assert.strictEqual(mgr.listSessions().length, 2);
-  console.log('  ✓ Concurrent sessions and Playwright UI endpoint passed');
+  const runCall = mock.calls.filter((c) => c.args[0] === 'run').pop();
+  assert.ok(runCall.args.includes(`${path.resolve(artifactsDir)}:/artifacts:rw`));
+  console.log('  ✓ Concurrent sessions, artifacts mount, and no dead Playwright UI endpoint passed');
 
   // Port conflict handling via allocateLoopbackPort
   const busySrv = net.createServer();
@@ -131,7 +181,15 @@ async function run() {
   assert.ok(mock.containers.has(s1.container_name), 'Concurrent sibling container must remain untouched');
 
   // Stale & orphan container cleanup (no broad prune)
-  mock.containers.set('konoha-browser-orphan-999', { running: true });
+  mock.containers.set('konoha-browser-orphan-999', {
+    running: true,
+    labels: {
+      'konoha.browser.managed': 'true',
+      'konoha.browser.session': 'orphan-999',
+      'konoha.browser.started_at': new Date(Date.now() - (60 * 60 * 1000)).toISOString()
+    },
+    env: []
+  });
   const internalS1 = mgr._sessions.get(s1.session_id);
   internalS1.lastActivityMs = Date.now() - (60 * 60 * 1000);
   const cleanup = mgr.cleanupStaleSessions({ maxIdleMs: 1000 });
