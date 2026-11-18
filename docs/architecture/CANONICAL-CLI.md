@@ -208,8 +208,11 @@ Three install modes, never blurred:
 
 | Platform | Status |
 |---|---|
-| Linux x64 | **PARTIAL (PR #16)** — `ubuntu-latest shard 5/8` passes at `61e73b7f`; `ubuntu-latest shard 7/8` failed on missing `browser` help row until the `bin/commands/help.js` fix lands |
-| Windows 11 x64 | **UNVERIFIED (PR #16)** — `windows-latest` (16 shards) remained `IN_PROGRESS` / unverified at audit time |
-| macOS arm64 / x64 | **UNVERIFIED (PR #16)** — `macos-latest` (5 shards) remained `IN_PROGRESS` / unverified at audit time (no native Apple hardware run locally) |
+| Linux x64 | **yes** — `ubuntu-latest` 8/8 shards plus the full-suite job pass on run `44224126588` at `7f312c1f` |
+| Windows 11 x64 | **yes** — `windows-latest` 16/16 shards plus the full-suite job pass on run `44224126588` at `7f312c1f` |
+| macOS arm64 | **yes** — `macos-latest` `checks`, shards 1–5/5, and the golden-seed build pass on run `44224126588` at `7f312c1f`; slowest shard 741 s |
 
-PR #16 status at audit time: `reviewDecision: ""` (zero approvals), `Socket Security: Pull Request Alerts` failing on pre-existing transitive dependencies of `@huggingface/transformers@4.3.2`, and Issues `#11`, `#12`, and `#13` still `OPEN`. Do not mark the cross-platform matrix green while any shard is queued, running, or failing; see `docs/CI.md` for live matrix details.
+Repo is public, so `macos-latest` is arm64. Do not mark the matrix green while any shard is
+queued, running, or failing; see `docs/CI.md` for live matrix details. A cancelled macOS job
+with `steps: 0` and a `BlobNotFound` log is a runner-acquisition failure on GitHub's side, not
+a test failure — re-run it.
