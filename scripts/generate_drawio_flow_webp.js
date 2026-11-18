@@ -70,7 +70,13 @@ function filterTargets(manifest, argv) {
   if (probe) return { list: [], targets: manifest.filter((m) => m.page.name.startsWith(probe) || m.asset.includes(probe)) };
   const only = (argv.find((a) => a.startsWith('--only')) || '').split('=')[1];
   if (!only) return { list: [], targets: manifest.filter((m) => !TOKUBETSU_OWNED_ASSETS.has(m.asset)) };
-  return { list: [], targets: manifest.filter((m) => m.page.name.startsWith(only) || m.asset.includes(only)) };
+  const matched = manifest.filter((m) => m.page.name.startsWith(only) || m.asset.includes(only));
+  const owned = matched.filter((m) => TOKUBETSU_OWNED_ASSETS.has(m.asset)).map((m) => m.asset);
+  if (owned.length && !matched.some((m) => !TOKUBETSU_OWNED_ASSETS.has(m.asset))) {
+    throw new Error(`--only=${only} matches only Tokubetsu-owned assets (${owned.join(', ')}); `
+      + `render them with node scripts/generate_tokubetsu_flow_webp.js --only=${only}`);
+  }
+  return { list: [], targets: matched.filter((m) => !TOKUBETSU_OWNED_ASSETS.has(m.asset)) };
 }
 
 /** Runs inside the page: reports text clipping, agent tags, canvas overflow and reveal state. */

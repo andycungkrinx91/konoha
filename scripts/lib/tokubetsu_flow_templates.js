@@ -453,7 +453,7 @@ function generateQaHtml() {
     renderCard([50, 125, 190, 68], C.azure, '1. EXPLORE', 'Playwright · Genin recon', 'genin'),
     renderCard([280, 125, 190, 68], C.teal, '2. FLOW FILE', 'declarative command JSON', 'anbu'),
     renderCard([510, 125, 190, 68], C.violet, '3. CODIFY', 'qa_codify (0 LLM tokens)', 'anbu'),
-    renderCard([740, 125, 200, 68], C.amber, '4. HEADLESS EXEC', 'qa_e2e_run · 3D & DB check', 'anbu'),
+    renderCard([740, 125, 200, 68], C.amber, '4. HOST EXEC', 'qa_e2e_run · headless / headed', 'anbu'),
     renderCard([980, 125, 170, 68], C.crimson, '5. RED / GREEN', 'verify test & aislop 100%', 'kage'),
     renderCard([890, 285, 260, 64], C.violet, 'AUTONOMOUS TRIAGE', 'src/sdlc_manager.js · cap ≤ 7', 'sannin'),
     renderCard([540, 300, 280, 64], C.violet, 'BACKEND / DB FIX (♠ ANBU)', 're-run qa_e2e_run & db check', 'anbu'),
