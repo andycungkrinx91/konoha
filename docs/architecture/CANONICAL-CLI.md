@@ -201,7 +201,7 @@ Three install modes, never blurred:
 |---|---|
 | Linux x64 | **yes** — `ubuntu-latest` 8/8 shards plus the full-suite job pass on run `44224126588` at `7f312c1f` |
 | Windows 11 x64 | **yes** — `windows-latest` 16/16 shards plus the full-suite job pass on run `44224126588` at `7f312c1f` |
-| macOS arm64 | **yes** — `macos-latest` `checks`, shards 1–5/5, and the golden-seed build pass on run `44224126588` at `7f312c1f`; slowest shard 741 s |
+| macOS arm64 | **yes** — `macos-latest` `checks`, all four shards, and the golden-seed build pass on run `44224126588` at `7f312c1f` (that run predates the move to four macOS shards); slowest shard 741 s |
 
 Repo is public, so `macos-latest` is arm64. Do not mark the matrix green while any shard is
 queued, running, or failing; see `docs/CI.md` for live matrix details. A cancelled macOS job
