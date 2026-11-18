@@ -599,6 +599,30 @@ OS and, for the suite, the shard: `<os> checks` and `<os> shard <n>/<shard_total
   `[SHARD] <n>/<shard_total>: <k> of <total> suites`, says what this shard was responsible for,
   which is what distinguishes "this suite broke" from "this shard got the wrong list".
 
+### `cancelled` with zero steps is not a failure
+
+A job that ends `cancelled`, has **no steps executed**, and no logs (`BlobNotFound`) never
+reached a runner. The acquisition message is explicit:
+
+```
+The job was not acquired by Runner of type hosted even after multiple attempts
+Internal server error. Correlation ID: <uuid>
+Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times.
+```
+
+That is GitHub failing to hand out a `macos-latest` (arm64) machine, not this repo failing a
+test. Confirm it before acting: sibling shards of the same OS, same commit, same run passed, and
+`gh run view <id> --json jobs` shows the cancelled job with `startedAt` equal to its
+dependency's finish, `completedAt` ~20 min later, and no `runnerName`. The remedy is
+`Re-run failed jobs`; nothing in the repository changes the outcome.
+
+Do **not** answer this with `continue-on-error`, with fewer macOS shards, or with `macos-13`:
+the first hides real failures, and the other two trade away the arm64 coverage that the macOS
+leg exists to provide (`docs/ARCHITECTURE.md`, macOS arm64 row). A `checks` job and a `seed`
+job also want macOS runners on the same run, so the shard count is already at the Free-plan
+concurrency cap by design — the queue is expected, and only the *acquisition error* above is
+infrastructure.
+
 ## How to re-run
 
 - From the Actions tab: Cross-Platform → Run workflow (manual dispatch), or
