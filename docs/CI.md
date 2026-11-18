@@ -31,9 +31,9 @@ There are two jobs per OS (Node 24, pnpm 12.16.1, setup reused exactly from
    by the suite job, and an unbounded Hugging Face download here would turn a
    network hiccup into a fake cross-platform failure.
 
-`seed` — once per OS (`ubuntu-latest`, `macos-latest`, `windows-latest`), restoring Hugging Face model caches and building the golden seed (`node tests/run_all.js --seed-only`) only when `konoha-seed` misses, avoiding redundant seed builds across all 29 test shards.
+`seed` — once per OS (`ubuntu-latest`, `macos-latest`, `windows-latest`), restoring Hugging Face model caches and building the golden seed (`node tests/run_all.js --seed-only`) only when `konoha-seed` misses, avoiding redundant seed builds across all 28 test shards.
 
-`test` — `needs: [seed]`, 29 shards across OSes (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 5 shards), `KONOHA_TEST_SHARD=<shard>/<shard_total>`:
+`test` — `needs: [seed]`, 28 shards across OSes (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 4 shards), `KONOHA_TEST_SHARD=<shard>/<shard_total>`:
 
 1. `pnpm install --frozen-lockfile`
 2. Restore Hugging Face model cache (`node_modules/@huggingface/transformers/.cache`, `~/.cache/huggingface`, `~/.konoha/models`) and run `pnpm --filter konoha-web build` (with deterministic `SOURCE_DATE_EPOCH`) — before the seed fallback, because `konoha init` builds the UI on demand when no build of the current version exists; with the repo build present the seed copies it instead of running a second SvelteKit build.
@@ -92,10 +92,11 @@ concurrent jobs, and 5 concurrent macOS jobs):
   step roughly in half per runner.
 - `ubuntu-latest`: **8 shards** (`~36 suites/shard`, measured worst shard `175 s` against a
   `< 10 min` budget; finishes first and frees concurrent slots for Windows).
-- `macos-latest`: **5 shards** (`~58 suites/shard`). A run puts **seven** macOS jobs on the
-  queue (`seed`, `checks`, five shards) against Free's 5-runner macOS cap, so it drains in two
-  waves — `checks` and `seed` hold two slots while the first four shards start, and the fifth
-  shard starts once they finish. Four waves would be worse, one wave is not on offer.
+- `macos-latest`: **4 shards** (`~72 suites/shard`). The matrix is sized so the peak macOS
+  demand equals Free's 5-runner macOS cap: `checks` + four shards. At five shards a run asked
+  for **seven** macOS jobs (`seed`, `checks`, five shards) and GitHub cancelled the two that
+  never acquired a runner after 15 minutes — the queue is not a buffer, it is a failure mode.
+  Four shards + `checks` = 5 fits in one wave; `seed` frees its slot before the shards start.
 
 The other term — install, seed restore, Playwright, web build, ffmpeg — has **not** been
 measured on a runner, and it is what decides the verdict on a cold cache. Locally those
@@ -103,7 +104,7 @@ steps are fast (a seed cache hit is 0.4 s, the web build is seconds), but a host
 is slower and the seed restore pulls ~400 MB out of the cache. Treat it as a minute or
 two, not as a number.
 
-A run is 3 `checks` jobs, 3 `seed` jobs, plus 29 shard jobs (`35` total). A Free plan capped at 20 concurrent
+A run is 3 `checks` jobs, 3 `seed` jobs, plus 28 shard jobs (`34` total). A Free plan capped at 20 concurrent
 jobs (and 5 concurrent macOS jobs) queues the surplus beyond 20, though `ubuntu-latest` and
 `macos-latest` complete early and yield slots to the remaining `windows-latest` shards — so
 if a run looks slower than the sum of its steps, read the queue time before reading it as a
@@ -112,7 +113,7 @@ regression.
 | OS | Shards | Target | Slowest shard (measured at 8 shards) | Verdict |
 | --- | --- | --- | --- | --- |
 | ubuntu-latest | 8 | < 10 min | 175 s (Linux, measured) | headroom is large; finishes fast and releases slots |
-| macos-latest | 5 | < 20 min | 723 s (run 44059199230, shard 2) | green on `master` (runs 44059199230, 43994208143); drains in two waves |
+| macos-latest | 4 | < 20 min | 723 s (run 44059199230, shard 2) | green on `master` (runs 44059199230, 43994208143); fits the 5-runner macOS cap in one wave |
 | windows-latest | 16 | < 30 min | 1013 s (shard 8 at N=8) | doubled to 16 shards (~18 suites/shard) to cut suite time |
 
 **A cache miss adds the seed build to every shard.** The seed is content-addressed by

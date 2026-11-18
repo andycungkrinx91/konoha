@@ -16,7 +16,9 @@ name: Cross-Platform
 # (256 matrix jobs/run max; 20 concurrent jobs total; 5 concurrent macOS jobs):
 #   - windows-latest: 16 shards (~18 suites/shard; avoids the 17 min 8-shard run)
 #   - ubuntu-latest:  8 shards  (~36 suites/shard; finishes quickly and frees slots)
-#   - macos-latest:   5 shards  (matches the 5 concurrent macOS cap in one wave)
+#   - macos-latest:   4 shards  (+ the macOS `checks` job = 5, the concurrent
+#                     macOS cap exactly; 5 shards made 6 and GitHub cancelled
+#                     the two jobs that never acquired a runner)
 #
 # The test step has no `continue-on-error`: a failing suite turns the workflow
 # red. Sharding cannot hide a failure, because each shard must run a non-empty
@@ -173,7 +175,7 @@ jobs:
       # One shard failing must not cancel the others — the per-shard signal is
       # what says which suite broke.
       fail-fast: false
-      # Per-OS shard matrix (29 test jobs + 3 checks jobs = 32 jobs <= 256 limit),
+      # Per-OS shard matrix (28 test jobs + 3 checks jobs = 31 jobs <= 256 limit),
       # asymmetric to respect GitHub Free concurrency (20 total, 5 macOS max).
       matrix:
         include:
@@ -203,19 +205,16 @@ jobs:
             shard_total: 8
           - os: macos-latest
             shard: 1
-            shard_total: 5
+            shard_total: 4
           - os: macos-latest
             shard: 2
-            shard_total: 5
+            shard_total: 4
           - os: macos-latest
             shard: 3
-            shard_total: 5
+            shard_total: 4
           - os: macos-latest
             shard: 4
-            shard_total: 5
-          - os: macos-latest
-            shard: 5
-            shard_total: 5
+            shard_total: 4
           - os: windows-latest
             shard: 1
             shard_total: 16
