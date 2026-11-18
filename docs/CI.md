@@ -92,8 +92,10 @@ concurrent jobs, and 5 concurrent macOS jobs):
   step roughly in half per runner.
 - `ubuntu-latest`: **8 shards** (`~36 suites/shard`, measured worst shard `175 s` against a
   `< 10 min` budget; finishes first and frees concurrent slots for Windows).
-- `macos-latest`: **5 shards** (`~58 suites/shard`), matching GitHub Free's 5-runner macOS
-  concurrency cap in one wave instead of queueing 4 waves and paying repeated setup overhead.
+- `macos-latest`: **5 shards** (`~58 suites/shard`). A run puts **seven** macOS jobs on the
+  queue (`seed`, `checks`, five shards) against Free's 5-runner macOS cap, so it drains in two
+  waves — `checks` and `seed` hold two slots while the first four shards start, and the fifth
+  shard starts once they finish. Four waves would be worse, one wave is not on offer.
 
 The other term — install, seed restore, Playwright, web build, ffmpeg — has **not** been
 measured on a runner, and it is what decides the verdict on a cold cache. Locally those
@@ -110,7 +112,7 @@ regression.
 | OS | Shards | Target | Slowest shard (measured at 8 shards) | Verdict |
 | --- | --- | --- | --- | --- |
 | ubuntu-latest | 8 | < 10 min | 175 s (Linux, measured) | headroom is large; finishes fast and releases slots |
-| macos-latest | 5 | < 20 min | unverified | runs in 1 wave at Free's 5-macOS concurrency cap |
+| macos-latest | 5 | < 20 min | 723 s (run 44059199230, shard 2) | green on `master` (runs 44059199230, 43994208143); drains in two waves |
 | windows-latest | 16 | < 30 min | 1013 s (shard 8 at N=8) | doubled to 16 shards (~18 suites/shard) to cut suite time |
 
 **A cache miss adds the seed build to every shard.** The seed is content-addressed by
@@ -616,12 +618,11 @@ test. Confirm it before acting: sibling shards of the same OS, same commit, same
 dependency's finish, `completedAt` ~20 min later, and no `runnerName`. The remedy is
 `Re-run failed jobs`; nothing in the repository changes the outcome.
 
-Do **not** answer this with `continue-on-error`, with fewer macOS shards, or with `macos-13`:
-the first hides real failures, and the other two trade away the arm64 coverage that the macOS
-leg exists to provide (`docs/ARCHITECTURE.md`, macOS arm64 row). A `checks` job and a `seed`
-job also want macOS runners on the same run, so the shard count is already at the Free-plan
-concurrency cap by design — the queue is expected, and only the *acquisition error* above is
-infrastructure.
+This is a recurring condition, not a one-off: the same leg was green twice on `master` the same
+day (runs 44059199230 and 43994208143, all seven macOS jobs `success`), so capacity comes and
+goes while the matrix stays sound. Do **not** answer it with `continue-on-error`, with fewer
+macOS shards, or with `macos-13`: the first hides real failures, and the other two trade away
+the arm64 coverage the macOS leg exists to provide (`docs/ARCHITECTURE.md`, macOS arm64 row).
 
 ## How to re-run
 
