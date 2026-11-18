@@ -528,7 +528,6 @@ Global options, valid anywhere: `--force` (clean re-installation, used with `ini
 | `akatsuki` | red-team / blue-team lab | `status`, `init`, `tools` |
 | `auth` | web console credentials | `konoha auth reset` |
 | `bridge` | bridge router to local and remote models | `status`, `list`, `create`, `delete`, `enable`, `disable`, `start`, `stop`, `restart`, `models` |
-| `browser` | live headed Docker browser workspace | `open`, `interact`, `shot`, `status`, `logs`, `stop`, `cleanup`, `qa` |
 | `clean` | reclaim `~/.konoha` space | removes stale backups and dead PIDs |
 | `config` | CLI configuration | `list`, `get`, `set`, `unset`, `backup`, `backups`, `restore` |
 | `data` | session history, knowledge brain, DB size | `view`, `memory`, `add`, `search`, `delete`, `correct`, `withdraw`, `history`, `graph`, `maintain`, `revert`, `export`, `prune`, `vacuum`, `backup`, `rebuild-fts`, `check`, `restore` |
@@ -798,13 +797,11 @@ Logging out is triggered from the sidebar menu. Posting to `/logout` clears the 
 
 ### 7.2.1 Watching a build in a real browser
 
-`/activity` also carries the live browser sessions. That is not a separate UI: a session started with
-`konoha browser open` appears there through the existing `GET /api/v1/activity/live` payload, and its `viewer_url`
-opens a loopback `noVNC` page showing the container's one headed Chromium instance. Frontend work and live QA share
-that instance, so a QA run started with `konoha browser qa --live` is watchable in the same tab while it executes.
-Sessions are discovered from Docker labels, so sessions opened in another terminal show up without a restart.
-`docs/QA-AUTOMATION.md` covers the container, its mount allowlist, and the QA invocation in full;
-`docs/TROUBLESHOOTING.md` covers the preflight refusals.
+Headed QA runs in your own Chromium, so there is nothing to show inside `/activity`: the window is the browser you
+already have. `qa_e2e_run({ headed: true })` starts it, `CI=1` keeps pipelines headless, and the Jonin preview opens
+the page with your system browser rather than launching a second instance.
+`docs/QA-AUTOMATION.md` covers execution, artifacts, and the headed flag; `docs/TROUBLESHOOTING.md` covers the
+`qa_blocked` and no-window cases.
 
 ### 7.3 Authentication and the bootstrap gate
 

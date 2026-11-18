@@ -433,6 +433,9 @@ jobs:
       # suite, and names the network when that is what broke.
       - name: Prefetch semantic models
         timeout-minutes: 20
+        # Every shard runs this, so a Hub outage must not redden the whole matrix:
+        # the one shard that owns test_code_intel_search.js fails with the reason.
+        continue-on-error: true
         run: node scripts/prefetch_semantic_models.js
 
       # Full suite via tests/run_all.js, split into the shard this job owns.

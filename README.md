@@ -66,7 +66,7 @@ Konoha is a local MCP server that replaces that guessing with bounded tools. Ins
 | Pasting a whole file to find one function | `read_file_range` / `get_file_structure` | A signature map, or the 40 lines around the symbol, capped at 250 |
 | `grep -r` across the tree | `token_efficient_grep` / `code_search` | 20 ranked matches (50 hard cap) with file and line |
 | Re-teaching the same conventions every session | `find_skill` / `get_skill` | The one skill that owns the rule, capped at 8,000 bytes |
-| Fixing a UI bug blind | `konoha browser open` | A real headed Chromium in a container, watchable in your browser while Playwright drives it |
+| Fixing a UI bug blind | `qa_e2e_run` with `headed: true` | A visible local Chromium running your suite, with trace and screenshot paths |
 | Trusting the agent that it passed | `qa_e2e_run` | A test report with a `run_id`, capped output, and trace paths |
 
 Two things follow from that. The client spends its context on the task instead of on discovery, and every claim it makes about your code has a file behind it.
@@ -77,7 +77,7 @@ Verified numbers live in [docs/BENCHMARK.md](docs/BENCHMARK.md) and [docs/archit
 
 ## 2. Install
 
-**Prerequisites.** Node.js `>= 24.0.0` (`node:sqlite` with FTS5 is required; `bin/cli.js` exits before loading modules on older runtimes). One MCP-capable coding client. Docker is optional — needed only for the live browser workspace.
+**Prerequisites.** Node.js `>= 24.0.0` (`node:sqlite` with FTS5 is required; `bin/cli.js` exits before loading modules on older runtimes). One MCP-capable coding client. Docker is optional: the 3-OS CI sandbox and the Red-Team lab use it, and no part of the QA or frontend path does.
 
 > **Which version installs?** `npm` publishes `2.2.22` today. `2.2.23` is on `master` and installs from source until it is released: [CHANGELOG.md](CHANGELOG.md) is the release record.
 
@@ -157,23 +157,19 @@ Both gates are three-option pickers. In HITL mode nothing auto-advances, which i
 
 ### 3.1 Watch a UI change happen
 
-If the task touches frontend, the browser workspace puts a real Chromium on screen:
+If the task touches frontend, the run goes headed in your own Chromium:
 
 ```bash
-# 1. Serve your app on the host (binds 0.0.0.0 so the container can reach it).
-pnpm dev --host 0.0.0.0
+# 1. Serve your app.
+pnpm dev
 
-# 2. Open the isolated workspace. Prints session_id, viewer_url, artifacts path.
-konoha browser open --url http://localhost:5173
+# 2. Run the suite with a visible window. No container, no viewer process.
+qa_e2e_run({ project_path: ".", headed: true })
 
-# 3. The viewer_url is a loopback noVNC page showing the container's browser.
-#    Live QA drives that same instance, so you watch the test run.
-konoha browser qa --live --start-url http://localhost:5173
-konoha browser shot bs-xxxx        # host path to the latest screenshot
-konoha browser stop bs-xxxx
+# 3. Read the report: run_id, totals, and host paths to any trace or screenshot.
 ```
 
-One browser per session. There is no second instance, no CDP endpoint, and no `:9323` control port — the viewer *is* the browser that runs your tests. Details and the mount allowlist: [docs/QA-AUTOMATION.md](docs/QA-AUTOMATION.md).
+`headed` is honoured on a normal machine and dropped under `CI=1`, so the same call is safe in pipelines. Jonin's preview opens the page in your system browser instead of starting a second one. Details: [docs/QA-AUTOMATION.md](docs/QA-AUTOMATION.md).
 
 ### 3.2 Check what it cost
 
@@ -198,7 +194,7 @@ Every row names the subsystem so you can verify it in source.
 | Research | Chunin web intel, zero API key | `chunin-skill` | SearXNG + Wikipedia fallback, `rtk`-compressed |
 | Frontend | Jonin dynamic UI builder, 4 frameworks | `src/templates/skills/jonin-skill/` | Next.js 16, SvelteKit 2, Nuxt 3, Angular 19+; `Build by konoha` signature; zero emojis |
 | Backend and QA | Anbu APIs, DevOps, Playwright E2E | `anbu-skill`, `qa_codify`, `qa_e2e_run` | E2E output capped under 2,000 characters; artifacts kept outside the workspace |
-| Live browser | Headed Docker workspace with loopback noVNC, live Playwright | `src/workflow/qa-automation/`, `bin/commands/browser.js` | One Chromium per session; `CI=1` stays headless and starts no container |
+| Headed QA | Local Playwright and local Chromium, visible window | `src/workflow/qa-automation/`, `live_browser_monitor.js` | No container and no second browser; `CI=1` stays headless |
 | Docs | Tokubetsu-jonin office deliverables | `src/workflow/tokubetsu-scribe/` | DOCX, PDF, XLSX, PPTX, animated WebP |
 | Security | Akatsuki Blue-Team gate; opt-in isolated Red-Team lab | `akatsuki-skill`, `src/workflow/akatsuki/` | `akatsuki-lab` isolation; 817-skill MITRE pack is explicit opt-in only |
 | 3D | Yamanaka generative 3D and Blender refinement | `yamanaka-skill` | Manifold and PBR validation |
@@ -459,8 +455,7 @@ Blocked at the tool-call level on capable clients ([CC], Command Code, Antigravi
 | Rebuild vectors | `konoha embed` (`--rebuild-embeddings` implied) |
 | Back up or restore client configs | `konoha config backup --client=all` · `konoha config restore --client=<n>` |
 | Open the Web UI | `konoha ui start` → `http://127.0.0.1:1404/` |
-| Open the live browser workspace | `konoha browser open --url <url>` · `status` · `interact` · `shot` · `logs` · `stop` · `cleanup` |
-| Run QA against it | `konoha browser qa --live --start-url <url>` |
+| Run QA with a visible window | `qa_e2e_run({ project_path, headed: true })` |
 | Upgrade | `konoha upgrade` |
 | Reclaim disk | `konoha clean` |
 

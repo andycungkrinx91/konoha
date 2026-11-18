@@ -439,15 +439,14 @@ Do not mark a platform verified from static tests; update this table only after 
 
 ---
 
-### 2.23 Live Headed Docker Browser Workspace & QA Automation (`src/workflow/qa-automation/`)
+### 2.23 Headed Browser QA (`src/workflow/qa-automation/`)
 
-* **Purpose:** Provide an interactive headed Chromium workspace container (`docker/browser-workspace.Dockerfile`) with loopback `noVNC` live viewing. One browser instance per session on `DISPLAY=:99` serves both the human viewer and live QA: `live` QA runs the project's own Playwright inside that container, so headless CI execution stays untouched.
-* **Canonical Implementation:** `src/workflow/qa-automation/{browser_session_manager,browser_container_agent,browser_workspace_security,qa_tools,qa_runner}.js`, `src/workflow/jonin-builder/live_browser_monitor.js`, `bin/commands/browser.js`.
+* **Purpose:** Run the target project's own Playwright and Chromium on the host, headless by default and with a visible window on `headed: true`. There is no container: `CI=1` drops the headed flag, and Jonin's preview opens the page in the system browser rather than starting a second one.
+* **Canonical Implementation:** `src/workflow/qa-automation/{qa_tools,qa_runner,qa_codify,qa_retention}.js`, `src/workflow/jonin-builder/live_browser_monitor.js`.
 * **Entry Points:**
-  - MCP Tools: `qa_codify`, `qa_e2e_run` (`headed`, `live`, `session_id`, `start_url`, `keep_session`, `timeout_ms`).
-  - CLI: `konoha browser {open|interact|shot|status|logs|stop|cleanup|qa}`.
-  - Web API: Surfaces `browser_sessions` on existing `GET /api/v1/activity/live` (`zero new REST endpoints`).
-* **Tests:** `tests/test_browser_workspace_lifecycle.js`, `tests/test_browser_workspace_security_and_qa.js`, `tests/test_qa_codify.js`, `tests/test_qa_e2e_run.js`.
+  - MCP Tools: `qa_codify`, `qa_e2e_run` (`headed`, `grep`, `last_failed`, `max_failures`, `timeout_ms`).
+  - Web API: `GET /api/v1/activity/live` keeps its graph payload (`zero new REST endpoints`).
+* **Tests:** `tests/test_qa_local_browser.js`, `tests/test_qa_codify.js`, `tests/test_qa_e2e_run.js`, `tests/test_jonin_dynamic_design_and_watermark.js`.
 * **Documentation:** `docs/QA-AUTOMATION.md`, `docs/QA-TEST-CHECKLIST.md`, `src/templates/skills/anbu-skill/references/qa-automation.md`.
 
 ---

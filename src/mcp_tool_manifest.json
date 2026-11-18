@@ -1735,23 +1735,7 @@
           },
           "headed": {
             "type": "boolean",
-            "description": "Run Playwright in headed mode inside an isolated browser workspace when not in CI."
-          },
-          "live": {
-            "type": "boolean",
-            "description": "Run the suite inside the live headed Docker browser workspace so the visible Chromium is the one under test. Ignored when CI is set."
-          },
-          "session_id": {
-            "type": "string",
-            "description": "Existing live browser session ID (bs-...) to reuse instead of launching one. The caller keeps ownership; the session is not stopped after the run."
-          },
-          "start_url": {
-            "type": "string",
-            "description": "URL the app under test answers on from the host (default http://127.0.0.1:4173). Translated to host.docker.internal for the container."
-          },
-          "keep_session": {
-            "type": "boolean",
-            "description": "Leave the live browser workspace running after the run so it can be inspected in noVNC."
+            "description": "Run the project's local Playwright Chromium with a visible window when not in CI."
           },
           "timeout_ms": {
             "type": "integer",

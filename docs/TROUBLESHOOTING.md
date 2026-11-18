@@ -155,29 +155,13 @@ node --version  # Must be >= 24.0.0
 
 ---
 
-### ⚠️ `browser-image-missing` or container cannot reach host dev server in live headed browser workspace
+### 🖥️ Headed QA shows no window, or `qa_e2e_run` reports `qa_blocked`
 
-- **Missing image**: build the isolated browser image once before starting live headed sessions:
-  ```bash
-  docker build -f docker/browser-workspace.Dockerfile -t konoha-browser-workspace:local .
-  ```
-- **Target URL unreachable on Linux Docker**: `BrowserSessionManager` rewrites `127.0.0.1` / `localhost` URLs to `host.docker.internal` (`host-gateway`). A dev server listening strictly on host `127.0.0.1` rejects connections arriving via `docker0`; start local preview servers with `--host 0.0.0.0` (for example `vite dev --host 0.0.0.0`).
-- **Host port collision or stale container**: run `konoha browser cleanup` to remove idle or orphaned `konoha.browser.managed=true` containers; the noVNC port auto-falls back when `EADDRINUSE` occurs.
-
----
-
-### 🖥️ Live QA (`qa_e2e_run` with `live: true`) fails before any test runs
-
-Every refusal below is deliberate: each one names a precondition that would otherwise turn into a confusing failure mid-run. Fix the precondition, do not bypass the check.
-
-- **`browser-version-mismatch`** — the workspace image ships a different Playwright *minor* than the project's `@playwright/test`. The container runs the project's own Playwright against its own bundled Chromium, so a skew silently drives the wrong browser build. `detail` names both versions. Fix: pin `@playwright/test` to the image's minor, point `KONOHA_BROWSER_IMAGE` at an image built on your version, or drop `live`.
-- **`browser-start-url-unreachable`** — nothing answered at `start_url` *from inside the workspace container* (default `http://127.0.0.1:4173`, or `KONOHA_QA_START_URL`), probed after `127.0.0.1`/`localhost` is translated to `host.docker.internal`. Any HTTP status counts as reachable, so a 404/500 still passes; only a refused connection or timeout fails. The usual cause is a dev server bound to `127.0.0.1` only. Fix: start it with `--host 0.0.0.0`, or pass a `start_url` the container can reach.
-- **`last-failed-unavailable-live`** — `last_failed: true` with `live: true`. Playwright stores `.last-run.json` in its output dir, and the live path gives each run a fresh one under `/artifacts` so stale state cannot leak between runs. Fix: select tests with `grep`, or run without `live`.
-- **`Browser session '<id>' is not running.`** — raised by `konoha browser interact|shot|logs|stop` (and the matching session-manager calls) when the id is unknown or its container is gone: Docker restarted, or `konoha browser cleanup` reaped it. Sessions are discovered from `konoha.browser.*` Docker labels, so a session created in another shell is still visible — `konoha browser status` lists every one; re-open with `konoha browser open` and use the new id. `qa_e2e_run` behaves differently: a `session_id` it cannot find running is not an error, it creates a fresh workspace under that id. `keep_session: false` runs stop their own session when they finish, so a stale id from a completed run is expected.
-- **`BROWSER_ISOLATION_VIOLATION: Artifacts mount '<path>' must live under ...`** — the artifacts directory is outside `os.tmpdir()`, `~/.konoha/tmp`, and the project root, or it contains a secret-shaped path (`.env*`, `vault*`, `konoha.db`, SSH/GPG profile dirs). This mount is read-write, so the allowlist is intentionally narrow. Keep report/trace/screenshot artifacts under `~/.konoha/tmp/`, which is where `qa_e2e_run` and the Jonin live monitor already place them.
-- **Reports and traces point at `/artifacts/...`** — inside the container, Playwright's output root is `/artifacts` (host: the session's `artifacts_path`). Konoha remaps `trace` and `screenshot` entries back to host paths in `report.json`, so a path in the returned report is openable from the host. A run that never reached the container keeps host-relative paths.
-
-**Specs that hardcode `http://127.0.0.1:<port>` absolute URLs will fail under `live`.** Inside the container that address is the container's own loopback, not the host dev server — `baseURL` and `KONOHA_PW_BASE_URL` only affect relative `page.goto()` calls. Either use relative paths in specs, or read the base URL from env (see `tests/e2e/login_default_password_redirect.spec.js`, which honours `KONOHA_E2E_BASE_URL`).
+- **`qa_blocked` / `playwright-not-installed`** — the target project has no working `@playwright/test`. Konoha runs the project's own Playwright on the host; the fix is the install, not a shorter path. In the target project: `pnpm add -D @playwright/test`, then `pnpm exec playwright install chromium`.
+- **No window appears** — `CI` is set (headed is dropped on purpose) or the run is headless. Unset `CI` and pass `headed: true`. Under `KONOHA_HEADLESS_TEST=1` the Jonin preview also skips opening the system browser.
+- **WebGL looks blank** — local Chromium renders WebGL with the host GPU, and falls back to its own software rasterizer where no driver is available. A blank canvas on a headless server is a driver problem, not a Konoha one.
+- **`last_failed` finds nothing** — Playwright records `.last-run.json` in its output dir, which lives under `~/.konoha/tmp/qa/<run_id>/` per run. Pass `grep` to select tests, or point the project's output dir at a persistent path.
+- **Artifacts location** — report, traces, and screenshots are host paths under `~/.konoha/tmp/qa/<run_id>/` and the project's `test-results/`. Nothing is remapped, because nothing ran outside the host.
 
 ---
 

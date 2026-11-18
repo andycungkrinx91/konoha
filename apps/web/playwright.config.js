@@ -5,11 +5,6 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const testCredsPath = path.resolve(__dirname, '../../tests/helpers/test_auth_seed.json');
-// Set by Konoha's live QA runner when the suite executes inside the Docker browser
-// workspace: the app is already served from the host, and the image ships bundled
-// Chromium rather than a system Chrome channel.
-const IN_CONTAINER = process.env.KONOHA_PW_IN_CONTAINER === '1';
-const BASE_URL = process.env.KONOHA_PW_BASE_URL || 'http://127.0.0.1:4173';
 let TEST_BOOTSTRAP_PASSWORD = '';
 try {
   const creds = JSON.parse(fs.readFileSync(testCredsPath, 'utf8'));
@@ -26,8 +21,8 @@ export default defineConfig({
   workers: 1,
   reporter: 'line',
   use: {
-    baseURL: BASE_URL,
-    headless: IN_CONTAINER ? false : (process.env.KONOHA_PW_HEADED === '1' && !process.env.CI ? false : undefined),
+    baseURL: 'http://127.0.0.1:4173',
+    headless: process.env.KONOHA_PW_HEADED === '1' && !process.env.CI ? false : undefined,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
@@ -36,13 +31,11 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        channel: process.env.KONOHA_PW_CHANNEL === 'bundled' ? undefined : 'chrome',
+        channel: 'chrome',
       },
     },
   ],
-  // The container has no Node project root mounted for a second app server; the
-  // caller serves the app and passes its reachable URL through KONOHA_PW_BASE_URL.
-  webServer: IN_CONTAINER ? undefined : {
+  webServer: {
     command: 'node ../../src/web_server.js',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
