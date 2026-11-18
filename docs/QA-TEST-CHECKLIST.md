@@ -1,5 +1,8 @@
 # Konoha QA Verification & Test Checklist
 
+> [!IMPORTANT]
+> **This file is a versioned verification log, not a live test plan.** Only the sections for the current release are instructions; every other section records what was run at the time, against the code as it was then. A row that cites `agent-browser` or the Docker browser workspace is history — both were retired in 2.2.23 and headed QA now runs the host's own Playwright. Read a `PASS` from an older section as evidence about that release, never as validation of the current tree.
+
 Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.23). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, Playwright flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
@@ -345,12 +348,12 @@ npx aislop scan --changes
 
 | Test Item | Verification Scenario | Expected Outcome | Status |
 | :--- | :--- | :--- | :--- |
-| **Login Clean White Background** | Load `/login` in Light Mode. | Background evaluated to pure `#ffffff` (`rgb(255, 255, 255)`); dark/blue vignettes and gray corner patches removed. | `PASS` (verified in Playwright & agent-browser) |
+| **Login Clean White Background** | Load `/login` in Light Mode. | Background evaluated to pure `#ffffff` (`rgb(255, 255, 255)`); dark/blue vignettes and gray corner patches removed. | `PASS` (verified in Playwright & agent-browser; pre-2.2.23 record) |
 | **Login 3D Rasengan Palette Integration** | Cycle through all 10 themes on `/login`. | Rasengan rings, ribbons, core, particles, shards, and cracks dynamically adopt the active theme's 4-stop gradient tokens (`--rasengan-1..4`). | `PASS` (verified across all 10 themes in Playwright) |
 | **Normal Blending on White** | Inspect 3D Rasengan materials in Light Mode. | Materials use `THREE.NormalBlending` with rich saturation and opacity; does not vanish on white; no dark floor or background clears. | `PASS` (verified in `RasenganScene.js`) |
 | **Unclipped Geometry & Boundaries** | Inspect rotating rings, shockwave, and particle drift. | Frustum and container dimensions permit smooth fade falloff; zero cut-off rings, hard rectangular boxes, or clipping artifacts. | `PASS` (verified in `ThemeSwitcher.svelte` & `RasenganScene.js`) |
 | **Login Card Contrast (WCAG AA >= 4.5:1)** | Inspect card title, subtitle, label, input placeholder, input text, and submit button. | All text elements achieve `>= 4.5:1` contrast across all 10 themes in both Light and Dark mode. | `PASS` (verified in `tests/e2e/login_rasengan_themes.spec.js`) |
-| **Theme Switch Rasengan Transition** | Select new theme via theme picker modal on `/login` and `/dashboard`. | 2-second transition plays newly selected theme colors (`--rasengan-1..2`), cleans up completely without lingering DOM/canvas nodes. | `PASS` (verified in Playwright & agent-browser) |
+| **Theme Switch Rasengan Transition** | Select new theme via theme picker modal on `/login` and `/dashboard`. | 2-second transition plays newly selected theme colors (`--rasengan-1..2`), cleans up completely without lingering DOM/canvas nodes. | `PASS` (verified in Playwright & agent-browser; pre-2.2.23 record) |
 | **Input Interactivity After Transition** | Type in password input after theme transition finishes. | UI is immediately interactive; no blocking overlays or captured pointers remain. | `PASS` (verified in Playwright) |
 | **Theme Persistence** | Pick a theme on `/login` and reload page. | Reload restores the chosen theme and appearance mode from `localStorage`. | `PASS` (verified in Playwright) |
 | **Authentication Functionality** | Submit invalid passphrase, then valid bootstrap passphrase. | Invalid passphrase triggers error alert; valid passphrase unlocks secure gateway cleanly. | `PASS` (verified in `tests/e2e/login_rasengan_themes.spec.js`) |
@@ -537,7 +540,7 @@ npx aislop scan --changes
 | Feature / Verification Scope | Tool & Command | Evaluated Result | Status |
 | :--- | :--- | :--- | :--- |
 | **1. 111 CLI Subsystem Command Sweep** | `bin/cli.js` & full subcommand matrix in isolated `/tmp/` | Executed all 111 CLI commands and subcommand flags with isolated home/database fixtures; verified deterministic output, exit codes, help contracts, and zero uncaught exceptions. | `PASS` (111/111 CLI commands verified) |
-| **2. 20 Web UI Flow & Route Automation** | Playwright & agent-browser against `http://127.0.0.1:1404` | Verified all 20 web routes and interactive flows in Playwright test suite (`tests/e2e/`) with bootstrap password `konohagakure`, Argon2id auth, theme switching, and real-time SSE telemetry. | `PASS` (20/20 web flows verified) |
+| **2. 20 Web UI Flow & Route Automation** | Playwright & agent-browser against `http://127.0.0.1:1404` (pre-2.2.23 record) | Verified all 20 web routes and interactive flows in Playwright test suite (`tests/e2e/`) with bootstrap password `konohagakure`, Argon2id auth, theme switching, and real-time SSE telemetry. | `PASS` (20/20 web flows verified) |
 | **3. Authoritative Gate 1 Plan Approval** | `tests/test_sdlc_hitl.js` & `tests/test_workflow_gates.js` | Execution strictly pauses after Phase 1 for explicit human approval; autonomous settings and client YOLO flags cannot bypass; rejection triggers reject -> regenerate -> re-gate loop with refinement notes. | `PASS` (authoritative Gate 1 verified) |
 | **4. Authoritative Gate 2 Delivery Sign-Off** | `tests/test_sdlc_hitl.js` & `tests/test_workflow_gates.js` | Final delivery sign-off requires human sign-off (`1. Compact and approve` or `2. Remediation`); client autonomous/YOLO flags cannot bypass; remediation loops back to Anbu/Jonin bounded by circuit breaker. | `PASS` (authoritative Gate 2 verified) |
 | **5. Transport Failure Fail-Closed Resilience** | `tests/test_telegram_approval.js` & gate tests | When approval transports (Telegram bot, notification webhook, or interactive stream) are unavailable or fail, gates fail closed and execution remains strictly paused awaiting operator verdict. | `PASS` (fail-closed verified) |
@@ -556,7 +559,7 @@ npx aislop scan --changes
 | **1. Queue SSH Inner-Payload Guardrail** | `src/queue/worker.js:extractSshInnerCommand` & `tests/test_queue_guardrails.js` | SSH-wrapped destructive payloads (`ssh host 'rm -rf /'`) rejected as `Blocked: SSH remote command rejected by Konoha safety guardrails`; safe `bin/magento cache:flush` inner passes. | `PASS` (fail-closed verified) |
 | **2. Prompt Hook Tampering Removal** | `src/prompt_hook.js` & `tests/test_prompt_hook.js` | Deleted `_wrapSingleRtkCandidate` + load-time `ensureRtkWrapper()`; zero binary rewrites, 10 prompt_hook tests pass. | `PASS` (tampering removed) |
 | **3. Isolated CLI Sweep** | `/tmp/konoha-qa-2214` with `KONOHA_TEST_SANDBOX=1` | `status/doctor/savings/version/init/migrate --skip-embeddings` exit 0; `queue run` safe completes + destructive fails; read-only sweeps all exit 0. | `PASS` (isolated sweep verified) |
-| **4. Web UI Page-by-Page QA** | Playwright suites + agent-browser on port 1414 | All executed suites green; 17 routes browser-verified; mandatory-change gating + queue API authZ confirmed. | `PASS` (17 routes verified) |
+| **4. Web UI Page-by-Page QA** | Playwright suites + agent-browser on port 1414 (pre-2.2.23 record) | All executed suites green; 17 routes browser-verified; mandatory-change gating + queue API authZ confirmed. | `PASS` (17 routes verified) |
 | **5. Cross-Client Runtime Contract Sync** | `tests/test_version_consistency.js` & `scripts/bump_version.js --check` | Synchronized runtime contract version `2.2.14` across all 20 managed targets, client templates, and documentation. | `PASS` (2.2.14 verified) |
 | **6. Google Policy Compliance v2.2.14** | `docs/archive/security-compliance/security_compliance_report_google_policy_2.2.14_2026-10-30.md` | Published certified compliance report for v2.2.14; 0 high vulnerabilities, 100/100 `aislop` health score. | `PASS` (certified) |
 
@@ -654,7 +657,7 @@ kill $WEB_PID
 | **9. ADHD Skill Wiring (6 agents)** | `rtk node tests/test_i_have_adhd_skill.js` | 6/6 agents (genin, chunin, jonin, anbu, tokubetsu-jonin, akatsuki); byte-identical refs in template + mirror trees; sannin/kage excluded | `PASS` (verified 2026-10-30) |
 | **10. SQLite Soul Provenance** | `rtk node tests/test_soul_skill_provenance.js` | 9/9 ninja souls (roster derived from `src/canonical_agents.js`) `source=sqlite` on fresh DB with zero setup; Akatsuki security-verdict directive from SQLite | `PASS` (verified 2026-11-04) |
 | **11. SQLite Skill Provenance** | `get_skill` / `use_skills` payloads | DB rows report `sqlite_fts5`, mirror fallback explicit, contract row `runtime_contract`; both paths preserved | `PASS` (verified 2026-10-30) |
-| **12. Full-Repo Aislop Gate** | `rtk npx aislop . -d` | 100/100 Healthy · 0 errors · 0 warnings · 7.5s; only Knip `info` (optional unused-code check, no config adopted) | `PASS` (verified 2026-10-30) |
+| **12. Full-Repo Aislop Gate** | `rtk npx aislop . -d` | 100/100 Healthy · 0 errors · 0 warnings · 7.5s; only Knip `info` (optional unused-code check, no config adopted) — **superseded:** a full-repo scan now reports 99 with the one accepted `security/vulnerable-dependency` for `picomatch` (`docs/SECURITY.md` §9.1), and Knip is configured by `knip.jsonc` | `PASS` (verified 2026-10-30) |
 | **13. Socket CLI Security Scan** | `rtk socket scan create --read-only .` & `socket cdxgen` | 4 manifest files verified against Socket API, CycloneDX SBOM generated (`socket cdxgen`), 0 CVE alerts | `PASS` (verified 2026-10-31) |
 | **14. Single Boundary Header Invariant** | `src/mcp/memory_subagent_runner.js` | Single `### Strict Tool Boundaries` header (zero duplicates); role-conditional `aislop_fix` (jonin/anbu only, genin/kage read-only) verified | `PASS` (verified 2026-10-31) |
 | **15. Mandatory Framework Scripts** | `rtk pnpm run check`, `lint`, `build` | 451 JS files linted (0 errors, 0 warnings); 42 SvelteKit files checked (0 errors, 0 warnings); production build clean | `PASS` (verified 2026-10-31) |
@@ -662,7 +665,7 @@ kill $WEB_PID
 | **17. Windows 11 Child Process & DEP0190** | `src/platform_utils.js`, `bin/commands/savings.js` | Direct PE executable execution (`shell: false`); safe stringified `.cmd` dispatch; zero `DEP0190` warnings; zero `cmd.exe ETIMEDOUT` on fresh installs | `PASS` (verified 2026-10-31) |
 | **20. Code File Budget & Zero Slop** | All modified `.js`, `.ts`, `.svelte` files | Strictly `<= 700` lines per source file (`Context.svelte` 700 lines, `Docs.svelte` 664 lines; `README.md` exempt); 0 numbered slop comments | `PASS` (verified 2026-10-31) |
 | **18. Node.js >=24.0.0 Minimum Engine** | `package.json`, `init.js`, `doctor.js` | Minimum Node.js >=24.0.0 enforced across root and `apps/web`; Socket CLI vulnerability score 100/100, 0 production CVEs | `PASS` (verified 2026-10-31) |
-| **19. Web UI Playwright & agent-browser** | `tests/e2e/web_ui_e2e.spec.js` | Playwright E2E suite passed; agent-browser 0.27.0 automated navigation, title, and snapshot passed; 26 SQLite FTS5 docs verified | `PASS` (verified 2026-10-31) |
+| **19. Web UI Playwright & agent-browser** (pre-2.2.23 record) | `tests/e2e/web_ui_e2e.spec.js` | Playwright E2E suite passed; agent-browser 0.27.0 automated navigation, title, and snapshot passed; 26 SQLite FTS5 docs verified | `PASS` (verified 2026-10-31) |
 
 
 ---
@@ -1018,9 +1021,11 @@ A gate used to arrive as prose, so every client printed a numbered list and the 
 ## Section 40: Native Code Intelligence Engine & Semble Retirement (v2.2.23)
 
 > [!NOTE]
-> **Delivery & PR #16 Status (Open):** Issues `#11`, `#12`, and `#13` remain `OPEN` (`closingIssuesReferences: []` on PR #16, zero PR approvals / `reviewDecision: ""`). At audit time (`61e73b7f`), `ubuntu-latest shard 7/8` failed on missing `browser` help row until the `bin/commands/help.js` fix lands, macOS (5 shards) and Windows (16 shards) remained unverified/`IN_PROGRESS`, and `Socket Security: Pull Request Alerts` reported `FAILURE` on pre-existing transitive dependencies of `@huggingface/transformers@4.3.2` (`@emnapi/runtime`, `@img/sharp-wasm32`, `@protobufjs/codegen`, `@img/sharp-darwin-*`).
+> **Delivered.** PR #16 merged as `dff1dd68` on 2026-11-17T00:20:54Z; issues #13 and #12 closed as completed at 2026-11-17T00:26:12Z and 2026-11-17T00:26:01Z. Issue #11 was reopened after the merge and remains open for headed-browser follow-up work.
+>
+> Historical, kept for context: at audit time (`61e73b7f`, before the merge) the PR carried `closingIssuesReferences: []` and CI was still red on `ubuntu-latest` shard 7/8, macOS and Windows.
 
-Issue #13 (in-progress on PR #16) replaces the external `semble` MCP server (Python, `uvx --from semble[mcp]@latest`) with an in-process engine over Konoha's own `~/.konoha/konoha.db`. Search answers from `code_chunks_fts`, an FTS5 virtual table created in schema v6/v7, and nothing under `src/code_intel/` spawns a process or writes to an analyzed repository.
+Issue #13 replaced the external `semble` MCP server (Python, `uvx --from semble[mcp]@latest`) with an in-process engine over Konoha's own `~/.konoha/konoha.db`. Search answers from `code_chunks_fts`, an FTS5 virtual table created in schema v6/v7, and nothing under `src/code_intel/` spawns a process or writes to an analyzed repository.
 
 | # | Benchmark / Test Suite | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -1063,7 +1068,7 @@ Issue #13 (in-progress on PR #16) replaces the external `semble` MCP server (Pyt
 > **Current status — rows 1-8 below.** They record the implementation on `feat/live-browser-workspace-docs` (PR #24): headed QA runs on the host's own Playwright. Rows 5-7 cover Issue #12 and are unaffected by the browser work.
 
 > [!WARNING]
-> **Historical record — not current status.** The original note for this section described PR #16 at commit `61e73b7f`: issues `#11`, `#12`, `#13` open with `closingIssuesReferences: []`, `reviewDecision: ""`, `ubuntu-latest shard 7/8` failing on `browser` help currency, macOS and Windows unverified, and `Socket Security: Pull Request Alerts` failing on transitive dependencies of `@huggingface/transformers@4.3.2`. It is kept as history only. `konoha browser`, the Docker browser workspace, and the `noVNC` viewer it names were removed on this branch, so none of it is a QA instruction and none of its `PASS` results validate the current implementation.
+> **Historical record — not current status.** This section was written against PR #16 at commit `61e73b7f`, before that PR merged as `dff1dd68` on 2026-11-17T00:20:54Z. Its original note reported issues `#11`, `#12`, `#13` open with `closingIssuesReferences: []`, `reviewDecision: ""`, `ubuntu-latest` shard 7/8 failing on `browser` help currency, macOS and Windows unverified, and `Socket Security: Pull Request Alerts` failing on transitive dependencies of `@huggingface/transformers@4.3.2`. It is kept as history only: #12 and #13 closed on merge. `konoha browser`, the Docker browser workspace, and the `noVNC` viewer it names were removed on this branch, so none of it is a QA instruction and none of its `PASS` results validate the current implementation.
 
 > [!IMPORTANT]
 > **Historical.** `agent-browser` appears in this file only in historical records. Rows that cite `agent-browser <version>` as the verification tool predate 2.2.23 and record what was run at the time. Headed QA now runs the project's own Playwright with a visible window on the host. The short-lived container workspace and its `noVNC` viewer were removed in 2.2.23: they added a Docker requirement and a version-skew preflight to reach the same Chromium the host already had, and `playwright_ui` / `:9323` never had a listener to expose. Rows that cite `agent-browser` elsewhere (Section 27 rows 4 and 19, and the Section 36 Web UI & SvelteKit App matrix row) are likewise pre-2.2.23 records.
