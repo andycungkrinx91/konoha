@@ -61,6 +61,18 @@ for (const { glob, matched, ms } of timings) {
 }
 console.log(`  ok   pathological extglobs terminate in ${timings.map((t) => `${t.ms}ms`).join(', ')}`);
 
+// The wall clock above is a symptom; the compile output is the cause. A
+// pristine 4.0.7 emits nested quantifiers here, so this fails deterministically
+// on a loaded runner where a 500 ms budget might not.
+for (const glob of ['+(*)', '+(*a)', '*(*a)', '+(a?)']) {
+  const source = pm.makeRe(glob).source;
+  assert.ok(
+    !/\)[*+]\)/.test(source),
+    `${glob} must not compile to a nested quantifier, got ${source}`
+  );
+}
+console.log('  ok   pathological extglobs compile to literal text');
+
 // --- 3. Realistic globs keep their semantics ---------------------------------
 const globs = [
   ['**/*.js', 'src/a/b.js', true],
