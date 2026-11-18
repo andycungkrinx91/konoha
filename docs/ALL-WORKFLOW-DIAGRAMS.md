@@ -474,7 +474,7 @@ flowchart LR
     Start["QA Task Ingestion"] --> S1["1. Test Discovery<br/>(Check tests/ &amp; prevent duplicates)"]
     S1 --> S2["2. Flow Recording<br/>(Playwright captures JSON steps)"]
     S2 --> S3["3. Test Codification<br/>(qa_codify compiles Playwright spec)"]
-    S3 --> S4["4. Headless Execution<br/>(qa_e2e_run runs Playwright test)"]
+    S3 --> S4["4. Host Execution<br/>(qa_e2e_run runs the project's Playwright)"]
     S4 --> S5["5. Evidence Capping<br/>(Clean exit 0 &amp; output &lt; 2,000 chars)"]
     S5 --> S6["6. Persistence<br/>(Save run_id to SQLite sdlc_tasks)"]
     S6 --> Done["Kage Verification Sign-off"]

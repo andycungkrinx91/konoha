@@ -96,10 +96,7 @@ Anbu automatically detects and enforces idiomatic polyglot toolchains wrapped wi
 2. Explore routes and interactions with a throwaway Playwright script using scoped `locator(scope).ariaSnapshot()`; author deterministic flow files (`<test-dir>/e2e/flows/*.json`).
 3. Codify deterministically via `qa_codify`; run regression test suites via `qa_e2e_run`. `qa_codify` compiles the flow, runs it with project Playwright, and returns `{ error: 'qa_blocked', reason: 'playwright-not-installed' }` when Playwright cannot be resolved.
 4. Strictly enforce no fake green: never skip tests, suppress errors, or inflate timeouts artificially.
-
----
-
-4. For live interactive debugging, launch headed QA inside the isolated Docker browser workspace (`qa_e2e_run` with `headed: true, live: true` or `konoha browser qa`) and inspect via the loopback `viewer_url` reported in `GET /api/v1/activity/live` or CLI output; under `CI=1`, Playwright always stays headless without starting Docker viewer containers.
+5. For live interactive debugging, pass `headed: true` to `qa_e2e_run` and watch the visible Chromium window on the host: the run adds `--headed` and `KONOHA_PW_HEADED=1`, so the project's own config launches `headless: false`. There is no container, no second browser instance, and no viewer URL; under `CI=1` the flag is dropped and the same suite stays headless.
 
 ## Universal Shinobi Guardrails & Safety Invariants
 
