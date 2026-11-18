@@ -6,8 +6,9 @@
 // quantifiers and backtracks exponentially on a short crafted string.
 // patches/picomatch@4.0.7.patch makes analyzeRepeatedExtglob treat those bodies
 // as risky, so they emit literal text instead. Upstream has no release past
-// 4.0.7, so the dependency stays pinned and pnpm audit keeps one documented
-// ignore entry for an advisory this tree has already fixed.
+// 4.0.7, so the dependency stays pinned and pnpm audit keeps reporting it;
+// test_socket_security_audit.js pins the audit's advisory set to exactly this
+// one entry rather than ignoring it.
 
 const assert = require('assert');
 const { spawnSync } = require('child_process');
