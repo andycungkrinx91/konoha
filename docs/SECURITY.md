@@ -95,6 +95,16 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 - **Known Advisories Are Patched, Not Waived**: continuous automated auditing runs `pnpm audit --json` across the root and `apps/web` manifests and asserts the advisory set is *exactly* `["GHSA-fc5q-39xc-vjpf"]` — a repeated-extglob ReDoS in `picomatch <=4.0.7`, which upstream has not released past, so the resolved version string stays flagged. The code is fixed in-tree by `patches/picomatch@4.0.7.patch` and proven by `tests/test_picomatch_redos_patch.js`. There is no `audit.ignore` list: a second advisory fails the gate rather than being silently suppressed.
 - **Package Manager Mandate**: Scaffolding and installs strictly utilize `pnpm` with token-safe non-interactive flags; standalone unconstrained `npx` or `npm` fallbacks are permanently decommissioned.
 
+### 9.1 The one accepted static-scan finding: `GHSA-fc5q-39xc-vjpf`
+
+`aislop scan` reports exactly one diagnostic, `security/vulnerable-dependency` for `picomatch`. It is accepted, not suppressed — no `.aislopignore` entry, no `--ignore` flag, no baseline write. Three facts make it unavoidable:
+
+1. **No upstream fix exists.** The advisory covers `picomatch <=4.0.7` and upstream declares `patched_versions: null`. There is no version to upgrade to; `pnpm-workspace.yaml:86` pins the current release and applies `patches/picomatch@4.0.7.patch` on top.
+2. **The local patch is verified.** The patched build resolves as `picomatch@4.0.7_patch_hash=30ae93f3…` and contains `analyzeRepeatedExtglob` / `repeatedExtglobRecursion` plus the `analysis.risky` gate. `tests/test_picomatch_redos_patch.js` proves the ReDoS is gone in a child process while 20 realistic globs keep their semantics.
+3. **The scanner has no patched-dependency awareness.** aislop shells out to `pnpm audit`, which keys on the resolved version string alone, so a patched build is indistinguishable from an unpatched one.
+
+Consequence: `.aislop/config.yml` sets `ci.failBelow: 100`, and **that target is not reachable while the advisory is open** — the scan tops out at 99. Nothing fails today because aislop is not wired into any `.github/workflows/` file; if it is ever added, the gate must special-case `security/vulnerable-dependency` for `picomatch` rather than lower the threshold. See `docs/TROUBLESHOOTING.md` §"`GHSA-fc5q-39xc-vjpf` is patched, not ignored" for the advisory's history.
+
 ---
 
 ## 10. Akatsuki Security Sandbox Controls & Dual-Mode Isolation
