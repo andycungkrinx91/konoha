@@ -468,6 +468,11 @@ Konoha features an autonomous multi-archetype generator (`konoha.build_from_text
    - **The deployed copy resolves `src/` by search, not by relative path**: the CLI that ships is `.agents/plugins/konoha-mcp-guard/scripts/konoha_project_mcp_guard.js`, and that directory has no `src/` sibling, so a bare `require('../src/guardrail_hitl')` threw. Because `_runHitl` is `async`, the throw became a rejected promise and the entry point's catch set `exitCode = 2` — the same code a denial returns — with only `Cannot find module …` on stderr, so no briefing, no named alternative, and no menu. Both modules now resolve through one `_resolveSrcModule(relativePath)` candidate list walking up from `__dirname` and `cwd`, and test 6 runs the copied CLI under `--hitl` to assert the briefing itself.
    - **Drawio page 19 is the editable source** for the flow, projected to `assets/konoha-flow-19-guardrail-denial-human-in-the-loop-resolution.webp`; `docs/SECURITY.md` §14 carries the Mermaid companion and the denial-code table.
 
+43. **CI Test Timeout Is Fixed at 3600 s (Do Not Change)**:
+   - `KONOHA_TEST_TIMEOUT` and `KONOHA_SHARD_TIMEOUT` are `3600000` ms in five places — `.github/workflows/cross-platform.yml` (env, with `timeout-minutes: 60` on the shard step and a `90` job ceiling), `scripts/sandbox.js`, `scripts/windows-ci.ps1`, and `tests/run_all.js`'s `parsePositiveTimeoutMs` fallback, plus `DEFAULT_TEST_TIMEOUT_MS` in `tests/helpers/shard_timeout.js`. They are deliberately generous: a shard runs a full cross-platform suite and must not be killed mid-suite.
+   - `tests/test_test_sharding.js` asserts every one of those sites, and `tests/test_sandbox_runtime.js` asserts the container defaults. **If either fails on a timeout assertion, the timeout was changed — revert it.** Editing the assertion to match a new number converts a guard into a rubber stamp.
+   - A slow suite is fixed by making the suite faster or by sharding it, never by moving this number. Raising it hides a regression behind a longer wait; lowering it kills healthy suites under CI load.
+
 ---
 
 
@@ -971,6 +976,38 @@ The Yamanaka 3D graph validates twice — `validate_pre` before Blender refines 
 | Built spec is what is persisted | `nodeBuildBaseMesh` writes `dsl_payload_json` from the spec it actually built | The profile pass can add parts during repair, so the spec written at `validate_pre` is not necessarily the one that reached the mesh |
 
 ---
+
+## 🧬 Shared Context & Structured Judgment (v2.2.23)
+
+Two token sinks are addressed without adding a provider, a model, or a tool.
+
+### 1. Shared Context Layer (`src/mcp/shared_context.js`)
+
+Every specialist in a task re-derives facts its siblings already established, and the re-derivation is billed twice: once in the sibling's prompt, once in its output. Verified findings are now published to the task and replayed to later specialists.
+
+| Aspect | Behaviour |
+|---|---|
+| Storage | `persona_memories` with `domain='shared_task'`, `memory_type='finding'`; no new table |
+| Task identity | `source_ref` = root task id (never the per-slice dispatch id, which would defeat reuse) |
+| Producer | `report_from_agent` → `recordFinding`, delete-then-insert with an identical-content short-circuit |
+| Consumer | `_prepareAgentRun` reads, `_finalizeAgentRun` renders — the block is rendered first and its bytes reserved from the prompt ceiling, so it is never silently dropped and can never truncate the system prompt |
+| Budget | 5 items, 320 chars per snippet, ≤ 700 B hard cap; header bytes counted against the cap |
+| Isolation | Findings are excluded from every agent-facing generic recall (`excludeDomains: ['shared_task']`) so the same content is never billed twice |
+
+### 2. Structured Judgment (`src/mcp/structured_judgment.js`)
+
+Keyword routing is deterministic and free, and right most of the time. It is also sometimes provably unsure — the top two candidates within 15% of each other. Only then does the orchestrator ask the host's own model, through the existing bridge, to break the tie.
+
+- **Inherited model, no new dependency:** `model_router.resolveChatTargets()` + `sendChatMessage()`. No Jev model, no provider, no SDK.
+- **Gated:** route judgments require `delegate` mode *and* an ambiguity margin below `SJ_AMBIGUITY_MARGIN` (0.15). Explicit `/agent` slash routing and single-candidate prompts never call out.
+- **The wait is real:** the verdict is awaited before the routing payload returns, so an ambiguous dispatch pays up to `SJ_MODEL_TIMEOUT_MS` (8 s) of added latency. That is the price of a correct route on a prompt the heuristic cannot separate; a clear prompt pays nothing. A cache hit pays nothing either.
+- **Fallback is total:** every failure path returns `{ source: 'heuristic' }` and the keyword verdict stands. A model outage changes routing quality, never availability.
+- **Cached:** `sha256(prompt).slice(0,16) + candidates`, LRU 64, so a repeated dispatch is byte-identical and free. Degraded verdicts are cached too, under `SJ_FALLBACK_TTL_MS` (60 s): a retried dispatch does not re-pay for the same refusal, and a provider that recovers is picked up within the minute instead of being pinned to its first failure for the process lifetime.
+- **Advisor drift:** `evaluateWorkerTurnAsync` consults the model only when goal/summary domain overlap is thin (0 < ratio < 0.34). A model verdict is *appended* to the deterministic violations, never substituted.
+- **Metered:** both judges return the provider's `usage`; a cache hit reports `null` because it spent nothing. The execute node records it as `advisor_judge_tokens`, so the probe is charged to the turn that triggered it rather than vanishing from the budget.
+- **Steer dedupe:** `enqueueAdvisorSteer` suppresses a steer whose `(agent, violation types, directive)` signature repeats within `ADVISOR_STEER_COOLDOWN_MS` (90 s), returning the existing record. A suppressed duplicate does not re-mark the supervisor as steering.
+
+The sync `sannin` path (`runSannin`) stays heuristic-only; judgment is reached through `runSanninAsync` → `prepareAsync`, which is what `executeTool` calls.
 
 ### 📚 Official LangGraph.js Documentation Citations
 

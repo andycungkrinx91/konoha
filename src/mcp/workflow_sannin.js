@@ -49,9 +49,8 @@ function calculateAgentKeywordScore(promptLower, delegationKeywords) {
   return score;
 }
 
-function _findBestAgentFromDb(promptLower) {
-  let bestScore = 0;
-  let bestAgent = null;
+function _loadAgentScores(promptLower) {
+  const ranked = [];
   let conn = null;
   try {
     conn = getDb();
@@ -62,17 +61,36 @@ function _findBestAgentFromDb(promptLower) {
 
     for (const agent of agents) {
       const score = calculateAgentKeywordScore(promptLower, agent.delegation_keywords);
-      if (score > bestScore) {
-        bestScore = score;
-        bestAgent = agent.name;
-      }
+      if (score > 0) ranked.push({ agent: agent.name, score });
     }
   } catch (_) { /* ignore */ } finally {
     if (conn) {
       try { conn.close(); } catch (_) { /* intentional best-effort fallback */ }
     }
   }
-  return bestAgent;
+  return ranked.sort((a, b) => b.score - a.score);
+}
+
+/** Ranked keyword candidates, best first. Empty when the DB has no signal. */
+function rankAgentCandidates(promptLower) {
+  return _loadAgentScores(promptLower);
+}
+
+function _findBestAgentFromDb(promptLower) {
+  const ranked = _loadAgentScores(promptLower);
+  return ranked.length > 0 ? ranked[0].agent : null;
+}
+
+/**
+ * True when the top keyword score cannot be separated from the runner-up, i.e.
+ * the heuristic is guessing. Requires at least two scored candidates.
+ */
+function isRoutingAmbiguous(promptLower, margin = 0.15) {
+  const ranked = _loadAgentScores(promptLower);
+  if (ranked.length < 2) return false;
+  const top = ranked[0].score;
+  if (top <= 0) return false;
+  return (top - ranked[1].score) / top < margin;
 }
 
 function parseKonohaCommandInvocation(prompt = '') {
@@ -96,7 +114,7 @@ function parseKonohaCommandInvocation(prompt = '') {
   return { invocationMode: 'konoha_orchestrator', explicitSlash: false, targetAgent: null, cleanPrompt: trimmed };
 }
 
-function routeByKeywordsWithPrompt(taskDir, prompt = '') {
+function routeByKeywordsWithPrompt(taskDir, prompt = '', options = {}) {
   let p = prompt;
   if (!p) {
     const st = loadWorkflowStatus(taskDir);
@@ -108,7 +126,6 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
   if (parsed.invocationMode === 'direct_subagent' && parsed.targetAgent) {
     return parsed.targetAgent;
   }
-
   const effectiveText = parsed.cleanPrompt || p;
   const promptLower = effectiveText.toLowerCase();
   let bestAgent = _findBestAgentFromDb(promptLower);
@@ -128,25 +145,25 @@ function routeByKeywordsWithPrompt(taskDir, prompt = '') {
     'buffer overflow', 'memory allocator', 'memory leak', 'allocator', 'segfault',
     'core dump', 'valgrind', 'clang', 'c++'
   ];
-  if (systemsSignals.some(sig => promptLower.includes(sig))) {
-    bestAgent = 'anbu';
-  }
   const writeSignals = ['prd', 'write a prd', 'technical doc', 'write the doc', 'draft the doc', 'write docs', 'author', 'write a spec'];
-  if (writeSignals.some(sig => promptLower.includes(sig))) {
-    bestAgent = 'tokubetsu_jonin';
-  }
   const securitySignals = [
     'security audit', 'penetration test', 'pentest', 'red team', 'blue team',
     'vulnerability scan', 'vuln scan', 'cve audit', 'owasp check', 'security review',
     'exploit verification', 'guardian scan', 'security assessment', 'cve'
   ];
-  if (securitySignals.some(sig => promptLower.includes(sig))) {
-    bestAgent = 'akatsuki';
-  }
   const spatialSignals = ['text-to-3d', 'image-to-3d', 'blender headless', 'manifold-3d', 'export glb', '3d model'];
-  if (spatialSignals.some(sig => promptLower.includes(sig))) {
-    bestAgent = 'yamanaka';
+  // A signal override is authoritative on its own evidence, whether or not the
+  // scorer happened to agree - so track that one fired, not that the answer moved.
+  let overridden = false;
+  for (const [signals, agent] of [[systemsSignals, 'anbu'], [writeSignals, 'tokubetsu_jonin'], [securitySignals, 'akatsuki'], [spatialSignals, 'yamanaka']]) {
+    if (signals.some((sig) => promptLower.includes(sig))) {
+      bestAgent = agent;
+      overridden = true;
+    }
   }
+  // A verdict only breaks the tie the heuristics left open; the model sees the
+  // same text, so it cannot outrank a signal the scorer was overruled for.
+  if (options.precomputedAgent && !overridden) return options.precomputedAgent;
   return bestAgent;
 }
 
@@ -543,7 +560,7 @@ function _prepareSanninDispatch(prompt = null, taskDir = null, projectPath = nul
   const route = decideRoute({ prompt: effPrompt, executionTrack, workstreams: parallelWorkstreams });
   const flowHash = computeFlowHash(resolvedSessionId, taskId, effPrompt);
 
-  const rawAgent = routeByKeywordsWithPrompt(resolvedTaskDir, effPrompt);
+  const rawAgent = routeByKeywordsWithPrompt(resolvedTaskDir, effPrompt, { precomputedAgent: options.precomputedAgent });
   const selectedAgent = rawAgent.startsWith('mcp_') ? rawAgent.substring(4) : rawAgent;
   const { deniedEntry, routedSkills } = _authorizeSanninRouteSkills(effPrompt, selectedAgent);
   if (deniedEntry) {
@@ -563,7 +580,7 @@ function _prepareSanninDispatch(prompt = null, taskDir = null, projectPath = nul
   return {
     resolvedProjPath, resolvedSessionId, actClient, spawnClient, resolvedTaskDir, taskId,
     effPrompt, invocationMode, directSubagent, dorResult, executionTrack, parallelWorkstreams,
-    route, flowHash, selectedAgent, routedSkills
+    route, flowHash, selectedAgent, routedSkills, judgment: options.judgment
   };
 }
 
@@ -571,7 +588,7 @@ function _finalizeSanninDispatch(prep, envelope) {
   const {
     resolvedProjPath, resolvedSessionId, actClient, spawnClient, resolvedTaskDir, taskId,
     effPrompt, invocationMode, directSubagent, dorResult, executionTrack, parallelWorkstreams,
-    route, flowHash, selectedAgent, routedSkills
+    route, flowHash, selectedAgent, routedSkills, judgment
   } = prep;
   const agentDescriptions = _loadAgentDescriptions();
   const description = agentDescriptions[selectedAgent] || agentDescriptions[selectedAgent.replace(/_/g, '-')] || agentDescriptions[selectedAgent.replace(/-/g, '_')] || 'general-purpose delegation';
@@ -618,7 +635,7 @@ function _finalizeSanninDispatch(prep, envelope) {
     todos: (syncBundle.todos || []).map((t) => ({ id: t.id, content: t.content, status: t.status, agent: t.agent })),
     walkthrough_steps: (syncBundle.walkthrough_steps || []).map((w) => ({ id: w.id, status: w.status })),
     client_todo_directive: { native_tool: syncBundle.client_todo_directive.native_tool, progress_summary: syncBundle.client_todo_directive.progress_summary },
-    route, delegation_envelope: envelope ? { agent: envelope.agent, skills: envelope.skills } : undefined,
+    route: judgment ? { ...route, judgment } : route, delegation_envelope: envelope ? { agent: envelope.agent, skills: envelope.skills } : undefined,
     phase: 'delegation', execution_mode: route.mode, instructions: instruction, task_dir: resolvedTaskDir,
     session_id: resolvedSessionId, client: actClient, dor_result: { ready: dorResult.ready, score: dorResult.score }
   });
@@ -637,13 +654,42 @@ function runSannin(prompt = null, taskDir = null, projectPath = null, sessionId 
 const _parallelMod = require('./workflow_sannin_dispatch');
 const dispatchParallelSlices = (ws, opts) => _parallelMod.dispatchParallelSlices(ws, opts, _resolveRoutedSkills);
 const dispatchParallelSlicesAsync = (ws, opts) => _parallelMod.dispatchParallelSlicesAsync(ws, opts, _resolveRoutedSkills);
+
+/**
+ * Keyword routing is free and usually right. When the top two candidates fall
+ * within SJ_AMBIGUITY_MARGIN, ask the host model once; any failure leaves the
+ * heuristic verdict standing.
+ */
+async function _judgeAmbiguousRoute(prompt, projectPath) {
+  const empty = { source: 'heuristic', reason: 'not ambiguous' };
+  if (!prompt || typeof prompt !== 'string') return empty;
+  const parsed = parseKonohaCommandInvocation(prompt);
+  if (parsed.invocationMode === 'direct_subagent') return empty;
+  const text = parsed.cleanPrompt || prompt;
+  const executionTrack = classifyExecutionTrack(text);
+  const route = decideRoute({ prompt: text, executionTrack, workstreams: detectParallelWorkstreams(text) });
+  if (route.mode !== 'delegate') return empty;
+  const { SJ_AMBIGUITY_MARGIN, judgeRoute } = require('./structured_judgment');
+  if (!isRoutingAmbiguous(text.toLowerCase(), SJ_AMBIGUITY_MARGIN)) return empty;
+  const candidates = rankAgentCandidates(text.toLowerCase()).slice(0, 4).map((c) => c.agent);
+  if (candidates.length < 2) return empty;
+  return judgeRoute({ prompt: text, candidates, projectPath });
+}
+
+async function _prepareSanninDispatchAsync(prompt = null, taskDir = null, projectPath = null, sessionId = null, options = {}) {
+  const judgment = options.precomputedAgent ? null : await _judgeAmbiguousRoute(prompt, projectPath);
+  const opts = judgment && judgment.source === 'model' ? { ...options, precomputedAgent: judgment.agent } : options;
+  return _prepareSanninDispatch(prompt, taskDir, projectPath, sessionId, { ...opts, judgment: judgment || { source: 'heuristic', reason: 'not ambiguous' } });
+}
+
 const runSanninAsync = (prompt = null, taskDir = null, projectPath = null, sessionId = null, options = {}) =>
   _parallelMod.runSanninAsync(
-    { prepare: _prepareSanninDispatch, finalize: _finalizeSanninDispatch, buildEnvelopeAsync: buildDelegationEnvelopeAsync },
+    { prepare: _prepareSanninDispatch, prepareAsync: _prepareSanninDispatchAsync, finalize: _finalizeSanninDispatch, buildEnvelopeAsync: buildDelegationEnvelopeAsync },
     { prompt, taskDir, projectPath, sessionId, options }
   );
 
 module.exports = {
   parseKonohaCommandInvocation, routeByKeywordsWithPrompt, classifyExecutionTrack, detectParallelWorkstreams,
+  rankAgentCandidates, isRoutingAmbiguous,
   dispatchParallelSlices, dispatchParallelSlicesAsync, computeFlowHash, runSannin, runSanninAsync
 };

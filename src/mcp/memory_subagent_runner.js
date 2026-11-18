@@ -26,6 +26,7 @@ const { buildSpawnDirective } = require('./lazy_subagent');
 const { isResidentSupervisorAgent, getAdvisorAgentDefinition } = require('../canonical_agents');
 const { buildSubagentMcpBlock } = require('./subagent_tool_contract');
 const { consumeAdvisorSteerContext } = require('../workflow/kage-reviewer/advisor_monitor');
+const { resolveTaskId, readSharedContext, formatSharedContextBlock, SC_MAX_BYTES } = require('./shared_context');
 const { authorizeSkillAccess, lookupSkillTags, findUnauthorizedSkill } = require('../skill_authorization');
 const {
   slicePreservingHeadMiddleTail,
@@ -555,6 +556,13 @@ function _prepareAgentRun(agentName, task = null, context = null, constraints = 
   const effTaskDir = getResolvedTaskDir(opts.taskDir, resolvedProjPath, resolvedSessionId);
   const steerCtx = consumeAdvisorSteerContext(effTaskDir, dbAgentName);
   if (steerCtx.block) instructions = `${steerCtx.block}\n\n${instructions}`;
+  // Sibling findings, rendered in _finalizeAgentRun once the real headroom is known.
+  const sharedRows = readSharedContext({
+    taskId: resolveTaskId({ taskDir: effTaskDir }),
+    excludeAgent: dbAgentName,
+    projectPath: resolvedProjPath,
+    sessionId: resolvedSessionId
+  });
   const meta = _resolveAgentDbMetadata(dbAgentName);
   let skillsList = Array.isArray(opts.skills) && opts.skills.length > 0 ? [...opts.skills] : meta.skillsList;
   if (opts.flowHash) {
@@ -611,7 +619,7 @@ function _prepareAgentRun(agentName, task = null, context = null, constraints = 
   } catch (_) { /* ignore */ }
   return {
     agentName, opts, dbAgentName, spawnClient, resolvedProjPath, resolvedSessionId, sdlcConfig, effTaskDir, steerCtx, meta, skillsList,
-    instructions, skillsContent: _loadSkillsContent(skillsList, agentName), soulBehaviorBlock,
+    instructions, skillsContent: _loadSkillsContent(skillsList, agentName), soulBehaviorBlock, sharedRows,
     tasteSkillBlock: dbAgentName === 'jonin' ? _buildTasteSkillBlock(opts.tasteDials) : '',
     docDesignBlock: dbAgentName.includes('tokubetsu') ? _buildTokubetsuDocBlock() : ''
   };
@@ -629,7 +637,12 @@ function _finalizeAgentRun(p, projectContextBlock) {
   instructions = turnEnvelope.instructions;
   const { todoSync, quotaCheck } = turnEnvelope;
   let taskBlock = `## TASK INSTRUCTIONS\n\n${instructions}\n`;
-  const tailCeiling = PROMPT_CEILING_BYTES - SYSTEM_PROMPT_FLOOR_BYTES;
+  // Sibling findings are task-scoped and directly relevant; ambient recall is not. The
+  // block is rendered first and its bytes reserved, so a prompt that is already near the
+  // ceiling evicts background context instead of silently dropping the findings.
+  const sharedBlock = formatSharedContextBlock(p.sharedRows, SC_MAX_BYTES);
+  const promptCeiling = PROMPT_CEILING_BYTES - (sharedBlock ? Buffer.byteLength(sharedBlock, 'utf8') + 2 : 0);
+  const tailCeiling = promptCeiling - SYSTEM_PROMPT_FLOOR_BYTES;
   const fixedTail = _buildFixedTailBlocks(p.dbAgentName, p.skillsList, p.opts.flowHash);
   if (Buffer.byteLength(fixedTail + taskBlock, 'utf8') > tailCeiling) {
     instructions = truncateAtBoundary(instructions, Math.max(0, tailCeiling - Buffer.byteLength(fixedTail, 'utf8') - 24));
@@ -643,9 +656,10 @@ function _finalizeAgentRun(p, projectContextBlock) {
     tasteSkillBlock: p.tasteSkillBlock, docDesignBlock: p.docDesignBlock, skillsList: p.skillsList, skillsContent: p.skillsContent,
     effFlowHash: p.opts.flowHash, agentName: p.agentName, client: p.spawnClient, resolvedProjPath: p.resolvedProjPath,
     instructions, rawTask: p.opts.task, isChildWorker, piSubagentSupported: p.opts.piSubagentSupported,
-    maxBytes: PROMPT_CEILING_BYTES - Buffer.byteLength(tailBlocks, 'utf8') - 2
+    maxBytes: promptCeiling - Buffer.byteLength(tailBlocks, 'utf8') - 2
   });
-  const instruction = clampToBytes(`${systemPrompt}\n\n${tailBlocks}`.trim(), PROMPT_CEILING_BYTES);
+  const instruction = clampToBytes(`${systemPrompt}\n\n${tailBlocks}`.trim(), promptCeiling);
+  const finalInstruction = sharedBlock ? `${instruction}\n\n${sharedBlock}` : instruction;
   const resolvedWorktreePath = p.opts.worktree ? (typeof p.opts.worktree === 'string' ? p.opts.worktree : p.opts.worktree.worktree_path) : undefined;
   const { spawnDirective, spawnError } = _resolveSpawnDirective({
     isChildWorker, client: p.spawnClient, agent: p.dbAgentName, skills: p.skillsList,
@@ -662,7 +676,7 @@ function _finalizeAgentRun(p, projectContextBlock) {
     spawn_directive: spawnDirective, spawn_error: spawnError,
     advisor_steers_delivered: p.steerCtx.pending.length > 0 ? p.steerCtx.pending : undefined,
     todos: todoSync.todos, walkthrough_steps: todoSync.walkthrough_steps,
-    client_todo_directive: todoSync.client_todo_directive, quota_compaction: quotaCheck, instructions: instruction
+    client_todo_directive: todoSync.client_todo_directive, quota_compaction: quotaCheck, instructions: finalInstruction
   });
   logToolCall(p.agentName, `project_path=${p.resolvedProjPath} session_id=${p.resolvedSessionId} task_dir=${p.effTaskDir}`, res, p.dbAgentName);
   return res;

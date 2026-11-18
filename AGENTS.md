@@ -32,3 +32,5 @@ main agent on Antigravity IDE/CLI. Mandatory every turn.
 - **Full contract**: `get_skill('konoha/contract')`.
 <!-- KONOHA-CONTRACT-END -->
 <!-- KONOHA-END -->
+
+CI test timeout is fixed at 3600 s; never change it (see `docs/ARCHITECTURE.md`).

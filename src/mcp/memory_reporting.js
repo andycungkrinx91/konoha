@@ -10,6 +10,7 @@
 const {
   assessValidationEvidence,
   reportFromAgent,
+  reportFromAgentAsync,
   getProjectContext,
   saveProjectContext,
   queryProjectMemory
@@ -34,6 +35,7 @@ module.exports = {
   truncateAtBoundary,
   assessValidationEvidence,
   reportFromAgent,
+  reportFromAgentAsync,
   getProjectContext,
   saveProjectContext,
   queryProjectMemory,

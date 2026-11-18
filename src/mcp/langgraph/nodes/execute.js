@@ -3,7 +3,7 @@
 const fs = require('fs');
 const { loadWorkflowStatus, saveWorkflowStatus } = require('../../workflow_common');
 const { globalCircuitRegistry } = require('../../../circuit_breaker');
-const { superviseLifecycleStage, evaluateWorkerTurn } = require('../../../workflow/kage-reviewer/advisor_monitor');
+const { superviseLifecycleStage, evaluateWorkerTurnAsync } = require('../../../workflow/kage-reviewer/advisor_monitor');
 const { runAkatsukiFinalGate } = require('../../../workflow/akatsuki/workflows');
 const { runMcpAgentAsync } = require('../../memory_subagent_runner');
 const { normalizeAgentName } = require('../../../canonical_agents');
@@ -59,9 +59,10 @@ async function _executeTaskBranchConcurrently(task, idx, status, state, sliceExe
     };
   }
   const completedAt = Date.now();
-  const advisorEval = evaluateWorkerTurn({
+  const advisorEval = await evaluateWorkerTurnAsync({
     agent: task.agent || status.assigned_agent || 'anbu',
     taskId: task.id,
+    goal: status.prompt || state.prompt || '',
     delegatedTodo: task.task || '',
     summary: branchResult?.summary || `Completed ${task.task || task.id}`,
     ownedFiles: task.owned_files || [],
@@ -81,7 +82,8 @@ async function _executeTaskBranchConcurrently(task, idx, status, state, sliceExe
       completed_at: completedAt,
       elapsed_ms: Math.max(1, completedAt - startedAt),
       worktree_path: task.worktree_path || null,
-      advisor_status: advisorEval.status
+      advisor_status: advisorEval.status,
+      advisor_judge_tokens: (advisorEval.judge_usage && advisorEval.judge_usage.total_tokens) || 0
     }
   };
 }

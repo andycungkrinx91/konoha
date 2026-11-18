@@ -243,6 +243,7 @@ patchedDependencies:
   cfb@1.2.2: 86f9d4ed6439e4ce1aeb24f9beca3002e4e106e38e37879a1c3f69673b8ebae9
   docx@9.14.0: 750ce554f4284608f8748f69b03dc2cf8aa5099d856d4234654eea2f3a699a2c
   jszip@3.10.2: 89d5f11cdd849272ec38901c8e5258e275e290e93a2761ccf41ad501dbc3e05c
+  picomatch@4.0.7: 30ae93f32a6fecca7f7b3a60163a12e4b931a7a8365b757fa68936dbd3aff656
   playwright-core@1.64.1: e3a9eb0242a161d8c41248e9fcb67374728a324f7e320da22c9f52208d57f6b7
   pptxgenjs@4.0.1: 1ab83fcbdbb94c0b5f9167cdf7f9c9366490eb0a667198bd1d9515bc5c47f0af
   xlsx-populate@1.21.0: 92ac99484106ce1363351002a5892805e997b5dfde2cf73cce93467d67baa331
@@ -332,7 +333,7 @@ importers:
         version: 5.57.2
       svelte-check:
         specifier: ^4.7.7
-        version: 4.7.7(picomatch@4.0.7)(svelte@5.57.2)(typescript@6.0.3)
+        version: 4.7.7(picomatch@4.0.7(patch_hash=30ae93f32a6fecca7f7b3a60163a12e4b931a7a8365b757fa68936dbd3aff656))(svelte@5.57.2)(typescript@6.0.3)
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
@@ -1946,9 +1947,9 @@ snapshots:
 
   eventemitter3@5.0.4: {}
 
-  fdir@6.5.0(picomatch@4.0.7):
+  fdir@6.5.0(picomatch@4.0.7(patch_hash=30ae93f32a6fecca7f7b3a60163a12e4b931a7a8365b757fa68936dbd3aff656)):
     optionalDependencies:
-      picomatch: 4.0.7
+      picomatch: 4.0.7(patch_hash=30ae93f32a6fecca7f7b3a60163a12e4b931a7a8365b757fa68936dbd3aff656)
 
   fflate@0.8.3: {}
 
@@ -2184,7 +2185,7 @@ snapshots:
 
   picocolors@1.1.1: {}
 
-  picomatch@4.0.7: {}
+  picomatch@4.0.7(patch_hash=30ae93f32a6fecca7f7b3a60163a12e4b931a7a8365b757fa68936dbd3aff656): {}
 
   platform@1.3.6: {}
 
@@ -2306,12 +2307,12 @@ snapshots:
     dependencies:
       safe-buffer: '@socketregistry/safe-buffer@1.0.9'
 
-  svelte-check@4.7.7(picomatch@4.0.7)(svelte@5.57.2)(typescript@6.0.3):
+  svelte-check@4.7.7(picomatch@4.0.7(patch_hash=30ae93f32a6fecca7f7b3a60163a12e4b931a7a8365b757fa68936dbd3aff656))(svelte@5.57.2)(typescript@6.0.3):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       '@sveltejs/load-config': 0.2.3
       chokidar: 4.0.3
-      fdir: 6.5.0(picomatch@4.0.7)
+      fdir: 6.5.0(picomatch@4.0.7(patch_hash=30ae93f32a6fecca7f7b3a60163a12e4b931a7a8365b757fa68936dbd3aff656))
       picocolors: 1.1.1
       sade: 1.8.1
       svelte: 5.57.2
@@ -2347,8 +2348,8 @@ snapshots:
 
   tinyglobby@0.2.17:
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.7)
-      picomatch: 4.0.7
+      fdir: 6.5.0(picomatch@4.0.7(patch_hash=30ae93f32a6fecca7f7b3a60163a12e4b931a7a8365b757fa68936dbd3aff656))
+      picomatch: 4.0.7(patch_hash=30ae93f32a6fecca7f7b3a60163a12e4b931a7a8365b757fa68936dbd3aff656)
 
   totalist@3.0.1: {}
 
@@ -2368,7 +2369,7 @@ snapshots:
   vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0):
     dependencies:
       lightningcss: 1.33.0
-      picomatch: 4.0.7
+      picomatch: 4.0.7(patch_hash=30ae93f32a6fecca7f7b3a60163a12e4b931a7a8365b757fa68936dbd3aff656)
       postcss: 8.5.31
       rolldown: 1.2.15
       tinyglobby: 0.2.17

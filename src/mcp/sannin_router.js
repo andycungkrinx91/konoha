@@ -191,7 +191,10 @@ function buildSoulSnippet(agentName, projectPath) {
       parts.push(soul.will_of_fire.trim());
     }
     if (Array.isArray(soul.tenets) && soul.tenets.length > 0) {
-      parts.push(soul.tenets.slice(0, 2).join(' · '));
+      const rendered = soul.tenets.slice(0, 2)
+        .map((t) => (t && typeof t === 'object' ? [t.name, t.summary].filter(Boolean).join(': ') : String(t || '')))
+        .filter(Boolean);
+      if (rendered.length > 0) parts.push(rendered.join(' · '));
     }
     if (parts.length === 0) return '';
     return coverBytes(parts.join(' — '), SOUL_SNIPPET_BYTES);

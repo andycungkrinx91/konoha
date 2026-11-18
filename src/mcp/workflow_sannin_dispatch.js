@@ -66,7 +66,9 @@ async function dispatchParallelSlicesAsync(workstreams = [], sharedOptions = {},
 
 async function runSanninAsync(hooks, dispatchArgs = {}) {
   const { prompt = null, taskDir = null, projectPath = null, sessionId = null, options = {} } = dispatchArgs;
-  const prep = hooks.prepare(prompt, taskDir, projectPath, sessionId, options);
+  const prep = hooks.prepareAsync
+    ? await hooks.prepareAsync(prompt, taskDir, projectPath, sessionId, options)
+    : hooks.prepare(prompt, taskDir, projectPath, sessionId, options);
   if (prep.earlyReturn) return prep.earlyReturn;
   const envelope = await hooks.buildEnvelopeAsync({
     agentName: prep.selectedAgent,

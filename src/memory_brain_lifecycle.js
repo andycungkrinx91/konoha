@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const path = require('path');
 const { getDb, initMemoryTables } = require('./persona_memory_projects');
 
-const VALID_DOMAINS = new Set(['persona', 'project', 'episodic', 'session', 'knowledge']);
+const VALID_DOMAINS = new Set(['persona', 'project', 'episodic', 'session', 'knowledge', 'shared_task']);
 const VALID_VERIFICATION_STATUSES = new Set(['confirmed', 'unverified', 'inferred', 'disputed']);
 const VALID_LIFECYCLE_STATUSES = new Set(['active', 'superseded', 'withdrawn', 'invalidated', 'archived']);
 

@@ -173,26 +173,58 @@ function verifySocketNpmAudit() {
   console.log('✓ Socket local scan (no login required): 0 vulnerabilities across the shipped dependency set');
 }
 
+// GHSA-fc5q-39xc-vjpf is a repeated-extglob ReDoS in picomatch <= 4.0.7. Upstream
+// has published no later release, so the resolved version string stays 4.0.7 and
+// `pnpm audit` reports it however the code behaves. An audit.ignore entry would
+// silence it, but it would also silence a *second* advisory on the same package
+// without anyone noticing. So the gate pins the exact advisory set instead, and
+// tests/test_picomatch_redos_patch.js proves the tree is genuinely patched. Fix the
+// next advisory; do not append it here. This entry clears when 4.0.8 ships.
+const PINNED_AUDIT_ADVISORIES = ['GHSA-fc5q-39xc-vjpf'];
+
+// execFileSync throws on a non-zero exit, and pnpm audit exits 1 whenever any
+// advisory is present, so the JSON has to be recovered from err.stdout.
+function auditAdvisoryIds(dirArgs) {
+  let stdout = '';
+  try {
+    stdout = execFileSync(...spawnArgs('pnpm', [...dirArgs, 'audit', '--json'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 180000,
+      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' }
+    }));
+  } catch (err) {
+    if (!err.stdout) throw err;
+    stdout = err.stdout;
+  }
+  const parsed = firstJsonValue(stdout);
+  assert.ok(parsed, `pnpm audit --json produced no JSON:\n${stdout.slice(0, 800)}`);
+  return Object.values(parsed.advisories || {})
+    .map((advisory) => advisory.github_advisory_id)
+    .sort();
+}
+
 function verifyPnpmAuditMatrix() {
-  console.log('[Socket Audit] Running `pnpm audit` across root and apps/web...');
-  const rootAudit = runCommand('pnpm', ['audit']);
-  assert.ok(
-    rootAudit.includes('0 vulnerabilities') ||
-    rootAudit.includes('No vulnerabilities found') ||
-    rootAudit.includes('No known vulnerabilities found') ||
-    rootAudit.includes('All found vulnerabilities were already reviewed'),
-    `Unexpected root pnpm audit output:\n${rootAudit}`
+  console.log('[Socket Audit] Running `pnpm audit --json` across root and apps/web...');
+  const rootIds = auditAdvisoryIds([]);
+  assert.deepStrictEqual(
+    rootIds,
+    PINNED_AUDIT_ADVISORIES,
+    `Root pnpm audit advisory set changed: ${JSON.stringify(rootIds)}. ` +
+    'A new advisory must be fixed, not added to PINNED_AUDIT_ADVISORIES.'
   );
 
-  const webAudit = runCommand('pnpm', ['--dir', path.join(REPO_ROOT, 'apps', 'web'), 'audit']);
-  assert.ok(
-    webAudit.includes('0 vulnerabilities') ||
-    webAudit.includes('No vulnerabilities found') ||
-    webAudit.includes('No known vulnerabilities found') ||
-    webAudit.includes('All found vulnerabilities were already reviewed'),
-    `Unexpected apps/web pnpm audit output:\n${webAudit}`
+  const webIds = auditAdvisoryIds(['--dir', path.join(REPO_ROOT, 'apps', 'web')]);
+  assert.deepStrictEqual(
+    webIds,
+    PINNED_AUDIT_ADVISORIES,
+    `apps/web pnpm audit advisory set changed: ${JSON.stringify(webIds)}. ` +
+    'A new advisory must be fixed, not added to PINNED_AUDIT_ADVISORIES.'
   );
-  console.log('✓ Root and apps/web pnpm audit matrix clean (0 unreviewed vulnerabilities)');
+  console.log(
+    `✓ Root and apps/web audit advisory set pinned to ${PINNED_AUDIT_ADVISORIES.join(', ')}` +
+    ' (code fix proven by tests/test_picomatch_redos_patch.js)'
+  );
 }
 
 function verifySocketConfigRules() {
