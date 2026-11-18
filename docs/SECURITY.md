@@ -92,7 +92,7 @@ Konoha MCP operates as an orchestrator and tool provider across AI coding client
 ## 9. Runtime Security & Node.js CVE Mitigation
 
 - **Node.js Runtime Baseline (`>=24.0.0`)**: Shipped environments require Node.js `>=24.0.0` (verified on `v24.22.2`), providing built-in `node:sqlite` with FTS5 and mitigating upstream high-severity Brotli/TLS/DNS security advisories.
-- **Zero Known Vulnerabilities**: Verified through continuous automated auditing (`pnpm audit` reporting zero vulnerabilities across root and `apps/web` manifests).
+- **Known Advisories Are Patched, Not Waived**: continuous automated auditing runs `pnpm audit --json` across the root and `apps/web` manifests and asserts the advisory set is *exactly* `["GHSA-fc5q-39xc-vjpf"]` — a repeated-extglob ReDoS in `picomatch <=4.0.7`, which upstream has not released past, so the resolved version string stays flagged. The code is fixed in-tree by `patches/picomatch@4.0.7.patch` and proven by `tests/test_picomatch_redos_patch.js`. There is no `audit.ignore` list: a second advisory fails the gate rather than being silently suppressed.
 - **Package Manager Mandate**: Scaffolding and installs strictly utilize `pnpm` with token-safe non-interactive flags; standalone unconstrained `npx` or `npm` fallbacks are permanently decommissioned.
 
 ---
