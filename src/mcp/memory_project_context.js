@@ -101,7 +101,9 @@ function _updateWorkflowStatus(taskDir, dispatchId, agentName, finalStatus, upda
   if (dispatchId && dispatch.id && dispatch.id !== dispatchId) {
     return { error: 'dispatch_id does not match the active workflow dispatch', workflowStatus };
   }
-  if (dispatch?.agent && dispatch.agent !== agentName.replace(/_/g, '-')) {
+  // Only a supplied name can mismatch; an unattributed report is accepted and
+  // stays attributed to the dispatch that produced it.
+  if (dispatch?.agent && agentName && dispatch.agent !== agentName.replace(/_/g, '-')) {
     return { error: 'agent_name does not match the active workflow dispatch', workflowStatus };
   }
 
@@ -311,7 +313,9 @@ function _reportFromAgent(agentName, summary, status, filesCreated, rest, useMod
   }
   const safeOpts = safeTaskDir ? { ...opts, taskDir: safeTaskDir } : opts;
 
-  const { error: wfError, workflowStatus } = _updateWorkflowStatus(safeTaskDir || opts.taskDir, opts.dispatchId, opts.agentName, finalStatus, {
+  // `cleanAgent`, not `opts.agentName`: the dispatch guard below compares against
+  // the normalized name, so `mcp_kage` and `Anbu` were rejected as mismatches.
+  const { error: wfError, workflowStatus } = _updateWorkflowStatus(safeTaskDir || opts.taskDir, opts.dispatchId, cleanAgent, finalStatus, {
     summary: reportSummary, validation: opts.validation, verified, filesCreated: opts.filesCreated, filesModified: opts.filesModified
   });
   if (wfError) return JSON.stringify({ status: 'error', message: wfError });
