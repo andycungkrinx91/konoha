@@ -15,6 +15,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { startWebServer } = require('../src/web_server');
 const qaTools = require('../src/workflow/qa-automation/qa_tools');
+const { createLocalQaFixture } = require('./helpers/local_qa_fixture');
 const {
   runLiveBrowserMonitor,
   verifyInteractiveExperienceWithPlaywright
@@ -35,39 +36,9 @@ function httpCall(options, body = null) {
   });
 }
 
-/** A project-local Playwright suite whose `node_modules` is the repo's own install. */
-function makePlaywrightFixture(tmpDir, dockerMarker) {
-  const proj = path.join(tmpDir, 'fixture-proj');
-  fs.mkdirSync(path.join(proj, 'e2e'), { recursive: true });
-  fs.symlinkSync(path.join(REPO_ROOT, 'node_modules'), path.join(proj, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
-  fs.writeFileSync(path.join(proj, 'playwright.config.js'), `module.exports = {
-  testDir: './e2e',
-  reporter: 'json',
-  use: { headless: true }
-};
-`);
-  fs.writeFileSync(path.join(proj, 'e2e', 'smoke.spec.js'), `const { test, expect } = require('@playwright/test');
-test('runs on the host', async () => { expect(1 + 1).toBe(2); });
-`);
-  // Any process that shells out to `docker` lands a marker here.
-  const shimDir = path.join(tmpDir, 'shim');
-  fs.mkdirSync(shimDir, { recursive: true });
-  const shim = path.join(shimDir, process.platform === 'win32' ? 'docker.cmd' : 'docker');
-  fs.writeFileSync(
-    shim,
-    process.platform === 'win32'
-      ? `@echo %*>> "${dockerMarker}"\r\n@exit /b 1\r\n`
-      : `#!/bin/sh\necho "$@" >> "${dockerMarker}"\nexit 1\n`
-  );
-  fs.chmodSync(shim, 0o755);
-  return { proj, shimDir };
-}
-
 async function run() {
   console.log('Running test_qa_local_browser...');
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-local-browser-'));
-  const dockerMarker = path.join(tmpDir, 'docker-invocations.txt');
-  const dockerCalls = () => (fs.existsSync(dockerMarker) ? fs.readFileSync(dockerMarker, 'utf8').trim() : '');
   let srv = null;
   let testPageSrv = null;
 
@@ -90,7 +61,11 @@ async function run() {
     console.log('  ✓ container modules, image, and CLI command removed');
 
     // A real suite: the project's own Playwright, headed requested, no Docker anywhere.
-    const { proj, shimDir } = makePlaywrightFixture(tmpDir, dockerMarker);
+    const fixture = createLocalQaFixture({
+      tmpDir,
+      specSource: `const { test, expect } = require('@playwright/test');\ntest('runs on the host', async () => { expect(1 + 1).toBe(2); });\n`
+    });
+    const { proj, shimDir } = fixture;
     const prevPath = process.env.PATH;
     const prevCi = process.env.CI;
     process.env.PATH = shimDir + path.delimiter + prevPath;
@@ -105,14 +80,14 @@ async function run() {
     }
     assert.strictEqual(qaRes.status, 'passed', `local QA run failed: ${JSON.stringify(qaRes).slice(0, 600)}`);
     assert.strictEqual(qaRes.totals.passed, 1);
-    assert.strictEqual(dockerCalls(), '', 'QA must never spawn docker');
+    assert.strictEqual(fixture.dockerCalls(), '', 'QA must never spawn docker');
     assert.strictEqual(qaRes.headed, false, 'CI keeps the run headless even when headed is requested');
     assert.ok(!('live' in qaRes), 'no container-run flag belongs in the report');
     assert.ok(!('session_id' in qaRes) && !('viewer_url' in qaRes), 'no container session belongs in the report');
     console.log('  ✓ QA ran the local Playwright suite with no docker process');
 
     // Nothing answers on 127.0.0.1:4173 here, and no container is invented for it.
-    assert.strictEqual(dockerCalls(), '');
+    assert.strictEqual(fixture.dockerCalls(), '');
     console.log('  ✓ no container was created for QA execution');
 
     // Activity API keeps its auth contract and no longer ships container sessions.
@@ -210,7 +185,7 @@ async function run() {
     assert.strictEqual(monitorRes.fresh, true);
     assert.ok(monitorRes.browser_launch && 'opened' in monitorRes.browser_launch, 'the monitor reports a host browser launch');
     assert.ok(!('workspace_session' in monitorRes) && !('workspace_evidence' in monitorRes), 'no workspace session in the monitor result');
-    assert.strictEqual(dockerCalls(), '', 'the monitor must never spawn docker');
+    assert.strictEqual(fixture.dockerCalls(), '', 'the monitor must never spawn docker');
 
     const pwRes = await verifyInteractiveExperienceWithPlaywright(appUrl, { requireMotionAnd3d: false });
     assert.strictEqual(pwRes.passed, true, `Playwright verification failed: ${JSON.stringify(pwRes)}`);

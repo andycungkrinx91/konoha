@@ -646,7 +646,7 @@ kill $WEB_PID
 | **1. Upstream Pins & Licenses** | Git commit SHA & license inspection | Pinned `taste-skill@12af471` (MIT) & `anti-slop@3005235` (MIT); attribution updated in `README.md` Credits | `PASS` (verified) |
 | **2. Subagent Tool Parity** | `src/mcp/memory_subagent_runner.js` | Full manifest-driven catalog parity; role boundaries enforced; `@akatsuki` active across all 8 clients | `PASS` (verified) |
 | **3. Isolated CLI Sweep** | `/tmp/konoha-qa-2215` sandbox | `status`, `doctor`, `version` (2.2.15), `init`, `migrate`, `akatsuki` clean exit 0 | `PASS` (verified) |
-| **4. Web UI & Playwright** | `apps/web` port 1414 / 1415 | Bootstrap login (`konohagakure`), mandatory password change, 17 routes verified via Playwright & agent-browser | `PASS` (verified) |
+| **4. Web UI & Playwright** | `apps/web` port 1414 / 1415 | Bootstrap login (`konohagakure`), mandatory password change, 17 routes verified via Playwright & agent-browser (historical: `agent-browser` retired in 2.2.23) | `PASS` (verified) |
 | **5. AI Slop Scanner** | `rtk npx aislop scan --changes` | 100/100 Healthy · 0 errors · 0 warnings · 0 fixable | `PASS` (verified) |
 | **6. Dependency Audit Posture** | `rtk pnpm audit` | 0 high, 0 critical (1 pre-existing low `deepmerge` in dev-tooling); zero new production dependencies | `PASS` (verified) |
 | **7. Multi-Client Contract Parity** | `rtk node tests/test_version_consistency.js` | 20/20 managed targets synchronized to v2.2.15 | `PASS` (verified) |
@@ -938,7 +938,7 @@ Comprehensive multi-client, cross-platform verification matrix across 8 supporte
 | **Disaster Recovery & Integrity** | `PASS` | `PASS` | `PASS` | `konoha db check`, `konoha db restore`, `konoha data check/restore`, 100-byte SQLite header check | `PASS` |
 | **SQLite FTS5 & Code Search** | `PASS` | `PASS` | `PASS` | `skills_fts` (1,081 entries), `persona_memories_fts`, `code_chunks_fts`, vector index | `PASS` |
 | **Three.js 3D Viewport Pipeline** | `PASS` | `PASS` | `PASS` | `tests/test_three_asset_viewport.js`, `tests/test_yamanaka_refine_fork.js`, binary glTF 2.0 + PNG | `PASS` |
-| **Web UI & SvelteKit App** | `PASS` | `PASS` | `PASS` | Port 1404 listening, Argon2id auth (`konohagakure`), 10-theme switch, 56/56 Playwright E2E + live `agent-browser` | `PASS` |
+| **Web UI & SvelteKit App** | `PASS` | `PASS` | `PASS` | Port 1404 listening, Argon2id auth (`konohagakure`), 10-theme switch, 56/56 Playwright E2E + live `agent-browser` (historical: `agent-browser` retired in 2.2.23) | `PASS` |
 | **Workflow Diagrams & Draw.io Parity** | `PASS` | `PASS` | `PASS` | Reverted 6 `assets/*.webp` to `448d894c`, synced with Draw.io Tabs 08/09/11/13/14/16, regenerated 7 animated WebP diagrams | `PASS` |
 | **Static Code Quality & Anti-Slop** | `PASS` | `PASS` | `PASS` | `node scripts/lint.js` (706 files, 0 errors, 0 warnings), `npx aislop scan --changes` (100/100 Healthy) | `PASS` |
 | **Config Backup & Append-Only Merge** | `PASS` | `PASS` | `PASS` | `tests/test_config_backup_and_append_only.js` (SHA-256 verified backups in `~/.konoha/backups/configs/<client>/<scope>/`, syntax-aware JSON/JSONC/YAML/TOML/XML/Markdown merge) | `PASS` |
@@ -1057,13 +1057,16 @@ Issue #13 (in-progress on PR #16) replaces the external `semble` MCP server (Pyt
 | **8. Version-gated `2.2.*` Yamanaka skip & Playwright Web UI E2E** | `pnpm test:e2e` (`yamanaka_3d_studio.spec.js` skipped under `/^2\.2\./`; `hybrid_search.spec.js` 15s cold-ONNX wait) | Planned `yamanaka_3d_studio.spec.js` (2 tests) skipped automatically across all `2.2.*` releases; all non-Yamanaka Web UI E2E tests pass cleanly (`tests/test_yamanaka_*.js` skipped in `tests/run_all.js` across `2.2.*`) | `PASS` (verified 2026-11-14) |
 | **9. Supply-chain & Anti-Slop gates** | `tests/test_socket_security_audit.js`, `node scripts/lint.js`, `npx aislop scan --changes`, `pnpm pack --dry-run` | Socket CLI & `pnpm audit` report `0 high / 0 critical`; linter (`832` files) `0 errors / 0 warnings`; `aislop` `100/100 Healthy`; tarball excludes `PLAN.md` and `.omp/` | `PASS` (verified 2026-11-14) |
 
-## Section 42: Headed Browser QA & Provenance-Aware Native Knowledge Brain (Issues #11 & #12 — Open on PR #16)
+## Section 42: Headed Browser QA & Provenance-Aware Native Knowledge Brain (Issues #11 & #12)
 
 > [!NOTE]
-> **Remaining Blockers:** Issues `#11`, `#12`, and `#13` are still `OPEN` (`closingIssuesReferences: []` on PR #16, zero PR approvals / `reviewDecision: ""`). At audit time (`61e73b7f`), `ubuntu-latest shard 7/8` failed on missing `browser` help currency until the `bin/commands/help.js` fix lands, macOS (5 shards) and Windows (16 shards) remained unverified/`IN_PROGRESS`, and `Socket Security: Pull Request Alerts` failed on pre-existing transitive dependencies of `@huggingface/transformers@4.3.2`.
+> **Current status — rows 1-8 below.** They record the implementation on `feat/live-browser-workspace-docs` (PR #24): headed QA runs on the host's own Playwright. Rows 5-7 cover Issue #12 and are unaffected by the browser work.
+
+> [!WARNING]
+> **Historical record — not current status.** The original note for this section described PR #16 at commit `61e73b7f`: issues `#11`, `#12`, `#13` open with `closingIssuesReferences: []`, `reviewDecision: ""`, `ubuntu-latest shard 7/8` failing on `browser` help currency, macOS and Windows unverified, and `Socket Security: Pull Request Alerts` failing on transitive dependencies of `@huggingface/transformers@4.3.2`. It is kept as history only. `konoha browser`, the Docker browser workspace, and the `noVNC` viewer it names were removed on this branch, so none of it is a QA instruction and none of its `PASS` results validate the current implementation.
 
 > [!IMPORTANT]
-> **`agent-browser` records below are historical.** Rows that cite `agent-browser <version>` as the verification tool predate 2.2.23 and record what was run at the time. Headed QA now runs the project's own Playwright with a visible window on the host. The short-lived container workspace and its `noVNC` viewer were removed in 2.2.23: they added a Docker requirement and a version-skew preflight to reach the same Chromium the host already had, and `playwright_ui` / `:9323` never had a listener to expose.
+> **Historical.** `agent-browser` appears in this file only in historical records. Rows that cite `agent-browser <version>` as the verification tool predate 2.2.23 and record what was run at the time. Headed QA now runs the project's own Playwright with a visible window on the host. The short-lived container workspace and its `noVNC` viewer were removed in 2.2.23: they added a Docker requirement and a version-skew preflight to reach the same Chromium the host already had, and `playwright_ui` / `:9323` never had a listener to expose. Rows that cite `agent-browser` elsewhere (Section 27 rows 4 and 19, and the Section 36 Web UI & SvelteKit App matrix row) are likewise pre-2.2.23 records.
 
 | # | Test Case / Feature | Verification Method | Expected Result | Status |
 |---|---|---|---|---|
@@ -1074,6 +1077,7 @@ Issue #13 (in-progress on PR #16) replaces the external `semble` MCP server (Pyt
 | **5. Schema v7→v8→v9 migration & traceability** | `tests/test_memory_brain_migration_and_api.js`, `tests/test_schema_migrations_and_lifecycle.js`, `tests/test_schema_traceability.js` | `CURRENT_SCHEMA_VERSION = 9` (`45` raw / `33` declared tables), `memory_audit_events` & `memory_relations` created cleanly in savepoint, existing `persona_memories` backfilled, single `user_version` writer invariant preserved | `PASS` (verified) |
 | **6. Provenance, corrections, graph & provider boundary** | `tests/test_memory_brain_lifecycle_and_graph.js` | Unified `remember`/`recall` across domains, correction/supersession/withdrawal/verify/restore with append-only audit log, secret/transient boundary rejection, deterministic evidence-backed graph excluding inferred claims from confirmed facts, and optional `GBrainMemoryAdapter` isolation | `PASS` (verified) |
 | **7. Retrieval benchmark, semantic status & reversible maintenance** | `tests/test_memory_brain_retrieval_and_maintenance.js` | Confirmed phrase/AND hits outrank inferred partial hits (`MRR=1`, `stale_leaks=0`); `recallAsync` reports `semantic_applied: false` for lexical-only retrieval; `KONOHA_SEMANTIC_SEARCH` reports `semantic_status: 'disabled'` (`degraded: false`) when off and `'degraded'` (`degraded: true`) when offline and uncached; conservative maintenance dryRun/apply/revert never alters confirmed facts | `PASS` (verified) |
+| **8. Headed Chromium really launches** | `tests/test_qa_headed_smoke.js` | Linux: `Xvfb` started by the test, `CI` unset, `qa_e2e_run({ headed: true })` on a throwaway project. The spec asserts `KONOHA_PW_HEADED === '1'` and CDP `Browser.getVersion().product` starting with `Chrome/` (a headless shell reports `HeadlessChrome/`), then clicks a button and reads the DOM. A second leg with `CI=1` asserts `headed === false` and `HeadlessChrome/`. The `docker` shim marker stays empty in both legs; macOS and Windows report `SKIP` | `PASS` (headed launch verified on the host; CI leg unverified) |
 
 ---
 
