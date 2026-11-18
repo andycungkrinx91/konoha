@@ -41,18 +41,6 @@ export interface FormDialogOptions {
   onSubmit?: (values: Record<string, any>) => Promise<void> | void;
 }
 
-export interface PromptOptions {
-  title: string;
-  message?: string;
-  placeholder?: string;
-  defaultValue?: string;
-  inputType?: 'text' | 'password' | 'number' | 'email' | 'url';
-  required?: boolean;
-  submitText?: string;
-  cancelText?: string;
-  validate?: (value: string) => string | null | undefined;
-}
-
 type DialogQueueItem =
   | {
       type: 'confirm';
@@ -148,29 +136,6 @@ class DialogManager {
     });
   }
 
-  prompt(options: PromptOptions): Promise<string | null> {
-    const field: FormFieldConfig = {
-      name: 'input',
-      label: options.title,
-      type: options.inputType || 'text',
-      placeholder: options.placeholder,
-      defaultValue: options.defaultValue || '',
-      required: options.required,
-      validate: options.validate ? (val) => options.validate!(String(val || '')) : undefined
-    };
-
-    return this.formDialog({
-      title: options.title,
-      message: options.message,
-      fields: [field],
-      submitText: options.submitText || 'OK',
-      cancelText: options.cancelText || 'Cancel'
-    }).then((res) => {
-      if (!res) return null;
-      return String(res.input !== undefined ? res.input : '');
-    });
-  }
-
   async resolveCurrent(result: any) {
     const item = this._current;
     if (!item) return;
@@ -222,5 +187,4 @@ class DialogManager {
 export const dialogManager = new DialogManager();
 
 export const confirm = (options: ConfirmOptions) => dialogManager.confirm(options);
-export const prompt = (options: PromptOptions) => dialogManager.prompt(options);
 export const formDialog = (options: FormDialogOptions) => dialogManager.formDialog(options);

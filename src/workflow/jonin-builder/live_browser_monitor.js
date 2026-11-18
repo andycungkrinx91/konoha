@@ -4,6 +4,7 @@
  * Konoha Jonin Live Browser Monitor & Interactive Motion/3D Quality Gate (`v2.2.22`)
  * - Polls dev server readiness (`http://localhost:<port>`)
  * - Auto-opens visible system browser (`xdg-open`, `open`, `cmd /c start`) when `autoOpen !== false && !process.env.CI`
+ * - Host-only: no container, no second browser; a headed run uses `verifyInteractiveExperienceWithPlaywright({ headless: false })`
  * - Verifies `<meta name="generator" content="Build by konoha">` and footer text `Build by konoha`
  * - Audits zero emoji characters, responsive layout across 375x812, 768x1024, and 1440x900 viewports,
  *   and the 10-point Motion & Interactive 3D Quality Benchmark via Playwright Chromium.
@@ -328,57 +329,17 @@ async function verifyInteractiveExperienceWithPlaywright(target = {}, options = 
   }
 }
 
-async function _launchDockerDevPreview(options, url, buildId) {
-  const { defaultBrowserSessionManager } = require('../qa-automation/browser_session_manager');
-  const mgr = options.sessionManager || defaultBrowserSessionManager;
-  try {
-    const workspaceSession = await mgr.createSession({
-      sessionId: options.sessionId || undefined,
-      purpose: 'frontend-dev',
-      projectPath: options.projectPath || null,
-      targetUrl: url,
-      buildId,
-      reuse: options.reuse !== false
-    });
-    return {
-      workspaceSession,
-      browserLaunch: {
-        opened: true,
-        mode: 'docker-headed',
-        session_id: workspaceSession.session_id,
-        viewer_url: workspaceSession.viewer_url,
-        vnc_password: workspaceSession.vnc_password,
-        reused: Boolean(workspaceSession.reused)
-      }
-    };
-  } catch (err) {
-    return {
-      workspaceSession: null,
-      browserLaunch: { opened: false, mode: 'docker-headed', error: err.message }
-    };
-  }
-}
-
 async function runLiveBrowserMonitor(options = {}) {
   const url = options.url || `http://localhost:${options.port || 3000}`;
   const htmlOverride = typeof options.html === 'string' ? options.html : null;
   const buildId = String(options.buildId || `live-${Date.now().toString(36)}`);
-  const isCi = Boolean(process.env.CI || process.env.KONOHA_HEADLESS_TEST === '1' || options.headless === true);
   const serverState = htmlOverride === null
     ? await waitForDevServer(url, options)
     : { ready: true, attempts: 0, status: 200, html: htmlOverride || '' };
 
-  let workspaceSession = null;
-  let browserLaunch = { opened: false, skipped_reason: 'server_not_ready' };
-  const wantDockerWorkspace = options.workspaceMode === 'docker-headed' || (options.liveWorkspace === true && !isCi);
-
-  if (serverState.ready && wantDockerWorkspace && !isCi) {
-    const launchRes = await _launchDockerDevPreview(options, url, buildId);
-    workspaceSession = launchRes.workspaceSession;
-    browserLaunch = launchRes.browserLaunch;
-  } else if (serverState.ready) {
-    browserLaunch = openSystemBrowser(url, options);
-  }
+  const browserLaunch = serverState.ready
+    ? openSystemBrowser(url, options)
+    : { opened: false, skipped_reason: 'server_not_ready' };
 
   const inspection = serverState.ready
     ? inspectRenderedHtml(serverState.html, options.viewports, options)
@@ -400,7 +361,6 @@ async function runLiveBrowserMonitor(options = {}) {
     verified_at: new Date().toISOString(),
     server_ready: serverState.ready,
     browser_launch: browserLaunch,
-    workspace_session: workspaceSession,
     inspection
   };
 }

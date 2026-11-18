@@ -9,12 +9,16 @@
  * connectors are read from `mxCell` geometry, and the animation only adds a staged
  * reveal plus a travelling pulse along each already-rounded path.
  *
- * Union of tabs across both drawio files = 19 diagrams (the production file re-states
- * the same 18 pages with one extra security box and adds page 19 for the local Web UI
- * ingress topology, so only that page is rendered additionally).
+ * Union of tabs across both drawio files = 20 diagrams: `konoha-architecture.drawio`
+ * defines pages 1-19, and `konoha-infrastructure-architecture.drawio` re-draws 17 of
+ * them plus its own `19 Authenticated Local Web UI & Ingress Queue` — the one page
+ * with no architecture-edition counterpart. Six of the 20 assets are Tokubetsu-owned
+ * (rendered by generate_tokubetsu_flow_webp.js instead), so this script projects the
+ * other 14. `konoha-anbu-flow.webp` in TOKUBETSU_OWNED_ASSETS matches no tab: it is a
+ * Tokubetsu-only asset, which is why that set has seven names and the union is six.
  *
  * Usage:
- *   node scripts/generate_drawio_flow_webp.js            # render all 19 tabs
+ *   node scripts/generate_drawio_flow_webp.js            # render all 14 projected tabs
  *   node scripts/generate_drawio_flow_webp.js --only=13  # render matching tabs only
  *   node scripts/generate_drawio_flow_webp.js --list     # print the manifest, no render
  *   node scripts/generate_drawio_flow_webp.js --probe=13 # geometry probe, no encode
@@ -66,7 +70,13 @@ function filterTargets(manifest, argv) {
   if (probe) return { list: [], targets: manifest.filter((m) => m.page.name.startsWith(probe) || m.asset.includes(probe)) };
   const only = (argv.find((a) => a.startsWith('--only')) || '').split('=')[1];
   if (!only) return { list: [], targets: manifest.filter((m) => !TOKUBETSU_OWNED_ASSETS.has(m.asset)) };
-  return { list: [], targets: manifest.filter((m) => m.page.name.startsWith(only) || m.asset.includes(only)) };
+  const matched = manifest.filter((m) => m.page.name.startsWith(only) || m.asset.includes(only));
+  const owned = matched.filter((m) => TOKUBETSU_OWNED_ASSETS.has(m.asset)).map((m) => m.asset);
+  if (owned.length && !matched.some((m) => !TOKUBETSU_OWNED_ASSETS.has(m.asset))) {
+    throw new Error(`--only=${only} matches only Tokubetsu-owned assets (${owned.join(', ')}); `
+      + `render them with node scripts/generate_tokubetsu_flow_webp.js --only=${only}`);
+  }
+  return { list: [], targets: matched.filter((m) => !TOKUBETSU_OWNED_ASSETS.has(m.asset)) };
 }
 
 /** Runs inside the page: reports text clipping, agent tags, canvas overflow and reveal state. */

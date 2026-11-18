@@ -143,41 +143,42 @@ function _evaluateAkatsukiPreGate(state, status, projectPath, taskDir) {
   return { akatsukiGate, akatsukiPassed };
 }
 
-async function reviewNode(state) {
-  const taskDir = state.taskDir || '';
-  if (taskDir) fs.mkdirSync(taskDir, { recursive: true });
-  const status = loadWorkflowStatus(taskDir) || state.status || {};
-  const rootId = process.env.KONOHA_TASK_ID || state.threadId || status.task_id || path.basename(taskDir);
-  const projectPath = state.projectPath || status.project_path || process.cwd();
-
-  // Delegation integrity: review may only judge work that subagents actually
-  // reported. Without this guard the graph raised Gate 2 "Delivery Sign-Off" on
-  // tasks that were still `pending` with `completed_dispatches: []` — the main
-  // agent had executed nothing, yet the task looked ready to ship.
+/**
+ * Delegation integrity: review may only judge work that subagents actually
+ * reported. Without this guard the graph raised Gate 2 "Delivery Sign-Off" on
+ * tasks that were still `pending` with `completed_dispatches: []` — the main
+ * agent had executed nothing, yet the task looked ready to ship.
+ * @returns {object|null} the dispatch result when work is still pending
+ */
+function _delegationGuard(state, status, taskDir) {
   const pendingTasks = (status.tasks || []).filter((t) => t.status !== 'completed');
-  if (pendingTasks.length > 0) {
-    status.phase = 'execute';
-    status.hitl_gate = null;
-    if (taskDir) saveWorkflowStatus(taskDir, status);
+  if (pendingTasks.length === 0) return null;
+  status.phase = 'execute';
+  status.hitl_gate = null;
+  if (taskDir) saveWorkflowStatus(taskDir, status);
 
-    const payload = {
-      status,
-      phase: 'execute',
-      hitlPending: false,
-      hitlStage: null,
-      delegationPending: true,
-      pending_task_ids: pendingTasks.map((t) => t.id),
-      error: null,
-    };
-    return finalizeNodeResult(state, payload, 'node_dispatch', {
-      resumeNode: 'node_dispatch',
-      source: { delegationPending: true, pending: payload.pending_task_ids },
-    });
-  }
+  const payload = {
+    status,
+    phase: 'execute',
+    hitlPending: false,
+    hitlStage: null,
+    delegationPending: true,
+    pending_task_ids: pendingTasks.map((t) => t.id),
+    error: null,
+  };
+  return finalizeNodeResult(state, payload, 'node_dispatch', {
+    resumeNode: 'node_dispatch',
+    source: { delegationPending: true, pending: payload.pending_task_ids },
+  });
+}
 
-  // Re-run the slop gate on every review pass. Confidence must reflect the code
-  // as it is now; caching it meant a run that started below 98% remediated 7 times
-  // against a frozen score and could never recover, even after the code was fixed.
+/**
+ * Re-run the slop gate on every review pass. Confidence must reflect the code
+ * as it is now; caching it meant a run that started below 98% remediated 7 times
+ * against a frozen score and could never recover, even after the code was fixed.
+ * @returns {boolean} true when the gate ran enforced-but-bypassed for a test run
+ */
+function _applySlopGate(projectPath, status) {
   let aislopTestBypass = false;
   try {
     const gateRes = runAislopGate(projectPath, status);
@@ -200,6 +201,20 @@ async function reviewNode(state) {
     status.ai_slop_findings = Math.max(1, status.ai_slop_findings || 0);
     status.ai_slop_error = err && err.message ? err.message : String(err);
   }
+  return aislopTestBypass;
+}
+
+async function reviewNode(state) {
+  const taskDir = state.taskDir || '';
+  if (taskDir) fs.mkdirSync(taskDir, { recursive: true });
+  const status = loadWorkflowStatus(taskDir) || state.status || {};
+  const rootId = process.env.KONOHA_TASK_ID || state.threadId || status.task_id || path.basename(taskDir);
+  const projectPath = state.projectPath || status.project_path || process.cwd();
+
+  const delegationBlocked = _delegationGuard(state, status, taskDir);
+  if (delegationBlocked) return delegationBlocked;
+
+  const aislopTestBypass = _applySlopGate(projectPath, status);
 
   const rootRecord = sdlcManager.getTask(rootId);
   if (status.confidence === undefined && rootRecord && rootRecord.confidence !== undefined) {

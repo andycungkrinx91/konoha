@@ -654,7 +654,7 @@ Konoha's canonical orchestration pipeline (`src/mcp/workflow_runner.js`) is an 8
    - `document` (`tokubetsu-jonin`): Technical runbook, API documentation, and changelog generation in `final_docs.md`. Strictly enforces white/pearl canvas, font pairings, and AI fingerprint risk < 3.0%.
    - `review` (`kage`, `akatsuki`, `@advisor`): Pre-delivery verification gate consisting of:
      - Akatsuki Blue-Team Security Gate (`akatsuki_review.json`, 0 Critical/High CVEs).
-     - Two-Step Zero-AI-Slop Pre-Gate (Step 1 `aislop_scan --changes` score 100/100, Step 2 `anti_slop` MCP tool verification).
+     - Two-Step Zero-AI-Slop Pre-Gate (Step 1 `aislop_scan --changes` score 100/100, Step 2 `anti_slop` MCP tool verification). The one full-repo exception to that 100 is the static `picomatch` advisory — no upstream fix exists and the repo patch is verified, so `docs/SECURITY.md` §9.1 records it instead of suppressing it.
      - Socket.dev supply chain audit and host-native `@advisor` signoff.
      - Calculated confidence score $\ge 98.0\%$.
      - Autonomous Remediation Loop to Anbu/Jonin if security or slop findings emerge (bounded by circuit breaker `slop_cycles <= 7`).

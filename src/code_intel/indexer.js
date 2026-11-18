@@ -546,6 +546,52 @@ function indexRepository(options = {}) {
   }
 }
 
+/**
+ * Parses every file into an index op, yielding to the event loop every 4 files
+ * or 8ms so concurrent MCP requests stay responsive.
+ */
+async function _indexFilesAsync(ctx, options, fileDelayMs, ops) {
+  let lastYieldAt = Date.now();
+  for (let idx = 0; idx < ctx.files.length; idx++) {
+    _checkAbort(options.signal, ctx.deadlineMs);
+    const file = ctx.files[idx];
+    if (fileDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, fileDelayMs));
+    const op = await _prepareFileOpAsync({
+      conn: ctx.conn,
+      rootHash: ctx.rootHash,
+      file,
+      options,
+      stats: ctx.stats,
+      scanTracker: ctx.scanTracker
+    });
+    if (op) ops.push(op);
+    if (typeof options.onProgress === 'function' && (idx === 0 || (idx + 1) % 25 === 0 || idx + 1 === ctx.files.length)) {
+      options.onProgress(`parsed ${idx + 1}/${ctx.files.length}`);
+    }
+    if ((idx + 1) % 4 === 0 || Date.now() - lastYieldAt >= 8) {
+      await _yieldEventLoop();
+      lastYieldAt = Date.now();
+    }
+  }
+}
+
+/**
+ * Embeds pending chunks. An unavailable embedding runtime degrades to keyword
+ * search only; aborts and timeouts still propagate so the caller can cancel.
+ */
+async function _embedPhaseAsync(ctx, ops, options) {
+  try {
+    return await _preparePendingEmbeddings(ctx, ops, options);
+  } catch (err) {
+    if (err && (err.code === 'ABORT_ERR' || err.code === 'ETIMEDOUT')) throw err;
+    const reason = (err && err.message) || 'embedding runtime unavailable';
+    return {
+      embedStats: { embeddedChunks: 0, embeddingModel: null, semanticSkipped: reason, semantic_skipped: reason },
+      existingChunkEmbeddings: []
+    };
+  }
+}
+
 async function indexRepositoryAsync(options = {}) {
   const ctx = await _prepareIndexContextAsync(options);
   // ponytail: test-only pacing. The cooperative-yield test has to prove
@@ -556,39 +602,8 @@ async function indexRepositoryAsync(options = {}) {
   const fileDelayMs = Number.parseInt(process.env.KONOHA_INDEX_FILE_DELAY_MS || '', 10) || 0;
   try {
     const ops = [];
-    let lastYieldAt = Date.now();
-    for (let idx = 0; idx < ctx.files.length; idx++) {
-      _checkAbort(options.signal, ctx.deadlineMs);
-      const file = ctx.files[idx];
-      if (fileDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, fileDelayMs));
-      const op = await _prepareFileOpAsync({
-        conn: ctx.conn,
-        rootHash: ctx.rootHash,
-        file,
-        options,
-        stats: ctx.stats,
-        scanTracker: ctx.scanTracker
-      });
-      if (op) ops.push(op);
-      if (typeof options.onProgress === 'function' && (idx === 0 || (idx + 1) % 25 === 0 || idx + 1 === ctx.files.length)) {
-        options.onProgress(`parsed ${idx + 1}/${ctx.files.length}`);
-      }
-      if ((idx + 1) % 4 === 0 || Date.now() - lastYieldAt >= 8) {
-        await _yieldEventLoop();
-        lastYieldAt = Date.now();
-      }
-    }
-    let embedStats = { embeddedChunks: 0, embeddingModel: null };
-    let existingChunkEmbeddings = [];
-    try {
-      const prep = await _preparePendingEmbeddings(ctx, ops, options);
-      embedStats = prep.embedStats;
-      existingChunkEmbeddings = prep.existingChunkEmbeddings;
-    } catch (err) {
-      if (err && (err.code === 'ABORT_ERR' || err.code === 'ETIMEDOUT')) throw err;
-      const reason = (err && err.message) || 'embedding runtime unavailable';
-      embedStats = { embeddedChunks: 0, embeddingModel: null, semanticSkipped: reason, semantic_skipped: reason };
-    }
+    await _indexFilesAsync(ctx, options, fileDelayMs, ops);
+    const { embedStats, existingChunkEmbeddings } = await _embedPhaseAsync(ctx, ops, options);
     await _yieldEventLoop();
     const { counts, removed, edgesResolved } = _commitIndexTransaction(
       ctx,

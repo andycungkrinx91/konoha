@@ -1735,19 +1735,7 @@
           },
           "headed": {
             "type": "boolean",
-            "description": "Run Playwright in headed mode inside an isolated browser workspace when not in CI."
-          },
-          "live": {
-            "type": "boolean",
-            "description": "Attach or launch a host-accessible live headed browser session."
-          },
-          "session_id": {
-            "type": "string",
-            "description": "Existing live browser session ID to reuse."
-          },
-          "playwright_ui": {
-            "type": "boolean",
-            "description": "Optionally expose loopback-bound Playwright UI Mode."
+            "description": "Run the project's local Playwright Chromium with a visible window when not in CI."
           },
           "timeout_ms": {
             "type": "integer",

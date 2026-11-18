@@ -34,6 +34,17 @@ Konoha is one product with five surfaces. Each feature section names its surface
 | Telegram | remote chat bridge | `konoha telegram` |
 | MCP | tools exposed to AI harnesses | configured by `konoha init` |
 
+### Start here
+
+| If you want to… | Read |
+|---|---|
+| Install Konoha and see it work once | [§2 Install](#2-install) → [§3 First run](#3-first-run) |
+| Understand what a "task", "gate", or "surface" is | [§4 Core concepts](#4-core-concepts) |
+| Look up one command or flag | [§5 CLI reference](#5-cli-reference) |
+| Watch a browser task run in a real Chromium | [§7.2.1 Watching a build in a real browser](#721-watching-a-build-in-a-real-browser) |
+| Diagnose a broken install | [§13 Diagnostics and health](#13-diagnostics-and-health) → [§14 Troubleshooting](#14-troubleshooting) |
+| Know which numbers can be quoted | [§12 Token economy and what the numbers mean](#12-token-economy-and-what-the-numbers-mean) |
+
 ## Contents
 
 1. What Konoha is
@@ -222,7 +233,7 @@ physical Windows hardware and not on Docker Desktop for Windows, so confirm with
 report anything that differs.
 
 What does back those platforms is the CI matrix, not this manual alone: `.github/workflows/cross-platform.yml` runs the
-install, lint, sharded suite (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 5 shards), and fresh-install smoke step on `ubuntu-latest`, `windows-latest`, and `macos-latest` for every push and pull
+install, lint, sharded suite (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 4 shards), and fresh-install smoke step on `ubuntu-latest`, `windows-latest`, and `macos-latest` for every push and pull
 request, on manual dispatch, and nightly at 02:00 UTC. Locally, all three environments have a verification path: Linux (`pnpm test:sandbox` / `pnpm ci:act`), Windows (`docker/windows-vm/oem/run-ci.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` for the clean-room container gate on Apple silicon, plus native replay on a Mac or the symlinked-`HOME` proxy on Linux; see `docs/CI.md`).
 
 ### 2.6 Installing 2.2.23 from source
@@ -517,7 +528,6 @@ Global options, valid anywhere: `--force` (clean re-installation, used with `ini
 | `akatsuki` | red-team / blue-team lab | `status`, `init`, `tools` |
 | `auth` | web console credentials | `konoha auth reset` |
 | `bridge` | bridge router to local and remote models | `status`, `list`, `create`, `delete`, `enable`, `disable`, `start`, `stop`, `restart`, `models` |
-| `browser` | live headed Docker browser workspace | `start`, `status`, `logs`, `stop`, `cleanup`, `qa` |
 | `clean` | reclaim `~/.konoha` space | removes stale backups and dead PIDs |
 | `config` | CLI configuration | `list`, `get`, `set`, `unset`, `backup`, `backups`, `restore` |
 | `data` | session history, knowledge brain, DB size | `view`, `memory`, `add`, `search`, `delete`, `correct`, `withdraw`, `history`, `graph`, `maintain`, `revert`, `export`, `prune`, `vacuum`, `backup`, `rebuild-fts`, `check`, `restore` |
@@ -784,6 +794,14 @@ Logging out is triggered from the sidebar menu. Posting to `/logout` clears the 
 
 `/3d`, `/3d/setup` and `/3d/maker` exist in the build but are hidden: `SHOW_3D_STUDIO_MENU = false`
 (`apps/web/src/routes/+layout.svelte:54`). The APIs remain; the menu does not. Out of scope for this manual.
+
+### 7.2.1 Watching a build in a real browser
+
+Headed QA runs in your own Chromium, so there is nothing to show inside `/activity`: the window is the browser you
+already have. `qa_e2e_run({ headed: true })` starts it, `CI=1` keeps pipelines headless, and the Jonin preview opens
+the page with your system browser rather than launching a second instance.
+`docs/QA-AUTOMATION.md` covers execution, artifacts, and the headed flag; `docs/TROUBLESHOOTING.md` covers the
+`qa_blocked` and no-window cases.
 
 ### 7.3 Authentication and the bootstrap gate
 
@@ -1609,7 +1627,7 @@ lives in `docs/SecurityCompliance/`, and the interesting findings there concern 
 | Path | Contents |
 |---|---|
 | `~/.konoha/` | runtime: scripts, `server.js`, `migrate.js`, `migrations/`, `apps/web/`, `assets/`, `patches/` |
-| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 45 base tables (33 declared) in schema v8 |
+| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 45 base tables (33 declared) in schema v9 |
 | `~/.konoha/config.json` | overrides for 16.2 |
 | `~/.konoha/web_auth.json` | password hash, mode `0600` |
 | `~/.konoha/.vault_key` | AES key for stored secrets, mode `0600` |

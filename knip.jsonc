@@ -1,0 +1,72 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+
+  // pnpm monorepo: the root package plus apps/*. Knip runs from the repo root
+  // and reads pnpm-workspace.yaml through the `workspaces` map below.
+  //
+  // Every ignore carries its reason. If you add one, say why the tool is wrong
+  // for this repo — not that the finding is inconvenient.
+
+  // Exported only so a sibling declaration in the same file can name it
+  // (Svelte state types, CommonJS section exports). Still reachable, not dead.
+  "ignoreExportsUsedInFile": true,
+
+  "workspaces": {
+    ".": {
+      // Entry points Knip cannot infer: the CLI launcher, the standalone
+      // scripts, the test suite, and the plugin loaded by path from a client
+      // config rather than by module resolution.
+      "entry": [
+        "scripts/**/*.js",
+        "tests/**/*.js",
+        ".agents/plugins/**/*.js",
+        // Installed by path into client configs (harness hooks, bridge daemon,
+        // reminder stub). Nothing in src/ requires them, so they need explicit
+        // entry points.
+        "src/prompt_hook.js",
+        "src/antigravity_tool_sanitize_hook.js",
+        "src/cursor_bootstrap.js",
+        "src/file_tools_launcher.js",
+        "src/mcp/subagent_worker.js",
+        "src/bridge/manager.js",
+        "src/bridge/workspace.js",
+        "src/workflow/sannin-orchestrator/workflow_reminder.js"
+      ],
+      "project": ["src/**/*.js", "bin/**/*.js", "scripts/**/*.js", "tests/**/*.js"],
+      // Skill trees are shipped content read at runtime from the skills DB, not
+      // require()d. Their .js helpers exist for the skill author, not the host.
+      "ignore": ["src/templates/skills/**"],
+      // `act` runs GitHub Actions locally; it is a documented dev prerequisite
+      // (docs/CONTRIBUTING.md), not an npm package.
+      "ignoreBinaries": ["act"],
+      // `src/mcp/skills_search.js:31` resolves `./yaml_utils` from the caller's
+      // cwd so a vendored assistant can drop in its own copy at runtime.
+      "ignoreUnresolved": ["./yaml_utils"],
+      "ignoreDependencies": [
+        // Provided by the VS Code extension host; already declared "provided"
+        // in .aislop/config.yml. Never installed.
+        "vscode",
+        // Bundled for the DOCX/XLSX generators' own transitive use; root lists it
+        // so npm pack ships it. No root source imports it.
+        "cfb",
+        // Documented gap: six asset generators under scripts/ hard-require these
+        // but neither is declared or installed. See docs/diagrams/README.md.
+        "@napi-rs/canvas",
+        "gifenc",
+        // Test-only pins: the tests read package.json out of the patched/
+        // overridden install to assert the local patch is still in effect.
+        "image-size",
+        "vite",
+        "picomatch",
+        "lodash",
+        "jszip"
+      ]
+    },
+
+    "apps/web": {
+      "entry": ["src/routes/**/+*.svelte", "src/app.html", "scripts/**/*.js"],
+      "project": ["src/**/*.{js,ts,svelte,css}", "*.js", "scripts/**/*.js"],
+      "ignoreDependencies": []
+    }
+  }
+}

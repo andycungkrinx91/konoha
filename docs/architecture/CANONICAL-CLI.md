@@ -24,7 +24,6 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 | `konoha akatsuki` | `<subcommand> [options]` | Manage Akatsuki red-team security controls, lab sandbox, and tool isolation |
 | `konoha auth` | `reset` | Reset local Web console administrative password to default (`konohagakure`) |
 | `konoha bridge` | `<subcommand> [options]` | Manage Konoha Bridge Router (status, list, create, delete, enable, disable, start, stop, restart, models) |
-| `konoha browser` | `<start\|status\|logs\|stop\|cleanup\|qa> [options]` | Manage isolated live headed Docker browser workspaces and QA execution |
 | `konoha clean` | `[--no-vacuum]` | Clean stale runtime artifacts, dead PIDs, old backups, and reclaim disk space in `~/.konoha/` |
 | `konoha config` | `<list\|get\|set\|unset\|backup\|backups\|restore> [args]` | Manage global config in `~/.konoha/config.json` and client configuration backups/restores |
 | `konoha data` | `<subcommand> [options]` | Manage SQLite session history, Schema v8 knowledge brain (correct, withdraw, history, graph, maintain, revert), backup, and FTS5 |
@@ -170,15 +169,7 @@ The Konoha CLI (`konoha` or `node bin/cli.js`) exposes strictly one canonical co
 - `konoha webhook delete <id>` — Remove a webhook integration.
 - `konoha webhook enable <id>` / `disable <id>` — Toggle webhook delivery.
 
-### 2.15 Live Headed Browser Workspace (`konoha browser`)
-- `konoha browser start [--url <url>] [--project <dir>] [--playwright-ui] [--build-image] [--no-reuse]` — Start or reuse an isolated headed Chromium workspace container bound to `127.0.0.1` (`noVNC` viewer).
-- `konoha browser status` — Show Docker availability and active/stopped browser workspace sessions.
-- `konoha browser logs <session_id> [--tail <n>]` — Print container browser workspace logs.
-- `konoha browser stop <session_id>` — Stop and remove a browser workspace session.
-- `konoha browser cleanup` — Reap expired or orphaned managed browser workspace containers.
-- `konoha browser qa [--project <dir>] [--grep <pattern>] [--headed] [--playwright-ui]` — Run bounded Playwright QA with optional headed/live workspace integration.
-
-### 2.16 Client Configuration Backup & Restore (`konoha config`)
+### 2.14 Client Configuration Backup & Restore (`konoha config`)
 - `konoha config backup --client=<name|all> [--scope=<global|project|all>]` — Back up client configurations under `~/.konoha/backups/configs/`.
 - `konoha config backups [--client=<name|all>]` — List recorded configuration snapshots.
 - `konoha config restore --client=<name|all> [--scope=<global|project|all>] [--from <snap> --to <target>]` — Restore client configuration from backup.
@@ -210,7 +201,7 @@ Three install modes, never blurred:
 |---|---|
 | Linux x64 | **yes** — `ubuntu-latest` 8/8 shards plus the full-suite job pass on run `44224126588` at `7f312c1f` |
 | Windows 11 x64 | **yes** — `windows-latest` 16/16 shards plus the full-suite job pass on run `44224126588` at `7f312c1f` |
-| macOS arm64 | **yes** — `macos-latest` `checks`, shards 1–5/5, and the golden-seed build pass on run `44224126588` at `7f312c1f`; slowest shard 741 s |
+| macOS arm64 | **yes** — `macos-latest` `checks`, all four shards, and the golden-seed build pass on run `44224126588` at `7f312c1f` (that run predates the move to four macOS shards); slowest shard 741 s |
 
 Repo is public, so `macos-latest` is arm64. Do not mark the matrix green while any shard is
 queued, running, or failing; see `docs/CI.md` for live matrix details. A cancelled macOS job

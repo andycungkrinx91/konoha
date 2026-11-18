@@ -252,9 +252,9 @@ pnpm run build:web
 
 `pnpm --dir apps/web run build` runs `vite build && node scripts/write-build-meta.js`, which stamps `apps/web/build/build-meta.json` with `{ "version": "<apps/web/package.json version>", "builtAt": "<ISO>" }`. During `konoha init`, `resolveWebBuildSource` skips any candidate build whose `build-meta.json` version does not match the CLI version (logging `Skipping stale Web UI build <v> at <dir>`), and `_syncWebBuildOutput` reports the version it actually installed — `Pre-built Web UI installed to … (v<installed>)`. A build with no `build-meta.json` logs `Web UI provenance unknown …` rather than claiming a version match.
 
-### 15. 🖥️ Live Headed Browser Session Visibility & Provenance-Aware Memory Behavior
-- **Live Browser Session Visibility (`/api/v1/activity/live`)**:
-  - Existing authenticated `GET /api/v1/activity/live` (`src/web/controllers/activity_controller.js`) includes active `browser_sessions` (status, `build_id`, `fresh`, loopback `viewer_url`, and optional `playwright_ui_url`) without introducing separate REST endpoints.
-  - Interactive live browser viewing serves directly over loopback `127.0.0.1` (`noVNC` with per-session `-rfbauth` authentication); management uses `konoha browser` CLI and `qa_e2e_run` / `live_browser_monitor.js`.
+### 15. 🖥️ Headed QA & Provenance-Aware Memory Behavior
+- **Headed QA runs on the host**:
+  - `qa_e2e_run({ headed: true })` launches the project's own Chromium with a visible window; `CI=1` drops the flag. No container, viewer process, or second browser is involved, so nothing new appears on the network.
+  - `GET /api/v1/activity/live` (`src/web/controllers/activity_controller.js`) keeps its existing graph payload and introduces no REST route for browser sessions.
 - **Provenance-Aware Memory API Compatibility (`/api/v1/persona`)**:
   - Existing `/api/v1/persona` routes (`src/web/controllers/skills_controller.js`) delegate cleanly to `src/persona_memory.js` / `src/memory_brain.js` (returning provenance metadata on `GET`, filtering active records by default, and supporting optional `action: 'correct'` or provenance fields on `POST /api/v1/persona` without expanding REST route surface).

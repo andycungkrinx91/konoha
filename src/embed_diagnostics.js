@@ -74,13 +74,6 @@ const RULES = [
   },
 ];
 
-const FALLBACK = {
-  id: 'unknown',
-  summary: 'Embedding failed for an unclassified reason.',
-  causes: ['The failure did not match any known embedding error, so the cause is not yet identifiable.'],
-  fixes: ['re-run with KONOHA_DEBUG=1 for a full stack trace', 'konoha doctor --fix'],
-};
-
 /**
  * Classifies an embedding failure.
  * @param {Error|{message?: string}} err
@@ -88,8 +81,17 @@ const FALLBACK = {
  */
 function classifyEmbedFailure(err) {
   const message = (err && err.message) || String(err || 'unknown error');
-  const rule = RULES.find((r) => r.match({ message })) || FALLBACK;
-  return { ...rule, message };
+  const rule = RULES.find((r) => r.match({ message }));
+  if (rule) return { ...rule, message };
+  // An unmatched failure is its own outcome, not a silent default: say the cause
+  // is unidentified and send the user to the stack trace.
+  return {
+    id: 'unknown',
+    summary: 'Embedding failed for an unclassified reason.',
+    causes: ['The failure did not match any known embedding error, so the cause is not yet identifiable.'],
+    fixes: ['re-run with KONOHA_DEBUG=1 for a full stack trace', 'konoha doctor --fix'],
+    message,
+  };
 }
 
 /**

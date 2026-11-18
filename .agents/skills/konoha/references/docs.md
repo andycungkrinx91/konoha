@@ -23,7 +23,7 @@ Every topic has exactly one live document. `docs/README.md` is the live index: o
 - `docs/security/`: Database isolation, schema, red-skill, and skill-authz inventories.
 - `docs/diagrams/`: Draw.io XML source files (`konoha-architecture.drawio` — 19 pages, `konoha-infrastructure-architecture.drawio` — 18 pages, 0 geometric collisions).
 - `docs/templates/`: Client configuration templates (`claude-code.mcp.yaml`).
-- `assets/`: 34 production animated WebP diagrams and demo walkthroughs (zero legacy `.gif` files).
+- `assets/`: Production animated WebP diagrams and demo walkthroughs (zero legacy `.gif` files). `tests/test_all_assets_webp.js` owns the canonical 34-asset list — read the count from it, never from prose.
 
 ---
 
@@ -43,4 +43,4 @@ All documentation authored or updated by Konoha subagents (especially `@tokubets
 - Verify documentation symbol currency: `rtk node tests/test_docs_currency.js`
 - Verify the live index covers every live document and no archived one: `rtk node tests/test_docs_index.js`
 - Verify Draw.io zero collisions across all 19 architecture pages: `rtk node tests/test_diagram_sync.js`
-- Verify all 34 animated WebP assets and 107 active markdown embeds: `rtk node tests/test_all_assets_webp.js`
+- Verify all 34 animated WebP assets and 109 active markdown embeds: `rtk node tests/test_all_assets_webp.js`

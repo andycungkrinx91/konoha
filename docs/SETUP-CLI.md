@@ -8,7 +8,7 @@
 
 ### Cross-Platform Notes
 
-Status: **Linux x64 and Windows 11 x64 (local `dockur/windows` VM) verified.** `.github/workflows/cross-platform.yml` runs install, lint, full suite (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 5 shards — tuned for GitHub Free's 20 total / 5 macOS concurrency caps), and fresh-install smoke across `ubuntu-latest`, `windows-latest`, and `macos-latest`. Locally, all 3 platforms have a reproducible verification path: Linux (`pnpm test:sandbox` Debian + `pnpm ci:act` / `pnpm ci:act:shard` Ubuntu), Windows (`docker/windows-vm/oem/run-ci.cmd` / `retest.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox`, with host-native `/private/var` / APFS / `.dmg` semantics covered by `macos-latest` or the symlinked-`HOME` proxy in `docs/CI.md`).
+Status: **Linux x64 and Windows 11 x64 (local `dockur/windows` VM) verified.** `.github/workflows/cross-platform.yml` runs install, lint, full suite (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 4 shards — tuned for GitHub Free's 20 total / 5 macOS concurrency caps), and fresh-install smoke across `ubuntu-latest`, `windows-latest`, and `macos-latest`. Locally, all 3 platforms have a reproducible verification path: Linux (`pnpm test:sandbox` Debian + `pnpm ci:act` / `pnpm ci:act:shard` Ubuntu), Windows (`docker/windows-vm/oem/run-ci.cmd` / `retest.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox`, with host-native `/private/var` / APFS / `.dmg` semantics covered by `macos-latest` or the symlinked-`HOME` proxy in `docs/CI.md`).
 
 | OS | Node.js 24+ Install | Notes |
 |----|-----------------|-------|

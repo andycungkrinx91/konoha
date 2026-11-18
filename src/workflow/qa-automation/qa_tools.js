@@ -12,7 +12,6 @@ const os = require('os');
 const crypto = require('crypto');
 const { stripAnsi, getSha256, qaCodify } = require('./qa_codify');
 const { resolveTargetProjectDir, localPlaywrightBin, playwrightExec, playwrightExecAsync } = require('./qa_runner');
-const { defaultBrowserSessionManager } = require('./browser_session_manager');
 const {
   ensureQaGitignore,
   getProjectOutputDirs,
@@ -246,11 +245,8 @@ function _buildAsyncQaArgs(projectOutput, args) {
   if (args.last_failed || args.lastFailed) pwArgs.push('--last-failed');
   const maxF = args.max_failures !== undefined ? Number(args.max_failures) : null;
   if (maxF !== null && maxF > 0) pwArgs.push(`--max-failures=${maxF}`);
-  const wantHeaded = Boolean(args.headed || args.live) && !process.env.CI;
+  const wantHeaded = Boolean(args.headed) && !process.env.CI;
   if (wantHeaded) pwArgs.push('--headed');
-  if (args.playwright_ui && !process.env.CI) {
-    pwArgs.push('--ui-host=127.0.0.1', `--ui-port=${Number(args.playwright_ui_port) || 9323}`);
-  }
   return { pwArgs, wantHeaded };
 }
 
@@ -279,32 +275,24 @@ async function qaE2eRunAsync(args = {}) {
     };
   }
 
-  const sessionMgr = args.sessionManager || defaultBrowserSessionManager;
   const { pwArgs, wantHeaded } = _buildAsyncQaArgs(projectOutput, args);
-  let liveSession = null;
-  if (wantHeaded && (args.live || args.docker_workspace || args.session_id)) {
-    liveSession = await sessionMgr.createSession({
-      sessionId: args.session_id || undefined,
-      purpose: 'qa-automation',
-      projectPath: resolvedProject,
-      workspaceMount: resolvedProject,
-      playwrightUi: Boolean(args.playwright_ui),
-      reuse: args.reuse !== false
-    });
-  }
 
   const abortController = new AbortController();
   const runState = {
     run_id: runId,
     status: 'running',
     headed: wantHeaded,
-    session_id: liveSession ? liveSession.session_id : (args.session_id || null),
-    viewer_url: liveSession ? liveSession.viewer_url : null,
     started_at: new Date().toISOString(),
     logs: [],
     abortController
   };
   _activeQaRuns.set(runId, runState);
+
+  const logChunk = (stream, chunk) => {
+    runState.logs.push({ ts: new Date().toISOString(), stream, text: chunk.slice(0, 400) });
+    if (runState.logs.length > 100) runState.logs.shift();
+    if (typeof args.onLog === 'function') args.onLog(stream, chunk);
+  };
 
   const extraEnv = {
     PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath,
@@ -313,37 +301,30 @@ async function qaE2eRunAsync(args = {}) {
   const testRun = await playwrightExecAsync(resolvedProject, pwArgs, extraEnv, {
     timeoutMs: Number(args.timeout_ms || args.timeoutMs) || 300000,
     signal: abortController.signal,
-    onSpawn: (child) => {
-      if (liveSession) sessionMgr.registerChildProcess(liveSession.session_id, child);
-    },
-    onLog: (stream, chunk) => {
-      runState.logs.push({ ts: new Date().toISOString(), stream, text: chunk.slice(0, 400) });
-      if (runState.logs.length > 100) runState.logs.shift();
-      if (typeof args.onLog === 'function') args.onLog(stream, chunk);
-    }
+    onLog: logChunk
   });
 
   if (testRun.cancelled) {
     runState.status = 'cancelled';
-    return { status: 'cancelled', run_id: runId, session_id: runState.session_id, report_path: reportPath };
+    return { status: 'cancelled', run_id: runId, report_path: reportPath };
   }
   if (testRun.timedOut) {
     runState.status = 'timed_out';
-    return { status: 'error', reason: 'timeout', run_id: runId, session_id: runState.session_id, report_path: reportPath, error: 'Playwright test execution timed out.' };
+    return { status: 'error', reason: 'timeout', run_id: runId, report_path: reportPath, error: 'Playwright test execution timed out.' };
   }
 
   const reportJson = parseTestReport(reportPath, testRun);
   if (!reportJson) {
     runState.status = 'error';
     const errText = stripAnsi(testRun.stderr || testRun.stdout || 'Test execution failed').slice(0, 500);
-    return { status: 'error', run_id: runId, session_id: runState.session_id, report_path: reportPath, error: 'Playwright test execution failed to produce JSON output', detail: errText };
+    return { status: 'error', run_id: runId, report_path: reportPath, error: 'Playwright test execution failed to produce JSON output', detail: errText };
   }
 
   const globalErrors = Array.isArray(reportJson.errors) ? reportJson.errors : [];
   if (globalErrors.length > 0) {
     runState.status = 'error';
     const detail = stripAnsi(globalErrors.map((e) => (e && e.message) || String(e)).join('\n')).slice(0, 500);
-    return { status: 'error', run_id: runId, session_id: runState.session_id, report_path: reportPath, error: 'Playwright aborted before running any test', detail };
+    return { status: 'error', run_id: runId, report_path: reportPath, error: 'Playwright aborted before running any test', detail };
   }
 
   const result = buildFinalQaReport({
@@ -354,8 +335,7 @@ async function qaE2eRunAsync(args = {}) {
     runId,
     reportPath,
     extra: {
-      headed: wantHeaded,
-      ...(liveSession ? { session_id: liveSession.session_id, viewer_url: liveSession.viewer_url } : {})
+      headed: wantHeaded
     }
   });
   runState.status = result.status;
@@ -369,8 +349,6 @@ function getQaRunStatus(runId) {
     run_id: s.run_id,
     status: s.status,
     headed: s.headed,
-    session_id: s.session_id,
-    viewer_url: s.viewer_url,
     started_at: s.started_at,
     logs: s.logs.slice(-50)
   };

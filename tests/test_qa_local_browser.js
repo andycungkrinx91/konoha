@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 'use strict';
 
+/**
+ * tests/test_qa_local_browser.js — QA runs the project's own Playwright on the host.
+ * Proves the headed/live QA path never reaches for Docker: a `docker` shim sits
+ * first on PATH, records any invocation, and the run must still pass.
+ */
+
 const assert = require('assert');
 const fs = require('fs');
 const http = require('http');
@@ -9,17 +15,13 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { startWebServer } = require('../src/web_server');
 const qaTools = require('../src/workflow/qa-automation/qa_tools');
-const {
-  validateBindHost,
-  validateWorkspaceMountPath,
-  translateTargetUrlForContainer,
-  buildDockerRunArgs
-} = require('../src/workflow/qa-automation/browser_workspace_security');
-const { BrowserSessionManager } = require('../src/workflow/qa-automation/browser_session_manager');
+const { createLocalQaFixture } = require('./helpers/local_qa_fixture');
 const {
   runLiveBrowserMonitor,
   verifyInteractiveExperienceWithPlaywright
 } = require('../src/workflow/jonin-builder/live_browser_monitor');
+
+const REPO_ROOT = path.resolve(__dirname, '..');
 
 function httpCall(options, body = null) {
   return new Promise((resolve, reject) => {
@@ -35,48 +37,60 @@ function httpCall(options, body = null) {
 }
 
 async function run() {
-  console.log('Running test_browser_workspace_security_and_qa...');
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-bw-sec-'));
+  console.log('Running test_qa_local_browser...');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-local-browser-'));
   let srv = null;
   let testPageSrv = null;
 
   try {
-    // Endpoint binding security: reject 0.0.0.0 by default
-    assert.strictEqual(validateBindHost('127.0.0.1'), '127.0.0.1');
-    assert.strictEqual(validateBindHost('localhost'), '127.0.0.1');
-    assert.throws(() => validateBindHost('0.0.0.0'), /BROWSER_SECURITY_VIOLATION/);
-    assert.throws(() => validateBindHost('0.0.0.0', { allowPublicBind: true, authToken: 'short' }), /BROWSER_SECURITY_VIOLATION/);
-    assert.strictEqual(validateBindHost('0.0.0.0', { allowPublicBind: true, authToken: '0123456789abcdef' }), '0.0.0.0');
+    // The container machinery is gone, not merely unused.
+    for (const rel of [
+      'src/workflow/qa-automation/browser_session_manager.js',
+      'src/workflow/qa-automation/browser_container_agent.js',
+      'src/workflow/qa-automation/browser_workspace_security.js',
+      'docker/browser-workspace.Dockerfile',
+      'docker/browser-workspace-entrypoint.sh'
+    ]) {
+      assert.ok(!fs.existsSync(path.join(REPO_ROOT, rel)), `${rel} must not exist`);
+    }
+    assert.strictEqual(qaTools._buildContainerQaExec, undefined);
+    assert.throws(
+      () => execFileSync(process.execPath, [path.join(REPO_ROOT, 'bin', 'cli.js'), 'browser', 'status'], { encoding: 'utf8', stdio: 'pipe' }),
+      'the removed `konoha browser` command must not resolve'
+    );
+    console.log('  ✓ container modules, image, and CLI command removed');
 
-    // Isolation: reject home dir, .konoha, browser profiles, secrets, konoha.db
-    const home = process.env.HOME || process.env.USERPROFILE || os.homedir();
-    assert.throws(() => validateWorkspaceMountPath(home), /BROWSER_ISOLATION_VIOLATION/);
-    assert.throws(() => validateWorkspaceMountPath(path.join(home, '.konoha')), /BROWSER_ISOLATION_VIOLATION/);
-    assert.throws(() => validateWorkspaceMountPath('/tmp/User Data/Default'), /BROWSER_ISOLATION_VIOLATION/);
-    assert.throws(() => validateWorkspaceMountPath('/tmp/project/.env.production'), /BROWSER_ISOLATION_VIOLATION/);
-    assert.throws(() => validateWorkspaceMountPath('/tmp/konoha.db'), /BROWSER_ISOLATION_VIOLATION/);
-    const safeProject = path.join(tmpDir, 'safe_app');
-    fs.mkdirSync(safeProject, { recursive: true });
-    assert.strictEqual(validateWorkspaceMountPath(safeProject), path.resolve(safeProject));
-
-    // Docker run args bind strictly to 127.0.0.1 and enforce per-session VNC password
-    assert.throws(() => buildDockerRunArgs({
-      image: 'konoha-browser-workspace:local', sessionId: 's1', containerName: 'c1',
-      bindHost: '127.0.0.1', novncPort: 6080, vncPassword: ''
-    }), /BROWSER_SECURITY_VIOLATION/);
-    const dockerArgs = buildDockerRunArgs({
-      image: 'konoha-browser-workspace:local', sessionId: 's1', containerName: 'konoha-browser-s1',
-      bindHost: '127.0.0.1', novncPort: 46080, playwrightUiPort: 49323,
-      vncPassword: 'secret-per-session', targetUrl: 'http://127.0.0.1:4173', platform: 'linux'
+    // A real suite: the project's own Playwright, headed requested, no Docker anywhere.
+    const fixture = createLocalQaFixture({
+      tmpDir,
+      specSource: `const { test, expect } = require('@playwright/test');\ntest('runs on the host', async () => { expect(1 + 1).toBe(2); });\n`
     });
-    assert.ok(dockerArgs.includes('127.0.0.1:46080:6080'));
-    assert.ok(dockerArgs.includes('127.0.0.1:49323:9323'));
-    assert.ok(dockerArgs.includes('--add-host=host.docker.internal:host-gateway'));
-    assert.strictEqual(translateTargetUrlForContainer('http://localhost:4173/app', 'win32'), 'http://host.docker.internal:4173/app');
-    assert.strictEqual(translateTargetUrlForContainer('http://127.0.0.1:3000/', 'darwin'), 'http://host.docker.internal:3000/');
-    console.log('  ✓ Endpoint binding, mount isolation, and cross-platform URL translation passed');
+    const { proj, shimDir } = fixture;
+    const prevPath = process.env.PATH;
+    const prevCi = process.env.CI;
+    process.env.PATH = shimDir + path.delimiter + prevPath;
+    process.env.CI = '1';
+    let qaRes;
+    try {
+      qaRes = await qaTools.qaE2eRunAsync({ project_path: proj, headed: true });
+    } finally {
+      process.env.PATH = prevPath;
+      if (prevCi === undefined) delete process.env.CI;
+      else process.env.CI = prevCi;
+    }
+    assert.strictEqual(qaRes.status, 'passed', `local QA run failed: ${JSON.stringify(qaRes).slice(0, 600)}`);
+    assert.strictEqual(qaRes.totals.passed, 1);
+    assert.strictEqual(fixture.dockerCalls(), '', 'QA must never spawn docker');
+    assert.strictEqual(qaRes.headed, false, 'CI keeps the run headless even when headed is requested');
+    assert.ok(!('live' in qaRes), 'no container-run flag belongs in the report');
+    assert.ok(!('session_id' in qaRes) && !('viewer_url' in qaRes), 'no container session belongs in the report');
+    console.log('  ✓ QA ran the local Playwright suite with no docker process');
 
-    // Existing Web UI API preserves auth/CSRF and surfaces live browser_sessions via /api/v1/activity/live
+    // Nothing answers on 127.0.0.1:4173 here, and no container is invented for it.
+    assert.strictEqual(fixture.dockerCalls(), '');
+    console.log('  ✓ no container was created for QA execution');
+
+    // Activity API keeps its auth contract and no longer ships container sessions.
     srv = await startWebServer({ port: 14219, host: '127.0.0.1' });
     const unauthActivity = await httpCall({
       hostname: '127.0.0.1', port: 14219,
@@ -85,7 +99,6 @@ async function run() {
       headers: { 'User-Agent': 'Mozilla/5.0' }
     });
     assert.strictEqual(unauthActivity.status, 401, '/api/v1/activity/live must fail closed for unauthenticated browser requests');
-
     const authActivity = await httpCall({
       hostname: '127.0.0.1', port: 14219,
       path: '/api/v1/activity/live',
@@ -94,8 +107,8 @@ async function run() {
     });
     assert.strictEqual(authActivity.status, 200);
     const activityJson = JSON.parse(authActivity.body);
-    assert.ok(Array.isArray(activityJson.browser_sessions), '/api/v1/activity/live must include browser_sessions');
-
+    assert.ok(!('browser_sessions' in activityJson), 'container browser sessions are gone from the live payload');
+    assert.ok(Array.isArray(activityJson.graph.nodes), 'the activity graph still ships');
     const unauthPost = await httpCall({
       hostname: '127.0.0.1', port: 14219,
       path: '/api/v1/activity/ping',
@@ -103,16 +116,15 @@ async function run() {
       headers: { 'Content-Type': 'application/json' }
     }, {});
     assert.strictEqual(unauthPost.status, 403, 'POST without CSRF token must return 403');
-    console.log('  ✓ Existing Web UI activity API, auth, and CSRF controls passed');
+    console.log('  ✓ activity API auth/CSRF intact, browser_sessions removed');
 
-    // Async QA run: missing Playwright returns qa_blocked; mock_report preserves <2000 char cap & run_id; headless CI compatibility
+    // Missing Playwright still fails closed; mock reports keep the capped shape.
     const noPwProj = path.join(tmpDir, 'no_pw_proj');
     fs.mkdirSync(noPwProj, { recursive: true });
     const blockedRes = await qaTools.qaE2eRunAsync({ project_path: noPwProj });
     assert.strictEqual(blockedRes.error, 'qa_blocked');
     assert.strictEqual(blockedRes.reason, 'playwright-not-installed');
-
-    const prevCi = process.env.CI;
+    const prevCiMock = process.env.CI;
     process.env.CI = '1';
     try {
       const ciReport = await qaTools.qaE2eRunAsync({
@@ -123,12 +135,12 @@ async function run() {
       assert.strictEqual(ciReport.status, 'passed');
       assert.ok(ciReport.run_id.startsWith('qa-'));
     } finally {
-      if (prevCi === undefined) delete process.env.CI;
-      else process.env.CI = prevCi;
+      if (prevCiMock === undefined) delete process.env.CI;
+      else process.env.CI = prevCiMock;
     }
-    console.log('  ✓ Async QA blocked state, headless CI compatibility, and report preservation passed');
+    console.log('  ✓ blocked state and report preservation unchanged');
 
-    // Real Playwright rendering + interactive dialog + WebGL + responsive check
+    // Jonin's monitor opens the system browser only; no workspace launch path remains.
     const htmlFixture = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -160,50 +172,26 @@ async function run() {
   </script>
 </body>
 </html>`;
-
-    testPageSrv = http.createServer((req, res) => {
+    testPageSrv = http.createServer((_req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(htmlFixture);
     });
     await new Promise((r) => testPageSrv.listen(0, '127.0.0.1', r));
     const appUrl = `http://127.0.0.1:${testPageSrv.address().port}/`;
 
-    const mockMgr = new BrowserSessionManager({
-      execSync: (cmd, args) => {
-        if (args[0] === 'run') return { status: 0, stdout: 'cid1\n' };
-        return { status: 0, stdout: 'ok\n' };
-      },
-      probeReady: async () => true,
-      allocatePort: async () => 46199
-    });
-    const monitorRes = await runLiveBrowserMonitor({
-      url: appUrl,
-      workspaceMode: 'docker-headed',
-      sessionManager: mockMgr,
-      headless: false,
-      buildId: 'live-build-42'
-    });
+    const monitorRes = await runLiveBrowserMonitor({ url: appUrl, headless: false, buildId: 'live-build-42' });
     assert.strictEqual(monitorRes.status, 'passed');
     assert.strictEqual(monitorRes.build_id, 'live-build-42');
     assert.strictEqual(monitorRes.fresh, true);
-    if (!process.env.CI && !process.env.KONOHA_HEADLESS_TEST) {
-      assert.strictEqual(monitorRes.browser_launch.mode, 'docker-headed');
-    }
-    await mockMgr.cleanupStaleSessions();
+    assert.ok(monitorRes.browser_launch && 'opened' in monitorRes.browser_launch, 'the monitor reports a host browser launch');
+    assert.ok(!('workspace_session' in monitorRes) && !('workspace_evidence' in monitorRes), 'no workspace session in the monitor result');
+    assert.strictEqual(fixture.dockerCalls(), '', 'the monitor must never spawn docker');
 
     const pwRes = await verifyInteractiveExperienceWithPlaywright(appUrl, { requireMotionAnd3d: false });
     assert.strictEqual(pwRes.passed, true, `Playwright verification failed: ${JSON.stringify(pwRes)}`);
     assert.strictEqual(pwRes.responsive_viewports.length, 3);
     assert.strictEqual(pwRes.reduced_motion_verified, true);
-    console.log(`  ✓ Real Playwright rendering, responsive viewports, and WebGL check passed (webgl=${pwRes.canvas_3d.webglSupported})`);
-
-    // CLI konoha browser status smoke
-    const cliStatus = execFileSync(process.execPath, [
-      path.resolve(__dirname, '..', 'bin', 'cli.js'),
-      'browser', 'status'
-    ], { encoding: 'utf8' });
-    assert.ok(cliStatus.includes('Konoha Browser Workspaces'));
-    console.log('  ✓ CLI konoha browser status passed');
+    console.log(`  ✓ host browser monitor + real Playwright rendering passed (webgl=${pwRes.canvas_3d.webglSupported})`);
   } finally {
     if (testPageSrv) await new Promise((r) => testPageSrv.close(r));
     if (srv && srv.server) await new Promise((r) => srv.server.close(r));

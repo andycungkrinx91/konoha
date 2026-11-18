@@ -176,7 +176,14 @@ async function verifyHybridRelatedAndOverlap(conn) {
     conn,
     limit: 5
   });
-  assert.strictEqual(hybrid.semantic_status, 'available', 'Available Granite/MiniLM runtime must report semantic_status: available');
+  // The reason rides along: the assertion only fails when the runtime lost its
+  // models, and the cause (`HF_HUB_OFFLINE`, a blocked download, a missing
+  // package) is otherwise invisible in a CI log.
+  assert.strictEqual(
+    hybrid.semantic_status,
+    'available',
+    `Available Granite/MiniLM runtime must report semantic_status: available (got ${hybrid.semantic_status}, reason: ${hybrid.reason || 'none'}, applied=${hybrid.semantic_applied}, reranked=${hybrid.reranked}); run scripts/prefetch_semantic_models.js to warm the cache`
+  );
   assert.strictEqual(hybrid.semantic_applied, true, 'Granite 97M semantic vector search must run');
   assert.strictEqual(hybrid.reranked, true, 'MiniLM L-6 cross-encoder reranking must run');
   assert.strictEqual(hybrid.degraded, false);

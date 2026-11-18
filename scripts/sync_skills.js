@@ -2,12 +2,13 @@
 'use strict';
 
 /**
- * scripts/sync_skills.js — Synchronize skills between .agents/skills and mirror trees.
- * 
- * Prevents rapid token burn during Konoha maintenance by allowing agents/developers
- * to edit a skill once in .agents/skills/ and automatically propagate byte-identical
- * copies to src/templates/skills, .cursor/skills, and .gemini/skills without manual
- * multi-file context dumping.
+ * scripts/sync_skills.js — Deploy skills from the canonical template tree to global mirrors.
+ *
+ * `src/templates/skills` is the single source of truth. This script copies it, unchanged,
+ * into the user's `~/.agents/skills` and then runs `syncAllGlobalClientSkills()`, which
+ * patches every client's own global skill directory in place. The repository's tracked
+ * `.agents/skills` is *not* a destination — `tests/test_skill_tree_parity.js` holds it
+ * byte-identical to `src/templates/skills`, so an edit belongs in the template tree.
  */
 
 const fs = require('fs');

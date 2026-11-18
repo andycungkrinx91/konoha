@@ -155,14 +155,13 @@ node --version  # Must be >= 24.0.0
 
 ---
 
-### ⚠️ `browser-image-missing` or container cannot reach host dev server in live headed browser workspace
+### 🖥️ Headed QA shows no window, or `qa_e2e_run` reports `qa_blocked`
 
-- **Missing image**: build the isolated browser image once before starting live headed sessions:
-  ```bash
-  docker build -f docker/browser-workspace.Dockerfile -t konoha-browser-workspace:local .
-  ```
-- **Target URL unreachable on Linux Docker**: `BrowserSessionManager` rewrites `127.0.0.1` / `localhost` URLs to `host.docker.internal` (`host-gateway`). A dev server listening strictly on host `127.0.0.1` rejects connections arriving via `docker0`; start local preview servers with `--host 0.0.0.0` (for example `vite dev --host 0.0.0.0`).
-- **Host port collision or stale container**: run `konoha browser cleanup` to remove idle or orphaned `konoha.browser.managed=true` containers; loopback ports auto-fallback when `EADDRINUSE` occurs.
+- **`qa_blocked` / `playwright-not-installed`** — the target project has no working `@playwright/test`. Konoha runs the project's own Playwright on the host; the fix is the install, not a shorter path. In the target project: `pnpm add -D @playwright/test`, then `pnpm exec playwright install chromium`.
+- **No window appears** — `CI` is set (headed is dropped on purpose) or the run is headless. Unset `CI` and pass `headed: true`. Under `KONOHA_HEADLESS_TEST=1` the Jonin preview also skips opening the system browser.
+- **WebGL looks blank** — local Chromium renders WebGL with the host GPU, and falls back to its own software rasterizer where no driver is available. A blank canvas on a headless server is a driver problem, not a Konoha one.
+- **`last_failed` finds nothing** — Playwright records `.last-run.json` in its output dir, which lives under `~/.konoha/tmp/qa/<run_id>/` per run. Pass `grep` to select tests, or point the project's output dir at a persistent path.
+- **Artifacts location** — report, traces, and screenshots are host paths under `~/.konoha/tmp/qa/<run_id>/` and the project's `test-results/`. Nothing is remapped, because nothing ran outside the host.
 
 ---
 
@@ -172,7 +171,7 @@ node --version  # Must be >= 24.0.0
 - **Current state**: `pnpm-workspace.yaml` carries `overrides` and **no `audit:` key at all** — no ignore list, no suppressions. CVE-2026-93753 is not suppressed (pnpm 12 has no CVE-level suppression), `GHSA-gcqx-w48m-w2h4` (`deepmerge`) was withdrawn upstream on 2026-11-16 and resolves to 4.1.2 anyway, and `GHSA-fc5q-39xc-vjpf` is fixed in the tree by a patch rather than waived.
 - **`GHSA-fc5q-39xc-vjpf` is patched, not ignored**: a repeated extglob whose body holds a bare wildcard compiled to nested unbounded quantifiers (`+(*a)` became `(?:[^/]*?a)+`) and backtracked exponentially on a short crafted string — 779 ms at 26 characters. `patches/picomatch@4.0.7.patch` makes `analyzeRepeatedExtglob` treat such a body as risky, so the extglob is emitted as literal text, and `tests/test_picomatch_redos_patch.js` pins both the timings and the unchanged semantics of 20 realistic globs. Upstream has published nothing past 4.0.7, so `pnpm audit` keeps reporting the advisory: it keys on the resolved version string and cannot see a patched build. `tests/test_socket_security_audit.js` therefore asserts the audit's advisory set is *exactly* `["GHSA-fc5q-39xc-vjpf"]` for the root and `apps/web`. That is stricter than an ignore list, which would also have swallowed the next picomatch advisory silently — a second advisory fails this gate. Fix the next one; do not append it to `PINNED_AUDIT_ADVISORIES`. The pin clears when 4.0.8 ships. Vendoring the package or overriding it to a git URL was rejected: `pnpm audit` does not evaluate `file:` dependencies at all, so a vendored copy at the vulnerable 4.0.7 still audits clean, which hides the package from the gate instead of fixing it.
 - **2.2.20 exception**: `package.json#overrides` is back for exactly one entry, `image-size: ">=2.0.3"`. npm ignores a dependency's own `overrides`, so the shipped copy is what carries the CVE-2025-71330 / CVE-2025-71329 patch to npm consumers; pnpm still reads its own `>=2.0.4` floor from the YAML. Do not remove it, and do not re-add `package.json#pnpm` or any other override.
-- **Fix**: if you see the warning, you are on an old checkout. Pull 2.2.19+, run `pnpm install --frozen-lockfile`, and verify with `pnpm config get audit` → `undefined` (no `audit` key) plus `pnpm audit --json` → exactly one advisory, `GHSA-fc5q-39xc-vjpf`.
+- **Fix**: if you see the warning, you are on an old checkout. Pull 2.2.19+, run `pnpm install --frozen-lockfile`, and verify with `pnpm config get audit` → `undefined` (no `audit` key) plus `pnpm audit --json` → exactly one advisory, `GHSA-fc5q-39xc-vjpf`. The same advisory is the single static-scan finding `aislop scan` keeps reporting; see `docs/SECURITY.md` §9.1 for why that is accepted rather than suppressed.
 
 ---
 

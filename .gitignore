@@ -139,7 +139,7 @@ apps/web/test-results/
 !.agents/
 !.agents/**
 *.skills.fingerprint
-.aislop/history.jsonl
+*.aislop/history.jsonl
 
 # Local junk
 tmp/

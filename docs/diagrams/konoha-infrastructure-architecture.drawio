@@ -1012,7 +1012,7 @@
 <mxCell id="p13-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=18;fontStyle=1;fontColor=#232F3E;align=left;verticalAlign=middle;" value="13 Automated QA Orchestration &amp; Multi-Agent Workflow Loop" vertex="1">
                     <mxGeometry height="30" width="800" x="40" y="20" as="geometry" />
                 </mxCell>
-<mxCell id="p13-sub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=11;fontStyle=0;fontColor=#545B64;align=left;verticalAlign=middle;" value="Strict DoR Gate · Genin Read-Only Recon · Kage Spec-First Planning · Anbu Codify &amp; Headless Playwright · Jonin UI Fixes · Kage Quality Gate (≥98% Confidence, 0 AI Slop)" vertex="1">
+<mxCell id="p13-sub" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=Inter, system-ui, -apple-system;fontSize=11;fontStyle=0;fontColor=#545B64;align=left;verticalAlign=middle;" value="Strict DoR Gate · Genin Read-Only Recon · Kage Spec-First Planning · Anbu Codify &amp; Host Playwright · Jonin UI Fixes · Kage Quality Gate (≥98% Confidence, 0 AI Slop)" vertex="1">
                     <mxGeometry height="20" width="1000" x="40" y="50" as="geometry" />
                 </mxCell>
 <mxCell id="p13-sannin" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=sannin;" value="1. Route: Sannin&#10;triage prompt &amp; DoR" vertex="1">
@@ -1039,7 +1039,7 @@
 <mxCell id="p13-qv" parent="1" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#78350F;fontStyle=1;shadow=0;agent=anbu;" value="spec&#10;valid?" vertex="1">
                     <mxGeometry height="50" width="90" x="510" y="230" as="geometry" />
                 </mxCell>
-<mxCell id="p13-q3" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Anbu: qa_e2e_run&#10;headless Playwright run" vertex="1">
+<mxCell id="p13-q3" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=anbu;" value="Anbu: qa_e2e_run&#10;host Playwright run" vertex="1">
                     <mxGeometry height="50" width="180" x="640" y="230" as="geometry" />
                 </mxCell>
 <mxCell id="p13-qf" parent="1" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#78350F;fontStyle=1;shadow=0;agent=anbu;" value="failures?" vertex="1">
@@ -1051,7 +1051,7 @@
 <mxCell id="p13-qfu" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FFF8F1;strokeColor=#ED7100;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7C2D12;fontStyle=1;shadow=0;agent=jonin;" value="Jonin: fix UI code&#10;(Taste-Skill design tokens)" vertex="1">
                     <mxGeometry height="50" width="170" x="960" y="325" as="geometry" />
                 </mxCell>
-<mxCell id="p13-q4" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;agent=anbu;" value="Re-run Playwright&#10;qa_e2e_run (sandboxed runner)" vertex="1">
+<mxCell id="p13-q4" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#F4FBF4;strokeColor=#7AA116;strokeWidth=1.5;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#14532D;fontStyle=1;shadow=0;agent=anbu;" value="Re-run Playwright&#10;qa_e2e_run (host runner, same spec)" vertex="1">
                     <mxGeometry height="55" width="180" x="760" y="420" as="geometry" />
                 </mxCell>
 <mxCell id="p13-q5" parent="1" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;fillColor=#FEF2F2;strokeColor=#DD344C;strokeWidth=2;fontFamily=Inter, system-ui, -apple-system;fontSize=10;fontColor=#7F1D1D;fontStyle=1;shadow=0;agent=kage;" value="rtk aislop scan --changes&#10;verify 0 AI slop defects" vertex="1">

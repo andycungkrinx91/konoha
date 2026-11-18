@@ -416,7 +416,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 |---|---|---|
 | Linux x64 | **yes** (2026-11-08) | Fresh tarball (`pnpm pack`, 2.2.19) installed into an isolated `--prefix`/`HOME`: `npm install -g` exit 0, `konoha --version` → 2.2.19, `konoha init --yes` exit 0 provisioning `~/.konoha`, `src/mcp/langgraph/nodes/plan.js` ships and installs, and the deployed runtime loads `./mcp/runtime_state`, `./workflow/qa-automation/qa_tools`, and `src/mcp/langgraph/index.js`; reinstall over the same prefix exits 0 with the version unchanged. The targeted suites pass (install layout, MCP args, skill URI, pnpm config, upgrade failure, no-filesystem-mirrors, skill tree parity, skill resolution, 8-client sync, client skill loading, argument aliases, QA, pagination, doctor coverage, 3D isolation, upgrade budgets, install lifecycle, clean reinstall). The full `pnpm test` runner has since completed end to end in the container sandbox (`pnpm test:sandbox`): 284 suites, 0 failed, on 2026-11-11. |
 | Windows 11 x64 | **yes** (2026-11-12) | `docker/windows-vm/` (dockur/QEMU guest, native NTFS checkout at `C:\konoha`) runs `scripts/windows-ci.ps1`, which mirrors the `windows-latest` job step for step: install, Playwright browsers, web build, ffmpeg `libwebp_anim` assert, lint, full suite, fresh-install smoke (`init --yes --no-project`, `migrate --skip-embeddings`, `version`). The `windows-latest` leg runs the same steps in `.github/workflows/cross-platform.yml`. The upgrade-pending marker is covered by `tests/test_upgrade_failure_reporting.js`, which runs on both; a real locked-file `EBUSY` was not reproduced. |
-| macOS arm64 | **yes** (2026-11-18) | `macos-latest checks`, `macos-latest shard 1..5/5`, and `Build golden seed (macos-latest)` all succeeded on run `44224126588` at `7f312c1f`, and on the earlier `master` run `44059199230` at `6a5a4e1f`. Worst observed shard 741 s. The `/var` → `/private/var` allowlist canonicalization and APFS case-insensitivity fixes are therefore covered by real runs, not only by the symlinked-`HOME` proxy. |
+| macOS arm64 | **yes** (2026-11-18) | `macos-latest checks`, all four `macos-latest shard` jobs, and `Build golden seed (macos-latest)` all succeeded; the cited runs `44224126588` at `7f312c1f` and `44059199230` at `6a5a4e1f` predate the move from five macOS shards to four, so they cover five. Worst observed shard 741 s. The `/var` → `/private/var` allowlist canonicalization and APFS case-insensitivity fixes are therefore covered by real runs, not only by the symlinked-`HOME` proxy. |
 
 `bin/cli.js#isUninitializedRuntimeError` is defence in depth: unit-tested against runtime-root, forward-slash, third-party and relative module errors, but no shipped command was observed to reach it — commands run against an empty `~/.konoha` already exit cleanly without leaking a stack. Keep the classifier; do not treat it as a user-visible guarantee.
 
@@ -439,15 +439,14 @@ Do not mark a platform verified from static tests; update this table only after 
 
 ---
 
-### 2.23 Live Headed Docker Browser Workspace & QA Automation (`src/workflow/qa-automation/`)
+### 2.23 Headed Browser QA (`src/workflow/qa-automation/`)
 
-* **Purpose:** Provide an interactive headed Chromium workspace container (`docker/browser-workspace.Dockerfile`) with loopback `noVNC` live viewing while preserving headless Playwright CI execution and Anbu/Jonin QA workflows.
-* **Canonical Implementation:** `src/workflow/qa-automation/{browser_session_manager,browser_container_agent,browser_workspace_security,qa_tools,qa_runner}.js`, `src/workflow/jonin-builder/live_browser_monitor.js`, `bin/commands/browser.js`.
+* **Purpose:** Run the target project's own Playwright and Chromium on the host, headless by default and with a visible window on `headed: true`. There is no container: `CI=1` drops the headed flag, and Jonin's preview opens the page in the system browser rather than starting a second one.
+* **Canonical Implementation:** `src/workflow/qa-automation/{qa_tools,qa_runner,qa_codify,qa_retention}.js`, `src/workflow/jonin-builder/live_browser_monitor.js`.
 * **Entry Points:**
-  - MCP Tools: `qa_codify`, `qa_e2e_run` (`headed`, `live`, `session_id`, `playwright_ui`, `timeout_ms`).
-  - CLI: `konoha browser {start|status|logs|stop|cleanup|qa}`.
-  - Web API: Surfaces `browser_sessions` on existing `GET /api/v1/activity/live` (`zero new REST endpoints`).
-* **Tests:** `tests/test_browser_workspace_lifecycle.js`, `tests/test_browser_workspace_security_and_qa.js`, `tests/test_qa_codify.js`, `tests/test_qa_e2e_run.js`.
+  - MCP Tools: `qa_codify`, `qa_e2e_run` (`headed`, `grep`, `last_failed`, `max_failures`, `timeout_ms`).
+  - Web API: `GET /api/v1/activity/live` keeps its graph payload (`zero new REST endpoints`).
+* **Tests:** `tests/test_qa_local_browser.js`, `tests/test_qa_codify.js`, `tests/test_qa_e2e_run.js`, `tests/test_jonin_dynamic_design_and_watermark.js`.
 * **Documentation:** `docs/QA-AUTOMATION.md`, `docs/QA-TEST-CHECKLIST.md`, `src/templates/skills/anbu-skill/references/qa-automation.md`.
 
 ---

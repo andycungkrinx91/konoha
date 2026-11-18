@@ -335,21 +335,50 @@ function readSchemaCatalog(sourceConn) {
   return { userTables, ftsTables, rejectedObjects };
 }
 
+/** Builds the safe DDL for every user table, recording the ones it must reject. */
+function _collectValidSpecs(sourceConn, catalog) {
+  const validSpecs = [];
+  for (const tbl of catalog.userTables) {
+    const spec = buildSafeTableDdl(sourceConn, tbl.name, tbl.sql);
+    if (spec.ok) {
+      validSpecs.push(spec);
+    } else {
+      catalog.rejectedObjects.push({ name: tbl.name, type: 'table', reason: spec.reason });
+    }
+  }
+  return validSpecs;
+}
+
+/**
+ * Copies one table inside its own savepoint. One unusable table must not abort
+ * the pass: a single DDL or INSERT that the target rejects (an unusual
+ * collation, a STRICT/UPSERT edge, a platform-specific parser difference) used
+ * to discard every row rescued up to that point.
+ * @returns {{rows: number, error?: string}}
+ */
+function _salvageOneTable(sourceConn, targetConn, spec) {
+  targetConn.exec('SAVEPOINT salvage_table;');
+  try {
+    targetConn.exec(spec.createSql);
+    const rows = salvageTableRows(sourceConn, targetConn, spec);
+    targetConn.exec('RELEASE salvage_table;');
+    return { rows };
+  } catch (err) {
+    try {
+      targetConn.exec('ROLLBACK TO salvage_table;');
+      targetConn.exec('RELEASE salvage_table;');
+    } catch (_) { /* the savepoint is gone; the enclosing transaction still commits */ }
+    return { rows: 0, error: _describeError(err) };
+  }
+}
+
 function executeSalvagePass(sourcePath, targetPath) {
   let sourceConn = null;
   let targetConn = null;
   try {
     sourceConn = openHardenedSource(sourcePath);
     const catalog = readSchemaCatalog(sourceConn);
-    const validSpecs = [];
-    for (const tbl of catalog.userTables) {
-      const spec = buildSafeTableDdl(sourceConn, tbl.name, tbl.sql);
-      if (spec.ok) {
-        validSpecs.push(spec);
-      } else {
-        catalog.rejectedObjects.push({ name: tbl.name, type: 'table', reason: spec.reason });
-      }
-    }
+    const validSpecs = _collectValidSpecs(sourceConn, catalog);
 
     if (validSpecs.length === 0) {
       return { ok: false, tables: 0, rows: 0, rejectedObjects: catalog.rejectedObjects };
@@ -362,27 +391,17 @@ function executeSalvagePass(sourcePath, targetPath) {
     let salvagedTables = 0;
     targetConn.exec('BEGIN IMMEDIATE;');
     for (const spec of validSpecs) {
-      // One unusable table must not abort the pass: a single DDL or INSERT that
-      // the target rejects (an unusual collation, a STRICT/UPSERT edge, a
-      // platform-specific parser difference) used to discard every row rescued
-      // up to that point. A savepoint isolates it and the reason is reported.
-      targetConn.exec('SAVEPOINT salvage_table;');
-      try {
-        targetConn.exec(spec.createSql);
-        totalRows += salvageTableRows(sourceConn, targetConn, spec);
-        targetConn.exec('RELEASE salvage_table;');
-        salvagedTables += 1;
-      } catch (err) {
-        try {
-          targetConn.exec('ROLLBACK TO salvage_table;');
-          targetConn.exec('RELEASE salvage_table;');
-        } catch (_) { /* the savepoint is gone; the enclosing transaction still commits */ }
+      const attempt = _salvageOneTable(sourceConn, targetConn, spec);
+      if (attempt.error) {
         catalog.rejectedObjects.push({
           name: spec.tableName,
           type: 'table',
-          reason: `table could not be recreated in the target: ${_describeError(err)}`
+          reason: `table could not be recreated in the target: ${attempt.error}`
         });
+        continue;
       }
+      totalRows += attempt.rows;
+      salvagedTables += 1;
     }
     targetConn.exec('COMMIT;');
 

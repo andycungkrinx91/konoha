@@ -186,10 +186,12 @@ Every QA claim in Konoha must be backed by concrete tool execution output:
 - **Lint Guard**: Rejects transient `@e` refs and forbidden test directives (`skip`, `fixme`, `pause`, sleeps).
 
 ### 2. `qa_e2e_run`
-- **Signature**: `qa_e2e_run(project_path, grep?, last_failed?, max_failures?)`
+- **Signature**: `qa_e2e_run(project_path, grep?, last_failed?, max_failures?, headed?, timeout_ms?)`
 - **Access**: Granted to **Anbu** only.
 - **Summary Cap**: Hard output cap under 2,000 characters.
-- **Evidence Output**: Emits a unique `run_id`, test duration, totals, file hashes, and first 12 lines of failure messages (ANSI stripped).
+- **Evidence Output**: Emits a unique `run_id`, test duration, totals, file hashes, and first 12 lines of failure messages (ANSI stripped), plus the `headed` flag that was actually used.
+- **Execution**: Always the project's own `@playwright/test` on the host. `CI=1` forces headless and ignores `headed`.
+- **Headed Mode**: `headed: true` renders in a visible local Chromium window. See [Headed Browser Verification](#headed-browser-verification).
 
 ---
 
@@ -298,21 +300,13 @@ Three different things in this repo are called a sandbox. They do not nest, and 
 
 ---
 
-## Live Headed Docker Browser Workspace
+## Headed Browser Verification
 
-When interactive browser observation is needed during frontend development (`live_browser_monitor.js`) or Anbu QA (`qa_e2e_run` / `qaE2eRunAsync`), Konoha launches a persistent headed Chromium session inside an isolated container built from `docker/browser-workspace.Dockerfile` (`konoha-browser-workspace:local`).
+Headed QA is the project's own Playwright and Chromium on the host. `qa_e2e_run({ headed: true })` adds `--headed` and sets `KONOHA_PW_HEADED=1`; `apps/web/playwright.config.js` reads that flag and launches with `channel: 'chrome'`. No container, no viewer process, no CDP endpoint, and no second browser instance is involved.
 
-### Architecture & Isolation
-- **Display & Viewer Stack**: `Xvfb :99` (`-nolisten tcp`) + `fluxbox` + `x11vnc` (`-localhost -rfbauth`) + `noVNC`/`websockify`, paired with `src/workflow/qa-automation/browser_container_agent.js` keeping a single headed Chromium context alive over a container-local UNIX domain socket (`/tmp/konoha-browser-agent.sock`, mode `0600`).
-- **Security Controls (`src/workflow/qa-automation/browser_workspace_security.js`)**:
-  - `validateBindHost`: VNC/noVNC and optional Playwright UI (`9323`) ports bind strictly to `127.0.0.1` unless `allowPublicBind: true` is paired with an explicit `>= 16`-character `authToken`.
-  - `validateWorkspaceMountPath`: mounts only an explicit workspace directory read-only (`/workspace:ro`) and refuses home/root directories, personal browser profiles (`.mozilla`, Chrome/Chromium `User Data`), `.ssh`/`.aws`/`.gnupg`/`.kube`, `.env*`, or `konoha.db`.
-  - `konoha ui` surfaces active container viewer URLs (`http://127.0.0.1:<port>/vnc.html?...`) through existing authenticated `GET /api/v1/activity/live` (`browser_sessions`), while noVNC itself binds loopback `127.0.0.1` with per-session `-rfbauth` authentication.
-- **Session Lifecycle (`src/workflow/qa-automation/browser_session_manager.js`)**:
-  - Supports session creation, persistence/reuse across edits (`reuse: true`, tracking `build_id` / `fresh`), streamed log inspection, cancellation (`SIGTERM`), idle/max-duration watchdogs, and orphan cleanup (`konoha.browser.managed=true`).
-  - CLI surface: `konoha browser start|status|logs|stop|cleanup|qa`.
-  - Existing Web UI surface: `GET /api/v1/activity/live` (`browser_sessions`) and `/api/v1/events` SSE (`no new REST endpoints`).
-- **Headless CI Preservation & WebGL Notes**:
-  - Under `CI=1`, `qaE2eRunAsync` and `apps/web/playwright.config.js` ignore headed flags and run headless Playwright without starting Docker viewer containers.
-  - Inside the container, Chromium launches with `--use-gl=angle --use-angle=swiftshader --enable-webgl --ignore-gpu-blocklist` so WebGL/Three.js scenes render via CPU SwiftShader without host GPU passthrough.
-  - Host `127.0.0.1` / `localhost` target URLs are translated to `host.docker.internal` (with `--add-host=host.docker.internal:host-gateway` on Linux); when targeting a host dev server from Linux Docker, start the dev server with `--host 0.0.0.0` so the container bridge can reach it.
+- **Where the artifacts land**: `~/.konoha/tmp/qa/<run_id>/` (report, copied failure evidence) plus the project's `test-results/` output dir. Paths in the report are host paths, so a trace or screenshot opens directly.
+- **`CI=1` stays headless**: the headed flag is dropped, and `forbidOnly` in the Playwright config is enforced as usual.
+- **Frontend preview**: `live_browser_monitor.js` serves the built page, opens it in the system browser through `openSystemBrowser`, and runs the interactive checks with the project's Playwright. Under `CI=1` or `KONOHA_HEADLESS_TEST=1` it skips opening and stays headless.
+- **WebGL**: `verifyInteractiveExperienceWithPlaywright` launches Chromium with `--use-gl=angle --use-angle=swiftshader --enable-webgl --ignore-gpu-blocklist`, so a machine with no working GPU driver still passes the WebGL checks, only slower.
+- **Binding**: a dev server on `127.0.0.1` is enough — nothing leaves the machine. `--host 0.0.0.0` is only needed for external devices.
+- **Proof**: `tests/test_qa_headed_smoke.js` runs `qa_e2e_run({ headed: true })` against a throwaway project and asserts the CDP `Browser.getVersion` product starts with `Chrome/` — a headless shell reports `HeadlessChrome/` — plus a click that updates the DOM. On Linux it starts `Xvfb`; macOS and Windows report `SKIP`, because headed Chromium needs a display.
