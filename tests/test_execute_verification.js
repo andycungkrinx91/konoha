@@ -67,6 +67,7 @@ async function run() {
     const task = status.tasks.find((t) => t.id === 'slice_a');
     assert.notStrictEqual(task.status, 'completed', 'an unspawned slice must not be completed');
     assert.strictEqual(task.status, 'spawn_pending');
+    assert.strictEqual(task.spawn_state, 'directive_only', 'nothing ran, so the slice is not completed or failed');
     assert.ok(task.spawn_directive, 'the pending slice keeps its spawn directive');
     assert.ok(
       (status.spawn_pending || []).some((s) => s.task_id === 'slice_a'),
@@ -92,6 +93,7 @@ async function run() {
     const status = loadWorkflowStatus(taskDir);
     const task = status.tasks.find((t) => t.id === 'slice_b');
     assert.strictEqual(task.status, 'completed');
+    assert.strictEqual(task.spawn_state, 'completed');
     assert.deepStrictEqual(task.result.validation, ['node --test exited 0']);
     assert.deepStrictEqual(status.spawn_pending, []);
   });
@@ -111,6 +113,7 @@ async function run() {
     const status = loadWorkflowStatus(taskDir);
     const task = status.tasks.find((t) => t.id === 'slice_c');
     assert.notStrictEqual(task.status, 'completed', 'a failed slice must not complete');
+    assert.strictEqual(task.spawn_state, 'failed');
   });
 
   check('no source path still hardcodes verified_specialist_slice', () => {

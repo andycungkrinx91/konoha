@@ -1386,6 +1386,11 @@ Savings are half the ledger. The other half is what Konoha puts into every reque
 | Subagent contract | 2,242 B / ~590 tok | once per delegated child |
 | `konoha` skill entry | 7,329 B / ~1,929 tok | only when loaded |
 
+Those token columns are **estimates** at 3.8 bytes/token — the script labels every derived number `(est)` and prints
+the method in its header, so a byte count is never mistaken for a provider reading. When the database holds a
+provider-reported usage row it is printed separately under `MEASURED — provider-reported usage`; when it does not,
+the script says so instead of promoting an estimate.
+
 The main-agent floor is ~7,831 tokens before any conversation, or ~9,760 with the skill loaded; each delegated child
 adds its own ~590. Everything else is on demand: the twelve `konoha/*` references, the skill library, and file reads.
 

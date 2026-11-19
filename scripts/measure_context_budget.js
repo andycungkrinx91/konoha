@@ -22,6 +22,9 @@ const BYTES_PER_TOKEN = 3.8; // measured from the 9Router samples this repo's tr
 
 const bytes = (value) => Buffer.byteLength(typeof value === 'string' ? value : JSON.stringify(value), 'utf8');
 const tokens = (n) => Math.round(n / BYTES_PER_TOKEN);
+// Byte-derived token figures are estimates, never measurements. Callers must
+// label them; `reportedUsage` is the only measured path.
+const ESTIMATE_METHOD = 'bytes/3.8';
 const size = (p) => (fs.existsSync(p) ? bytes(fs.readFileSync(p, 'utf8')) : null);
 
 function constantCosts() {
@@ -52,6 +55,42 @@ function constantCosts() {
   };
 }
 
+/**
+ * Provider-measured usage, when a provider actually reported it.
+ *
+ * Reads the newest `tool_calls` row carrying an `input_tokens` value. Returns
+ * `{available: false, reason}` when nothing was recorded, so a caller prints
+ * "no provider usage recorded" instead of reusing a byte estimate.
+ */
+function reportedUsage({ dbPath } = {}) {
+  const absent = { available: false, reason: 'no provider usage recorded', method: 'provider_reported' };
+  let conn = null;
+  try {
+    const { getDb } = require(path.join(ROOT, 'src', 'db'));
+    conn = getDb(dbPath || undefined);
+    const row = conn.prepare(`
+      SELECT input_tokens, output_tokens, cached_tokens, tool, timestamp
+      FROM tool_calls WHERE input_tokens IS NOT NULL
+      ORDER BY id DESC LIMIT 1
+    `).get();
+    if (!row) return absent;
+    return {
+      available: true,
+      method: 'provider_reported',
+      input_tokens: row.input_tokens,
+      output_tokens: row.output_tokens,
+      cache_read_input_tokens: row.cached_tokens,
+      total_tokens: (row.input_tokens || 0) + (row.output_tokens || 0),
+      tool: row.tool,
+      timestamp: row.timestamp
+    };
+  } catch (err) {
+    return { ...absent, reason: `no provider usage recorded (${err.message})` };
+  } finally {
+    try { if (conn) conn.close(); } catch (_) { /* ignore close error */ }
+  }
+}
+
 function perRequestCaps() {
   const { PROMPT_CEILING_BYTES, SYSTEM_PROMPT_FLOOR_BYTES, MIN_SKILL_PREVIEW_BYTES } = require(path.join(ROOT, 'src', 'mcp', 'memory_subagent_runner'));
   const { MAX_ENVELOPE_SKILLS, SOUL_SNIPPET_BYTES, MAX_RECALL_ITEMS, RECALL_SNIPPET_CHARS } = require(path.join(ROOT, 'src', 'mcp', 'sannin_router'));
@@ -64,7 +103,13 @@ function perRequestCaps() {
 }
 
 function main() {
-  const report = { bytesPerToken: BYTES_PER_TOKEN, constant: constantCosts(), perRequest: perRequestCaps() };
+  const report = {
+    estimate_method: ESTIMATE_METHOD,
+    bytesPerToken: BYTES_PER_TOKEN,
+    constant: constantCosts(),
+    perRequest: perRequestCaps(),
+    reported: reportedUsage()
+  };
 
   if (process.argv.includes('--check')) {
     const assert = require('assert');
@@ -83,24 +128,32 @@ function main() {
 
   const { manifest, contractHead, subagentContract, skillEntry, skillReferences } = report.constant;
   const pad = (s, n) => String(s).padEnd(n);
-  console.log('Konoha context budget (bytes / ~tokens at 3.8 B per token)\n');
+  console.log(`Konoha context budget (bytes; tokens are ESTIMATES at ${BYTES_PER_TOKEN} B/token)\n`);
   console.log('CONSTANT — once per session');
-  console.log(`  ${pad('MCP tool manifest', 32)}${pad(manifest.bytes, 9)}B  ${pad(manifest.tokens, 7)}tok  (${manifest.tools} tools)`);
-  console.log(`  ${pad('Client contract head', 32)}${pad(contractHead.bytes, 9)}B  ${pad(contractHead.tokens, 7)}tok  (worst of ${contractHead.clients.length} clients)`);
-  console.log(`  ${pad('Subagent contract', 32)}${pad(subagentContract, 9)}B  ${pad(tokens(subagentContract), 7)}tok`);
-  console.log(`  ${pad('konoha skill entry', 32)}${pad(skillEntry.bytes, 9)}B  ${pad(tokens(skillEntry.bytes), 7)}tok  (cap ${skillEntry.cap}B)`);
+  console.log(`  ${pad('MCP tool manifest', 32)}${pad(manifest.bytes, 9)}B  ${pad(manifest.tokens, 7)}~tok  (${manifest.tools} tools, est)`);
+  console.log(`  ${pad('Client contract head', 32)}${pad(contractHead.bytes, 9)}B  ${pad(contractHead.tokens, 7)}~tok  (worst of ${contractHead.clients.length} clients, est)`);
+  console.log(`  ${pad('Subagent contract', 32)}${pad(subagentContract, 9)}B  ${pad(tokens(subagentContract), 7)}~tok  (est)`);
+  console.log(`  ${pad('konoha skill entry', 32)}${pad(skillEntry.bytes, 9)}B  ${pad(tokens(skillEntry.bytes), 7)}~tok  (cap ${skillEntry.cap}B, est)`);
   const totalConstant = manifest.bytes + contractHead.bytes + skillEntry.bytes;
-  console.log(`  ${pad('sum', 32)}${pad(totalConstant, 9)}B  ${pad(tokens(totalConstant), 7)}tok\n`);
+  console.log(`  ${pad('sum', 32)}${pad(totalConstant, 9)}B  ${pad(tokens(totalConstant), 7)}~tok  (est)\n`);
 
   console.log('ON DEMAND — only when a pointer is followed');
-  for (const ref of skillReferences) console.log(`  ${pad(`konoha/${ref.name}`, 32)}${pad(ref.bytes, 9)}B  ${pad(tokens(ref.bytes), 7)}tok`);
+  for (const ref of skillReferences) console.log(`  ${pad(`konoha/${ref.name}`, 32)}${pad(ref.bytes, 9)}B  ${pad(tokens(ref.bytes), 7)}~tok  (est)`);
 
   const { subagentPromptCeiling, systemPromptFloor, minSkillPreview, envelope } = report.perRequest;
   console.log('\nPER REQUEST — repeated every turn');
-  console.log(`  ${pad('subagent prompt ceiling', 32)}${pad(subagentPromptCeiling, 9)}B  ${pad(tokens(subagentPromptCeiling), 7)}tok`);
-  console.log(`  ${pad('system prompt floor', 32)}${pad(systemPromptFloor, 9)}B  ${pad(tokens(systemPromptFloor), 7)}tok`);
-  console.log(`  ${pad('min skill preview', 32)}${pad(minSkillPreview, 9)}B  ${pad(tokens(minSkillPreview), 7)}tok`);
+  console.log(`  ${pad('subagent prompt ceiling', 32)}${pad(subagentPromptCeiling, 9)}B  ${pad(tokens(subagentPromptCeiling), 7)}~tok  (est)`);
+  console.log(`  ${pad('system prompt floor', 32)}${pad(systemPromptFloor, 9)}B  ${pad(tokens(systemPromptFloor), 7)}~tok  (est)`);
+  console.log(`  ${pad('min skill preview', 32)}${pad(minSkillPreview, 9)}B  ${pad(tokens(minSkillPreview), 7)}~tok  (est)`);
   console.log(`  ${pad('delegation envelope', 32)}<= ${envelope.maxSkills} skill names, ${envelope.soulBytes}B soul, ${envelope.maxRecall}x${envelope.recallChars} recall`);
+
+  console.log('\nMEASURED — provider-reported usage');
+  const reported = report.reported;
+  if (reported.available) {
+    console.log(`  ${pad(reported.tool || 'last call', 32)}${pad(reported.input_tokens, 9)}in  ${pad(reported.output_tokens, 7)}out  ${pad(reported.cache_read_input_tokens ?? 'n/a', 7)}cached`);
+  } else {
+    console.log(`  ${reported.reason} — every ~tok above is a byte estimate, not a measurement`);
+  }
 
   console.log('\nRead this as: the constant column is a session tax in the low thousands of tokens.');
   console.log('Anything above that is transcript growth, which no server-side trimming can undo.');
@@ -109,4 +162,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { main, constantCosts, perRequestCaps, BYTES_PER_TOKEN };
+module.exports = { main, constantCosts, perRequestCaps, reportedUsage, BYTES_PER_TOKEN, ESTIMATE_METHOD };

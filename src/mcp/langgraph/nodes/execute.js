@@ -22,6 +22,15 @@ function recordCompletedDispatch(status, dispatchId) {
   }
 }
 
+function _branchFailed(branchResult) {
+  if (!branchResult) return false;
+  if (branchResult.spawn_state) return branchResult.spawn_state === 'failed';
+  return branchResult.status === 'failed'
+    || branchResult.status === 'error'
+    || branchResult.status === 'timeout'
+    || Boolean(branchResult.error_code);
+}
+
 async function _executeTaskBranchConcurrently(task, idx, status, state, sliceExecutor) {
   const startedAt = Date.now();
   await new Promise((resolve) => setTimeout(resolve, 2));
@@ -69,6 +78,7 @@ async function _executeTaskBranchConcurrently(task, idx, status, state, sliceExe
       spawn_error: parsedMcp.spawn_error || null,
       summary: `Spawn directive prepared for @${targetAgent} slice (${task.id}); no child process was started by the MCP runner`,
       status: 'spawn_pending',
+      spawn_state: 'directive_only',
       child_execution_verified: false,
       validation: []
     };
@@ -145,6 +155,7 @@ async function completePendingTasks(status, state, config) {
     const verified = outcome.branchResult && outcome.branchResult.child_execution_verified === true;
     if (verified) {
       outcome.task.status = 'completed';
+      outcome.task.spawn_state = 'completed';
       outcome.task.result = outcome.branchResult;
       recordCompletedDispatch(status, outcome.task.dispatch_id);
     } else {
@@ -152,6 +163,9 @@ async function completePendingTasks(status, state, config) {
       // hand the directive back so the client can actually spawn it; the review
       // node's delegation guard then routes to dispatch instead of Gate 2.
       outcome.task.status = 'spawn_pending';
+      // `failed` when the attempt actually ran and lost; `directive_only` when
+      // nothing was ever started and the client still owes the spawn.
+      outcome.task.spawn_state = _branchFailed(outcome.branchResult) ? 'failed' : 'directive_only';
       outcome.task.spawn_directive = (outcome.branchResult && outcome.branchResult.spawn_directive) || null;
       // The result stays attached so a caller can read the directive it must run;
       // `status` on the task is what marks the slice as unfinished.

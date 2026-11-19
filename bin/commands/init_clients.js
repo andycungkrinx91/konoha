@@ -21,16 +21,53 @@ function normalizeClientToken(token) {
   return clean;
 }
 
+const KNOWN_CLIENTS = Object.freeze([
+  'claude', 'cursor', 'opencode', 'commandcode', 'codex', 'omp', 'pi', 'antigravity', 'all'
+]);
+
+const CLIENT_VALUE_REQUIRED = `--client requires a value: one of ${KNOWN_CLIENTS.join(', ')}`;
+
+// An explicit `--client` is validated, never repaired. The previous parser
+// filtered empty tokens out of the list, so `--client=` produced `[]`, which
+// `explicitSelection` then read as "no flag" and widened to every client.
+function parseClientList(raw) {
+  const value = String(raw == null ? '' : raw).trim();
+  if (!value) throw new Error(CLIENT_VALUE_REQUIRED);
+  const rawTokens = value.toLowerCase().split(',');
+  // An empty member (`cursor,,codex` or a trailing comma) is a malformed explicit
+  // list. Filtering it away would quietly repair a selection the user mistyped.
+  const emptyAt = rawTokens.findIndex((t) => !t.trim());
+  if (emptyAt !== -1) {
+    throw new Error(`--client has an empty entry at position ${emptyAt + 1}: "${value}"; list clients as cursor,codex`);
+  }
+  const tokens = rawTokens.map(normalizeClientToken);
+  for (const token of tokens) {
+    if (!KNOWN_CLIENTS.includes(token)) {
+      throw new Error(`unknown client "${token}"; expected one of ${KNOWN_CLIENTS.join(', ')}`);
+    }
+  }
+  // `all` is a whole selection, never a member of one: `cursor,all` must fail
+  // rather than silently widening the explicit list the user asked for.
+  if (tokens.includes('all') && tokens.length > 1) {
+    throw new Error(`"--client=all" cannot be combined with other clients: "${value}"; use all alone or name each client`);
+  }
+  return tokens;
+}
+
+/**
+ * @returns {string[]|null} null when no `--client`/`--clients` flag is present.
+ * @throws when the flag is present but its value is missing, empty, or unknown,
+ * so an explicit selection is never silently widened to every client.
+ */
 function parseRequestedClients(args) {
   const clientFlag = args.find(a => a.startsWith('--client=') || a.startsWith('--clients='));
-  if (clientFlag) {
-    const val = clientFlag.split('=')[1].toLowerCase();
-    return val === 'all' ? ['all'] : val.split(',').map(normalizeClientToken).filter(Boolean);
-  }
-  const clientIdx = args.indexOf('--client');
-  if (clientIdx !== -1 && args[clientIdx + 1]) {
-    const val = args[clientIdx + 1].toLowerCase();
-    return val === 'all' ? ['all'] : val.split(',').map(normalizeClientToken).filter(Boolean);
+  if (clientFlag) return parseClientList(clientFlag.split('=').slice(1).join('='));
+  for (const flag of ['--client', '--clients']) {
+    const idx = args.indexOf(flag);
+    if (idx === -1) continue;
+    const next = args[idx + 1];
+    if (next === undefined || next.startsWith('-')) throw new Error(CLIENT_VALUE_REQUIRED);
+    return parseClientList(next);
   }
   return null;
 }
@@ -229,6 +266,7 @@ function setupClientIntegrations(options) {
 }
 
 module.exports = {
+  KNOWN_CLIENTS,
   parseRequestedClients,
   setupClientIntegrations
 };

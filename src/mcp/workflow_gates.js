@@ -1,7 +1,9 @@
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const { saveWorkflowStatus, cleanupTransientScratchFiles } = require('./workflow_common');
+const { extractModifiedFiles, formatTaskSummary } = require('./workflow_completion_helpers');
 const { syncTodoAndWalkthrough } = require('./todo_walkthrough_sync');
 const { buildPickerBinding } = require('./hitl_picker');
 const { slicePreservingHeadMiddleTail } = require('../context_budget');
@@ -129,6 +131,8 @@ function buildPromptPayload({
   title,
   question,
   choices,
+  implemented,
+  modified_files: modifiedFiles,
   options
 }) {
   return {
@@ -139,6 +143,8 @@ function buildPromptPayload({
     input_mode: 'reply_with_option_label',
     choices,
     refinement_option: CUSTOM_CHOICE_LABEL,
+    ...(implemented === undefined ? {} : { implemented }),
+    ...(modifiedFiles === undefined ? {} : { modified_files: modifiedFiles }),
     options
   };
 }
@@ -182,8 +188,28 @@ function _serializeHitlPromptEnvelope(baseFields, { stage, gateName, choices, st
   });
 }
 
+/**
+ * Gate 1 is the only moment the approved plan exists as text before execution.
+ * Persist the compiled plan as the authoritative plan.md artifact next to
+ * `final_report.md` so it survives compaction and the approver can open it.
+ * Refuses symlink targets; write failures must never block the gate itself.
+ */
+function writePlanArtifact(resolvedTaskDir, planText) {
+  if (!resolvedTaskDir || !String(planText).trim()) return null;
+  const planPath = path.join(path.resolve(resolvedTaskDir), 'plan.md');
+  try {
+    if (fs.existsSync(planPath) && fs.lstatSync(planPath).isSymbolicLink()) return null;
+    fs.mkdirSync(path.dirname(planPath), { recursive: true });
+    fs.writeFileSync(planPath, String(planText), 'utf8');
+    return planPath;
+  } catch (_) {
+    return null;
+  }
+}
+
 function buildGate1Prompt(status, resolvedTaskDir, rootTaskId, planContent, options = {}) {
   const planText = planContent || status.plan || '';
+  const planPath = writePlanArtifact(resolvedTaskDir, planText);
   const choices = [...GATE1_CHOICES, CUSTOM_CHOICE_LABEL];
   const promptPayload = buildPromptPayload({
     gate: 'gate_1',
@@ -214,14 +240,15 @@ function buildGate1Prompt(status, resolvedTaskDir, rootTaskId, planContent, opti
     ]
   });
 
-  const message = 'Action plan compiled. Execution paused awaiting human plan approval (Gate 1).\n\n' +
-    'Reply with the option label (or its number):\n' +
+  const message = 'Action plan compiled. Execution paused awaiting human plan approval (Gate 1).\n' +
+    (planPath ? `\nFull plan written to ${planPath}\n\n${String(planText).trim()}\n` : '\n' + String(planText).trim() + '\n') +
+    '\nReply with the option label (or its number):\n' +
     renderChoiceList(choices) +
     '\n\nChoosing "' + CUSTOM_CHOICE_LABEL + '" lets you type any instruction, e.g.: ' +
     CUSTOM_CHOICE_LABEL + ': use Postgres instead of SQLite';
 
   return _serializeHitlPromptEnvelope(
-    { status: 'pending_plan_approval', phase: 'plan_approval', plan: planText, tasks: status.tasks || [] },
+    { status: 'pending_plan_approval', phase: 'plan_approval', plan: planText, plan_path: planPath, tasks: status.tasks || [] },
     { stage: 'gate1', gateName: 'Gate 1 (Plan Approval)', choices, status, resolvedTaskDir, taskId: rootTaskId, message, promptPayload, client: options.client }
   );
 }
@@ -230,6 +257,16 @@ function buildGate2Prompt(status, resolvedTaskDir, rootId, options = {}) {
   const confidenceVal = options.confidence !== undefined ? options.confidence : 100;
   const reportPath = options.report;
   const finalReport = reportPath || status?.report || '';
+  // Gate 2 asks a human to accept shipped work. Enumerate what actually landed
+  // so the approval is about the delivery, not only the confidence number.
+  const tasks = Array.isArray(status && status.tasks) ? status.tasks : [];
+  const doneTasks = tasks.filter(t => {
+    const s = String((t && t.status) || '').toLowerCase();
+    return s === 'completed' || s === 'done';
+  });
+  const implemented = formatTaskSummary(doneTasks) || 'No completed tasks recorded.';
+  const modifiedFiles = extractModifiedFiles(doneTasks);
+  const fileList = modifiedFiles.length > 0 ? modifiedFiles.map(f => `- ${f}`).join('\n') : '- none reported';
   const choices = [...GATE2_CHOICES, CUSTOM_CHOICE_LABEL];
   const promptPayload = buildPromptPayload({
     gate: 'gate_2',
@@ -237,6 +274,8 @@ function buildGate2Prompt(status, resolvedTaskDir, rootId, options = {}) {
     title: 'Gate 2: Delivery Sign-Off Required',
     question: `Kage review completed (${confidenceVal}% Confidence). Delivery paused awaiting human sign-off (Gate 2). How would you like to proceed?`,
     choices,
+    implemented,
+    modified_files: modifiedFiles,
     options: [
       {
         id: '1',
@@ -261,13 +300,15 @@ function buildGate2Prompt(status, resolvedTaskDir, rootId, options = {}) {
   });
 
   const message = `Kage review completed (${confidenceVal}% Confidence). Delivery paused awaiting human sign-off (Gate 2).\n\n` +
+    `Implemented:\n${implemented}\n\n` +
+    `Modified files:\n${fileList}\n\n` +
     'Reply with the option label (or its number):\n' +
     renderChoiceList(choices) +
     '\n\nChoosing "' + CUSTOM_CHOICE_LABEL + '" lets you type the exact fix you want, e.g.: ' +
     CUSTOM_CHOICE_LABEL + ': add integration tests for the upload path';
 
   return _serializeHitlPromptEnvelope(
-    { status: 'pending_human_signoff', phase: 'delivery_signoff', confidence: confidenceVal, report: finalReport },
+    { status: 'pending_human_signoff', phase: 'delivery_signoff', confidence: confidenceVal, report: finalReport, implemented, modified_files: modifiedFiles },
     { stage: 'gate2', gateName: 'Gate 2 (Delivery Sign-Off)', choices, status, resolvedTaskDir, taskId: rootId, message, promptPayload, client: options.client }
   );
 }

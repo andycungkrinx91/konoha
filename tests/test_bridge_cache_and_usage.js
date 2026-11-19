@@ -121,6 +121,30 @@ test('bridge no longer hardcodes zero usage', () => {
   assert.ok(src.includes('buildAnthropicUsage'), 'usage must derive from the upstream response');
 });
 
+test('translated usage carries provider counts and keeps unreported ones null', () => {
+  const { openAIResponseToAnthropic } = require('../src/bridge/gateway_adapters');
+  const call = (upstream) => {
+    let body = null;
+    const res = { writeHead() {}, end(chunk) { body = JSON.parse(chunk); } };
+    openAIResponseToAnthropic(upstream, { model: 'm', msgId: 'x', res });
+    return body.usage;
+  };
+
+  const reported = call({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 1200, completion_tokens: 40, cached_tokens: 800 } });
+  assert.strictEqual(reported.input_tokens, 1200);
+  assert.strictEqual(reported.output_tokens, 40);
+  assert.strictEqual(reported.cache_read_input_tokens, 800);
+
+  const absent = call({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] });
+  assert.strictEqual(absent.input_tokens, null, 'no provider usage must stay null, not 0');
+  assert.strictEqual(absent.output_tokens, null);
+  assert.strictEqual(absent.cache_read_input_tokens, undefined);
+
+  const partial = call({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 15 } });
+  assert.strictEqual(partial.input_tokens, 15);
+  assert.strictEqual(partial.output_tokens, null);
+});
+
 console.log('prefix stability');
 
 test('tool order from the caller is preserved (no behaviour perturbation)', () => {

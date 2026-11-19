@@ -150,7 +150,12 @@ function extractModifiedFiles(tasks) {
 function formatTaskSummary(tasks) {
   const list = (tasks || []).slice(0, 5);
   return list.map(t => {
-    const res = (t.result || 'Completed').replace(/\n+/g, ' ').trim();
+    // Executor slices report `summary`; agent reports use `result`. Either may
+    // arrive as a non-string (object payload), which used to throw here and
+    // took the whole review node down.
+    const raw = typeof t.result === 'string' ? t.result
+      : (typeof t.summary === 'string' ? t.summary : 'Completed');
+    const res = raw.replace(/\n+/g, ' ').trim();
     const short = res.length > 60 ? res.slice(0, 57) + '...' : res;
     return `• [${t.agent || 'agent'}] ${t.task}: ${short}`;
   }).join('\n');

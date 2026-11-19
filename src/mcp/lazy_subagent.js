@@ -110,6 +110,9 @@ function buildUnsupportedSpawnPayload(client, reason) {
   return {
     ok: false,
     supported: false,
+    // Nothing was started, so there is no child to report on. This is a
+    // capability gap, not a failed run.
+    spawn_state: 'directive_only',
     error_code: 'UNSUPPORTED_NATIVE_SPAWN',
     client: client || 'unknown',
     error: reason,

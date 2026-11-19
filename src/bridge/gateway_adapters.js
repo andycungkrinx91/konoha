@@ -12,7 +12,7 @@ const {
   pipeWithModelRewrite
 } = require('./gateway_router');
 const { dedupeToolDefinitions, capToolOutputs } = require('./tool_payload');
-const { extractCachedTokens } = require('./cache_capability');
+const { normalizeUsage } = require('../token_usage');
 const { validateRequestBudget, LIMITS } = require('./request_budget');
 
 function extractAnthropicSystemText(content) {
@@ -196,19 +196,20 @@ function openAIResponseToAnthropic(openAiResp, options) {
 }
 
 /**
- * Translate upstream OpenAI-shaped usage into an Anthropic usage object.
- * Token counts are passed through unchanged; cached_tokens is added only when
- * the upstream actually reported it, so consumers can tell "no cache" apart
- * from "provider gave no breakdown".
+ * Translate upstream [OI]-shaped usage into an Anthropic usage object.
+ *
+ * Counts come only from what the provider reported: an unreported count stays
+ * null, which is how a consumer tells "provider gave no breakdown" apart from
+ * "provider measured zero". `normalizeUsage` also accepts Anthropic-native
+ * field spellings, so an already-translated upstream is not re-estimated.
  */
 function buildAnthropicUsage(openAiResp) {
-  const usage = openAiResp && openAiResp.usage ? openAiResp.usage : null;
+  const measured = normalizeUsage(openAiResp && openAiResp.usage);
   const result = {
-    input_tokens: usage && Number.isFinite(usage.prompt_tokens) ? usage.prompt_tokens : null,
-    output_tokens: usage && Number.isFinite(usage.completion_tokens) ? usage.completion_tokens : null
+    input_tokens: measured.available ? measured.input_tokens : null,
+    output_tokens: measured.available ? measured.output_tokens : null
   };
-  const cached = extractCachedTokens(usage);
-  if (cached !== null) result.cache_read_input_tokens = cached;
+  if (measured.cache_read_input_tokens !== null) result.cache_read_input_tokens = measured.cache_read_input_tokens;
   return result;
 }
 

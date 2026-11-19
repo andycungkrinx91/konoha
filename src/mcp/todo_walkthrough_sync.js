@@ -200,6 +200,9 @@ function applyAgentReportToTodos(workflowStatus, cleanAgent, dispatchId, finalSt
 
   if (finalStatus === 'completed' || finalStatus === 'unverified') {
     task.status = finalStatus;
+    // A report without passing validation evidence cannot have produced a
+    // finished child: `completed` requires the evidence gate to have passed.
+    task.spawn_state = finalStatus === 'completed' ? 'completed' : 'directive_only';
     task.result = updateData.summary || '';
     task.validation = updateData.validation || [];
     task.verified = updateData.verified;

@@ -9,6 +9,11 @@ name: Cross-Platform
 # The publish and release-assets workflows stay tag-only on ubuntu-latest; this
 # workflow owns push/PR verification and never publishes.
 #
+# A feature branch is verified with a manual dispatch, not a new trigger:
+# `scope: checks` (the default) runs the 3-OS `checks` job only, ~5 minutes.
+# `scope: full` runs the whole sharded matrix. Pushes and PRs always run the
+# full matrix, exactly as before.
+#
 # Duration targets (docs/CI.md, "Duration budget"): ubuntu < 10 min,
 # macos < 20 min, windows < 30 min. The suite is the only term large enough to
 # matter, so it is split across shards on separate runners — one runner cannot
@@ -30,6 +35,12 @@ on:
     branches: [master]
   pull_request:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: 'checks = lint + fresh install on 3 OSes (3 jobs, ~5 min); full = the sharded suite matrix (31 jobs)'
+        type: choice
+        options: [checks, full]
+        default: checks
   # Nightly cross-platform run. Push-only triggers miss the regressions that
   # matter most here: a runner image change, a dependency that resolves
   # differently on another OS, or a Windows/macOS-only path bug that no PR
@@ -102,6 +113,10 @@ jobs:
 
   seed:
     name: Build golden seed (${{ matrix.os }})
+    # A manual dispatch defaults to `scope: checks`, which must not pay for the
+    # sharded matrix. Push, pull_request and schedule have no `inputs`, so the
+    # `github.event_name` guard keeps their behaviour identical.
+    if: github.event_name != 'workflow_dispatch' || inputs.scope == 'full'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
     strategy:
@@ -169,6 +184,7 @@ jobs:
   test:
     name: ${{ matrix.os }} shard ${{ matrix.shard }}/${{ matrix.shard_total }}
     needs: [seed]
+    if: github.event_name != 'workflow_dispatch' || inputs.scope == 'full'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     strategy:
@@ -437,6 +453,12 @@ jobs:
         continue-on-error: true
         run: node scripts/prefetch_semantic_models.js
 
+      # tests/test_qa_headed_smoke.js fails closed in CI without a display; the
+      # test starts its own Xvfb on Linux when the binary is present.
+      - name: Install Xvfb (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
       # Full suite via tests/run_all.js, split into the shard this job owns.
       # Parallel mode is the harness's own feature (KONOHA_TEST_PARALLEL=1,
       # concurrency 4, with a sequential pool for suites that must run alone).
@@ -453,3 +475,57 @@ jobs:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
         timeout-minutes: 60
         run: pnpm test
+
+  # One place that states what actually ran. A skipped job is reported as
+  # SKIPPED, never folded into a pass: on a `scope: checks` dispatch the sharded
+  # suite did not run, and the summary must say so rather than implying green.
+  summary:
+    name: Result summary
+    if: always()
+    needs: [checks, seed, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report per-job result
+        env:
+          CHECKS: ${{ needs.checks.result }}
+          SEED: ${{ needs.seed.result }}
+          TEST: ${{ needs.test.result }}
+          SCOPE: ${{ inputs.scope || 'n/a' }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const rows = [
+              ["checks (lint + fresh install, 3 OSes)", process.env.CHECKS],
+              ["seed (golden seed, 3 OSes)", process.env.SEED],
+              ["test (sharded suite, 28 jobs)", process.env.TEST],
+            ];
+            const label = (r) => {
+              if (r === "success") return "PASS";
+              if (r === "skipped") return "SKIPPED";
+              if (r === "cancelled") return "CANCELLED";
+              return "FAIL";
+            };
+            const note = (r) => (r === "skipped" ? " (not requested: dispatch scope=checks)" : "");
+            const lines = [
+              `event=${process.env.EVENT} scope=${process.env.SCOPE}`,
+              "",
+              "| Result | Job |",
+              "|---|---|",
+              ...rows.map(([name, result]) => `| ${label(result)}${note(result)} | ${name} |`),
+            ];
+            for (const line of lines) console.log(line);
+            // The run summary is the surface a reviewer actually reads; stdout is
+            // only the raw job log.
+            const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+            if (summaryFile) fs.appendFileSync(summaryFile, `## Konoha cross-platform CI\n\n${lines.join("\n")}\n\n`);
+            const failed = rows.filter(([, r]) => r !== "success" && r !== "skipped");
+            if (failed.length > 0) {
+              console.error(`${failed.length} job group(s) did not pass`);
+              process.exit(1);
+            }
+            if (rows.every(([, r]) => r === "skipped")) {
+              console.error("nothing ran; refusing to report success");
+              process.exit(1);
+            }
+          '

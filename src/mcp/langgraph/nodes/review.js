@@ -159,7 +159,12 @@ function _delegationGuard(state, status, taskDir) {
 
   const pendingSpawns = pendingTasks
     .filter((t) => t.status === 'spawn_pending' && t.spawn_directive)
-    .map((t) => ({ task_id: t.id, agent: t.agent || null, spawn_directive: t.spawn_directive }));
+    .map((t) => ({
+      task_id: t.id,
+      agent: t.agent || null,
+      spawn_state: t.spawn_state || 'directive_only',
+      spawn_directive: t.spawn_directive
+    }));
   const payload = {
     status,
     phase: 'execute',
