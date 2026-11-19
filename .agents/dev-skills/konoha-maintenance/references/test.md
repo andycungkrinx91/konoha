@@ -37,7 +37,7 @@ Linux, macOS, and Windows all go through the container. A host has a real `konoh
 
 | Verification Target | Command | Expected Pass Criteria |
 |---|---|---|
-| **Version Consistency** | `rtk node tests/test_version_consistency.js` | 18/18 managed repository targets strictly verified at `v2.2.23`. |
+| **Version Consistency** | `rtk node tests/test_version_consistency.js` | 23/23 managed repository targets strictly verified at `v2.2.24`. |
 | **Compact `use_skills` & Discipline Skills** | `rtk node tests/test_use_skills_compact.js` | 5-skill bundle `<= 6,400 bytes` (`genin=5093B`, `dedup=2818B`, `anbu=5239B`), all 8 specialists retain `i-have-adhd` & `antislop`. |
 | **8 Subagents Spawn, Parallel & `/konoha`** | `rtk node tests/test_langgraph_parallel_and_konoha.js` | All 8 specialists spawn across all 8 clients, `@sannin` router-only, parallel workstreams & `/konoha` LangGraph routing verified. |
 | **Spawn Harness Contracts** | `rtk node tests/test_spawn_harness_contracts.js` | 16/16: OMP/Pi identity from the state directory, `omp` argv and `task` schema (no repeated `context`, no `cwd`), harness-binary probing with the execute-bit/`PATHEXT` filter, CLI and parallel fallbacks, Windows `.cmd` route and `taskkill /T` tree kill. |

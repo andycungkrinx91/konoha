@@ -272,6 +272,10 @@ function buildOpenAiPayloadFromAnthropic(body, targetModel) {
   if (body.compactContext === true) {
     openAiPayload.compactContext = true;
   }
+  // The OpenAI Chat Completions streaming contract gates the final usage-bearing
+  // chunk behind this field, and `coalesceOpenAiStreamToAnthropic` reads
+  // `chunk.usage`; without it every streamed response's token columns stay null.
+  if (isStream) openAiPayload.stream_options = { include_usage: true };
   for (const k of Object.keys(openAiPayload)) {
     if (openAiPayload[k] === undefined || openAiPayload[k] === null) delete openAiPayload[k];
   }

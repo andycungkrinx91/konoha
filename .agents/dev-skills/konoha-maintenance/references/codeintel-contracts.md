@@ -1,4 +1,4 @@
-# 🍃 Konoha Code-Intel, Guardrail & Subagent Contracts (v2.2.23)
+# 🍃 Konoha Code-Intel, Guardrail & Subagent Contracts (v2.2.24)
 
 Loaded on demand from `konoha`. Each rule already shipped as a bug once; the code reference in each rule is the guard.
 

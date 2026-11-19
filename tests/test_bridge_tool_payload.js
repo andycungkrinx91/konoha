@@ -157,6 +157,22 @@ function run() {
     assert.strictEqual(out.tools, undefined);
   }) && ok;
 
+  // The stream coalescer reads `chunk.usage` from the upstream SSE tail, and the
+  // OpenAI streaming contract only emits that chunk when this field is set.
+  // Without it every streamed response reports no tokens.
+  ok = runCase('streaming payload requests the usage chunk', () => {
+    const out = buildOpenAiPayloadFromAnthropic(
+      { model: 'claude-x', stream: true, messages: [{ role: 'user', content: 'hi' }] },
+      'gpt-x'
+    );
+    assert.deepStrictEqual(out.stream_options, { include_usage: true });
+  }) && ok;
+
+  ok = runCase('non-streaming payload carries no stream_options', () => {
+    const out = buildOpenAiPayloadFromAnthropic({ model: 'claude-x', messages: [{ role: 'user', content: 'hi' }] }, 'gpt-x');
+    assert.strictEqual(out.stream_options, undefined);
+  }) && ok;
+
   console.log(ok ? 'RESULT: PASS' : 'RESULT: FAIL');
   return ok;
 }

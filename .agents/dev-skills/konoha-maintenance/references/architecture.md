@@ -1,4 +1,4 @@
-# 🍃 Konoha System Architecture & MCP Server Specifications (v2.2.23)
+# 🍃 Konoha System Architecture & MCP Server Specifications (v2.2.24)
 
 Technical specification of the Konoha MCP Server architecture, 56 canonical tools, transport mechanisms, runtime state, parallel worktree isolation, Real-Time Idle `@advisor`, and dynamic website builder invariants.
 
@@ -75,7 +75,7 @@ Guards: `tests/test_code_intel_tools.js` — the auto-index leg, an async leg th
 
 ---
 
-## 🎨 Dynamic Konoha Website Builder Architecture (`v2.2.23`)
+## 🎨 Dynamic Konoha Website Builder Architecture (`v2.2.24`)
 
 When scaffolding or generating websites from text (`konoha.build_from_text`) or design mockups (`konoha.build_from_source`), `@jonin` executes a dynamic, context-driven design architecture across all supported frameworks (**Next.js, SvelteKit, Nuxt, Angular**):
 
