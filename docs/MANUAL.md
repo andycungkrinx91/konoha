@@ -989,7 +989,14 @@ template the client expands with your argument, not a server route:
 A client whose config root is absent is skipped and named in `konoha doctor` under *Slash Command Coverage*;
 nothing is created for it. Pi and Antigravity are reported as unsupported there — Pi loads commands only through
 its extension packaging, and Antigravity has no prompt directory. A `konoha.md` you wrote yourself is never
-overwritten; the deployer leaves it alone and says so.
+overwritten; the deployer leaves it alone and says so. Ownership is the `generated_by: konoha` line in the file's
+frontmatter, not the body text, so editing the body does not turn your own copy into a user-owned file, and quoting
+the template in a file of your own does not make it Konoha's.
+
+`--project` also writes the command into the repository, using the project form of the same directory for each
+client: `.claude/commands/`, `.cursor/commands/`, `.opencode/command/`, `.commandcode/commands/`, and
+`.codex/prompts/` under the repository root. Init reports the two scopes separately, as `claudecode` and
+`claudecode (project)`.
 
 ### 9.6 Project-level versus global
 

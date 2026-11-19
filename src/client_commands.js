@@ -53,6 +53,10 @@ const LEGACY_COMMAND_BODY = KONOHA_COMMAND_BODY.replace('generated_by: konoha\n'
 //   opencode    opencode binary                     -> `<config>/opencode/command/`
 //   commandcode dist/bundled/.../custom-slash-commands.md -> `~/.commandcode/commands/`
 //   codex + omp omp's prompt loader reads `~/.codex/prompts`, so one file serves both
+// Each of those also has a project form: commandcode's reference documents
+// `.commandcode/commands/` beside the user directory, and omp's loader lists
+// `.codex/prompts/` next to `~/.codex/prompts`. `projectDir` only differs where
+// the project path is not the same relative shape as the user path.
 const COMMAND_TARGETS = Object.freeze([
   { client: 'claudecode', configRoot: '.claude', dir: ['.claude', 'commands'] },
   { client: 'cursor', configRoot: '.cursor', dir: ['.cursor', 'commands'] },

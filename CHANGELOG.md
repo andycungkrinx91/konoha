@@ -66,7 +66,9 @@ was served as an 8 KB digest with the missing 80% unmentioned.
   prompt directory it can confirm from the installed bundle — `~/.claude/commands/`, `~/.cursor/commands/`,
   `~/.config/opencode/command/`, `~/.commandcode/commands/`, and `~/.codex/prompts/` (one file serves Codex and
   OMP). A missing config root is skipped, Pi and Antigravity are reported unsupported, and a user-owned file is
-  never overwritten.
+  never overwritten. Ownership is a `generated_by: konoha` frontmatter line, so a user file that merely quotes the
+  template survives, and a file written by the previous build (which had no marker) is upgraded once. `--project`
+  additionally writes the project-scope copy under `<project>/.claude/commands/`.
 - **`listAgentConflicts()` (`src/agent_file_safety.js`)**: a read-only three-way classification of every parked
   `.konoha-proposed` candidate — `identical`, `stale`, or `foreign`. Only `foreign` warns.
 - **`konoha doctor` reports both** (`bin/commands/doctor_services.js`): *Slash Command (/konoha)*, *Slash Command

@@ -166,6 +166,22 @@ function configureOmp(context) {
   else spinner.warn(`OMP setup skipped: ${ompSetup.reason || 'unknown error'}`);
 }
 
+function configureCommands(context) {
+  const { deployKonohaCommands } = require('../../src/client_commands');
+  header('⌘ Installing the /konoha slash command');
+  const spinner = startSpinner('Writing the prompt file into each configured client...');
+  const result = deployKonohaCommands({
+    home: context.home,
+    projectRoot: context.deployProject ? context.currentCwd : null
+  });
+  const names = result.deployed
+    .map((d) => (d.scope === 'project' ? `${d.client} (project)` : d.client))
+    .join(', ');
+  if (result.deployed.length > 0) spinner.success(`/konoha installed for: ${names}`);
+  else spinner.warn('No client received /konoha — no prompt directory was found.');
+  for (const skip of result.skipped) info(`  ${skip.client}: ${skip.reason}`);
+}
+
 function setupClientIntegrations(options) {
   const { onProgress } = options;
   if (onProgress) onProgress(4, 'MCP Clients', 'Configuring requested AI coding clients');
@@ -177,6 +193,7 @@ function setupClientIntegrations(options) {
   configureCodex(options);
   configurePi(options);
   configureOmp(options);
+  configureCommands(options);
 }
 
 module.exports = {

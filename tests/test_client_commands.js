@@ -255,6 +255,69 @@ check('deployGlobalClientConfigs hands the project root to the command layer', (
   }
 });
 
+check('konoha init installs /konoha, globally and into the project', () => {
+  const home = tempHome(['claudecode']);
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_init_proj_'));
+
+  // `init_clients` binds every manager at require time, so all of them are
+  // stubbed before the module loads. Only the command layer may write.
+  const noop = () => ({ ok: true });
+  // A total stub: `init_clients` calls several `agentManager` helpers, and the
+  // test cares only that the command layer runs.
+  const anyMethod = new Proxy({}, { get: () => () => '' });
+  const stubs = {
+    '../../src/cursor_manager': { ensureCursorSetup: noop },
+    '../../src/antigravity_manager': { ensureAntigravitySetup: noop },
+    '../../src/mcp_clients_manager': { ensureClaudeCodeSetup: noop, ensureCommandCodeSetup: noop },
+    '../../src/opencode_manager': { ensureOpenCodeSetup: noop },
+    '../../src/codex_manager': { ensureCodexSetup: noop },
+    '../../src/pi_manager': { ensurePiSetup: noop },
+    '../../src/omp_manager': { ensureOmpSetup: noop },
+    '../../src/agent_manager': anyMethod,
+    '../lib/runtime_mcp': { registerMcp: noop, registerHooks: noop },
+    '../lib/prompt': {
+      startSpinner: () => ({ success: noop, warn: noop, fail: noop, update: noop, stop: noop })
+    }
+  };
+  const saved = {};
+  const binDir = path.join(__dirname, '..', 'bin', 'commands');
+  for (const [spec, exports] of Object.entries(stubs)) {
+    const resolved = require.resolve(spec, { paths: [binDir] });
+    saved[resolved] = require.cache[resolved];
+    require.cache[resolved] = { id: resolved, filename: resolved, loaded: true, exports };
+  }
+  const initPath = require.resolve('../bin/commands/init_clients');
+  saved[initPath] = require.cache[initPath];
+  delete require.cache[initPath];
+
+  const quiet = console.log;
+  console.log = () => {};
+  try {
+    const { setupClientIntegrations } = require('../bin/commands/init_clients');
+    setupClientIntegrations({
+      home,
+      currentCwd: project,
+      deployProject: true,
+      allowClaudeCode: true
+    });
+    const globalFile = path.join(home, '.claude', 'commands', 'konoha.md');
+    assert.ok(fs.existsSync(globalFile), 'init must write the global command file');
+    assert.strictEqual(fs.readFileSync(globalFile, 'utf8'), KONOHA_COMMAND_BODY);
+    assert.ok(
+      fs.existsSync(path.join(project, '.claude', 'commands', 'konoha.md')),
+      'init --project must write the project command file'
+    );
+  } finally {
+    console.log = quiet;
+    for (const [resolved, entry] of Object.entries(saved)) {
+      if (entry) require.cache[resolved] = entry;
+      else delete require.cache[resolved];
+    }
+    fs.rmSync(home, { recursive: true, force: true });
+    fs.rmSync(project, { recursive: true, force: true });
+  }
+});
+
 console.log('\n[Agent profile conflicts]');
 
 check('classifies a foreign profile as foreign and Konoha\'s own as stale', () => {
