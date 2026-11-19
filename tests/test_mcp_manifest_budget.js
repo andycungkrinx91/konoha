@@ -19,7 +19,11 @@ require('./helpers/isolate_db');
  */
 
 const assert = require('assert');
+const path = require('path');
+const { spawnSync } = require('child_process');
 const { listToolSchemas } = require('../src/file_tools_router');
+
+const REPO_ROOT = path.resolve(__dirname, '..');
 
 let passed = 0;
 
@@ -110,6 +114,16 @@ check('no two tools share an identical description', () => {
     assert.ok(!seen.has(key), `${tool.name} duplicates the description of ${seen.get(key)}`);
     seen.set(key, tool.name);
   }
+});
+
+// The three per-session budgets live in one script. It is run here so the
+// contract-head ceiling cannot drift without failing a suite.
+check('the context budget check passes', () => {
+  const run = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'measure_context_budget.js'), '--check'], {
+    encoding: 'utf8',
+    cwd: REPO_ROOT
+  });
+  assert.strictEqual(run.status, 0, `measure_context_budget --check failed:\n${run.stdout}${run.stderr}`);
 });
 
 console.log(`\n${passed} checks passed (${bytesOf(tools)} B for ${tools.length} tools)\n`);
