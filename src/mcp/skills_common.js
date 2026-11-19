@@ -363,6 +363,7 @@ function resolveFlowHashFromTask(flowHash, taskId) {
 // stays authoritative: the database is an index of them, never a replacement.
 const PROJECT_SKILL_SUBDIRS = [
   ['.agents', 'skills'],
+  ['.agents', 'dev-skills'],
   ['.agent', 'skills'],
   ['skills'],
   ['.skills'],
