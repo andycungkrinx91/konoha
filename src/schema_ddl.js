@@ -45,6 +45,21 @@ const CORE_SCHEMA_DDL = `
         PRIMARY KEY (client, workspace_root, session_id)
     );
 
+    CREATE TABLE IF NOT EXISTS provider_usage (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        source TEXT NOT NULL,
+        provider TEXT,
+        model TEXT,
+        client TEXT,
+        bridge_name TEXT,
+        stream INTEGER NOT NULL DEFAULT 0,
+        input_tokens INTEGER,
+        output_tokens INTEGER,
+        cached_tokens INTEGER,
+        total_tokens INTEGER
+    );
+
     CREATE TABLE IF NOT EXISTS agents (
         name TEXT PRIMARY KEY,
         icon TEXT,

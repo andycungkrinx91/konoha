@@ -2,9 +2,9 @@
 'use strict';
 
 /**
- * tests/test_skill_pointer_budget.js — The konoha maintenance skill is a per-turn cost:
- * a harness that loads it pays every byte on every request. So the entry document stays
- * inside one `get_skill` digest and carries pointers instead of the whole rulebook.
+ * tests/test_skill_pointer_budget.js — Two entries are paid for by different people:
+ * the shipped `konoha` skill (loaded by client sessions, so a per-turn cost) and the
+ * repo-only `konoha-maintenance` skill (read by maintainers, never deployed).
  *
  * Two things break silently without this gate:
  *  - SKILL.md grows past MAX_CONTENT_SIZE and `smartTruncate` drops whole sections,
@@ -20,6 +20,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const SKILL_DIR = path.join(ROOT, 'src', 'templates', 'skills', 'konoha');
 const MIRROR_DIR = path.join(ROOT, '.agents', 'skills', 'konoha');
+const MAINT_DIR = path.join(ROOT, '.agents', 'dev-skills', 'konoha-maintenance');
 const SKILL_PATH = path.join(SKILL_DIR, 'SKILL.md');
 const ENTRY_BUDGET_BYTES = 10000;
 const { MAX_CONTENT_SIZE, smartTruncate } = require(path.join(ROOT, 'src', 'mcp', 'skills_common'));
@@ -31,41 +32,73 @@ function pointers(text) {
   return [...found].sort();
 }
 
-function run() {
-  console.log('Running test_skill_pointer_budget tests...');
+/** Markdown link targets under `references/`, used by the repo-only maintenance skill. */
+function referenceLinks(text) {
+  const found = new Set();
+  for (const m of text.matchAll(/\]\(references\/([a-z][a-z-]*)\.md\)/g)) found.add(m[1]);
+  return [...found].sort();
+}
 
-  const entry = fs.readFileSync(SKILL_PATH, 'utf8');
-  const bytes = Buffer.byteLength(entry, 'utf8');
-  assert.ok(bytes <= ENTRY_BUDGET_BYTES, `konoha/SKILL.md is ${bytes} B, over the ${ENTRY_BUDGET_BYTES} B entry budget`);
-  console.log(`✓ entry document is ${bytes} B (budget ${ENTRY_BUDGET_BYTES} B)`);
+function assertResolvable(dir, slugs, label) {
+  const missing = slugs.filter((slug) => !fs.existsSync(path.join(dir, 'references', `${slug}.md`)));
+  assert.deepStrictEqual(missing, [], `${label}: pointers with no reference file: ${missing.join(', ')}`);
+}
 
-  // The served digest caps at MAX_CONTENT_SIZE; a longer entry loses its tail without saying so.
-  const digest = smartTruncate(entry, MAX_CONTENT_SIZE, 'konoha');
-  assert.strictEqual(digest.truncated, false, `konoha/SKILL.md exceeds the ${MAX_CONTENT_SIZE} B served digest and would be truncated`);
-  console.log(`✓ whole entry fits the ${MAX_CONTENT_SIZE} B served digest`);
-
-  const slugs = pointers(entry);
-  assert.ok(slugs.length >= 8, `entry must carry at least 8 on-demand pointers, found ${slugs.length}`);
-  const missing = slugs.filter((slug) => !fs.existsSync(path.join(SKILL_DIR, 'references', `${slug}.md`)));
-  assert.deepStrictEqual(missing, [], `pointers with no reference file: ${missing.join(', ')}`);
-  console.log(`✓ ${slugs.length} pointer(s) all resolve to references/`);
-
-  // Every reference must also be reachable from the entry, or it is dead weight nobody loads.
-  const orphans = fs.readdirSync(path.join(SKILL_DIR, 'references'))
+function assertNoOrphans(dir, slugs, label) {
+  const orphans = fs.readdirSync(path.join(dir, 'references'))
     .filter((f) => f.endsWith('.md'))
     .map((f) => path.basename(f, '.md'))
     .filter((slug) => !slugs.includes(slug));
-  assert.deepStrictEqual(orphans, [], `reference(s) no pointer reaches: ${orphans.join(', ')}`);
-  console.log('✓ every reference is reachable from the entry');
+  assert.deepStrictEqual(orphans, [], `${label}: reference(s) no pointer reaches: ${orphans.join(', ')}`);
+}
+
+function run() {
+  console.log('Running test_skill_pointer_budget tests...');
+
+  // ── Shipped runtime skill: every byte is paid by a client session. ──────────
+  const entry = fs.readFileSync(SKILL_PATH, 'utf8');
+  const bytes = Buffer.byteLength(entry, 'utf8');
+  assert.ok(bytes <= ENTRY_BUDGET_BYTES, `konoha/SKILL.md is ${bytes} B, over the ${ENTRY_BUDGET_BYTES} B entry budget`);
+  console.log(`✓ shipped entry is ${bytes} B (budget ${ENTRY_BUDGET_BYTES} B)`);
+
+  const digest = smartTruncate(entry, MAX_CONTENT_SIZE, 'konoha');
+  assert.strictEqual(digest.truncated, false, `konoha/SKILL.md exceeds the ${MAX_CONTENT_SIZE} B served digest and would be truncated`);
+  console.log(`✓ whole shipped entry fits the ${MAX_CONTENT_SIZE} B served digest`);
+
+  const slugs = pointers(entry);
+  const shippedRefs = fs.readdirSync(path.join(SKILL_DIR, 'references')).filter((f) => f.endsWith('.md'));
+  assert.ok(slugs.length >= shippedRefs.length, `shipped entry must point at all ${shippedRefs.length} shipped references, found ${slugs.length}`);
+  assertResolvable(SKILL_DIR, slugs, 'konoha');
+  assertNoOrphans(SKILL_DIR, slugs, 'konoha');
+  console.log(`✓ ${slugs.length} shipped pointer(s) all resolve, no orphan references`);
+
+  // ── Repo-only maintenance skill: never deployed, so no per-turn budget. ─────
+  const maintEntry = fs.readFileSync(path.join(MAINT_DIR, 'SKILL.md'), 'utf8');
+  const maintSlugs = referenceLinks(maintEntry);
+  assert.ok(maintSlugs.length >= 8, `konoha-maintenance must point at all its references, found ${maintSlugs.length}`);
+  assertResolvable(MAINT_DIR, maintSlugs, 'konoha-maintenance');
+  assertNoOrphans(MAINT_DIR, maintSlugs, 'konoha-maintenance');
+  console.log(`✓ ${maintSlugs.length} maintenance pointer(s) all resolve, no orphan references`);
 
   // The rulebook did not shrink, it moved: all 29 invariants live in one loadable reference.
-  const invariants = fs.readFileSync(path.join(SKILL_DIR, 'references', 'invariants.md'), 'utf8');
+  const invariants = fs.readFileSync(path.join(MAINT_DIR, 'references', 'invariants.md'), 'utf8');
   const numbered = (invariants.match(/^\d+\. \*\*/gm) || []).length;
   assert.strictEqual(numbered, 29, `invariants.md must carry all 29 numbered rules, found ${numbered}`);
   console.log('✓ invariants.md carries all 29 numbered rules');
 
+  // Maintenance material must never reach a deployment target.
+  assert.ok(
+    !fs.existsSync(path.join(SKILL_DIR, 'references', 'invariants.md')),
+    'invariants.md must not live in the shipped template tree'
+  );
+  assert.ok(
+    !fs.existsSync(path.join(ROOT, '.agents', 'skills', 'konoha-maintenance')),
+    'konoha-maintenance must not live under .agents/skills (it is a deployment target)'
+  );
+  console.log('✓ maintenance material is excluded from shipped and deployable trees');
+
   // The published mirror is what a client's session actually reads.
-  for (const rel of ['SKILL.md', 'references/invariants.md', 'references/codeintel-contracts.md', 'references/history.md']) {
+  for (const rel of ['SKILL.md', 'references/task-format.md', 'references/mcp-tools-block.md', 'references/contract.md']) {
     const a = path.join(SKILL_DIR, rel);
     const b = path.join(MIRROR_DIR, rel);
     assert.ok(fs.existsSync(b), `.agents/skills/konoha/${rel} must exist`);

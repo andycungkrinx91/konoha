@@ -7,6 +7,33 @@ const { extractAllImages } = require('../images');
 const { callRawInference } = require('../sidecar/raw');
 const { sanitizeRequest } = require('../sanitize');
 
+/**
+ * Anthropic wire usage for an inference result. Lazy require keeps this module
+ * loadable on its own; an unreported count is omitted, never written as 0.
+ */
+function usageWire(raw) {
+  try {
+    const { buildAnthropicUsage, anthropicUsageWire } = require('../gateway_adapters');
+    return anthropicUsageWire(buildAnthropicUsage(raw));
+  } catch (_) {
+    return {};
+  }
+}
+
+/** Persist provider-reported counts from this path; best-effort only. */
+function recordUsage(ctx, raw, stream) {
+  try {
+    const { recordProviderUsage, PROVIDER_USAGE_SOURCES } = require('../../provider_usage_logger');
+    recordProviderUsage({
+      source: PROVIDER_USAGE_SOURCES.GATEWAY,
+      usage: raw && raw.usage,
+      provider: (ctx.bridgeConfig && ctx.bridgeConfig.provider) || null,
+      model: ctx.requestedModel || null,
+      stream
+    });
+  } catch (_) { /* telemetry must never break a response */ }
+}
+
 // Map numeric model enum values → GetModelResponse string enum (same as chat.js)
 const VALUE_TO_MODEL_ENUM = {
   1018: 'MODEL_PLACEHOLDER_M18', // Flash
@@ -129,7 +156,7 @@ function extractAnthropicText(content) {
 
 // Anthropic SSE response builders
 
-function buildAnthropicMessage(id, model) {
+function buildAnthropicMessage(id, model, usage = null) {
   return {
     id: `msg_${id}`,
     type: 'message',
@@ -138,7 +165,7 @@ function buildAnthropicMessage(id, model) {
     content: [],
     stop_reason: null,
     stop_sequence: null,
-    usage: { input_tokens: 0, output_tokens: 0 },
+    usage: usage || {},
   };
 }
 
@@ -147,6 +174,7 @@ function writeAnthropicEvent(res, event, data) {
 }
 
 function streamRawAnthropicResponse(res, raw, responseText) {
+  const wireUsage = usageWire(raw);
   if (raw.toolCalls && raw.toolCalls.length > 0) {
     for (let i = 0; i < raw.toolCalls.length; i++) {
       const tc = raw.toolCalls[i];
@@ -165,7 +193,7 @@ function streamRawAnthropicResponse(res, raw, responseText) {
     writeAnthropicEvent(res, 'message_delta', {
       type: 'message_delta',
       delta: { stop_reason: 'tool_use', stop_sequence: null },
-      usage: { output_tokens: 0 },
+      usage: wireUsage,
     });
   } else {
     writeAnthropicEvent(res, 'content_block_start', {
@@ -184,7 +212,7 @@ function streamRawAnthropicResponse(res, raw, responseText) {
     writeAnthropicEvent(res, 'message_delta', {
       type: 'message_delta',
       delta: { stop_reason: 'end_turn', stop_sequence: null },
-      usage: { output_tokens: 0 },
+      usage: wireUsage,
     });
   }
   writeAnthropicEvent(res, 'message_stop', { type: 'message_stop' });
@@ -209,7 +237,7 @@ function sendNonStreamAnthropicResponse(res, raw, responseText, msgId, modelKey)
     content,
     stop_reason: raw.toolCalls ? 'tool_use' : 'end_turn',
     stop_sequence: null,
-    usage: { input_tokens: 0, output_tokens: 0 },
+    usage: usageWire(raw),
   });
 }
 
@@ -344,6 +372,7 @@ async function handleAnthropicMessages(ctx, req, res) {
     }
     const responseText = raw.content || '';
     log(ctx, `✅ [Anthropic] Raw inference succeeded (${responseText.length} chars)`);
+    recordUsage(ctx, raw, isStream);
 
     if (isStream) {
       initiateStream();
@@ -362,8 +391,9 @@ async function handleAnthropicMessages(ctx, req, res) {
 }
 
 // POST /v1/messages/count_tokens  (mock)
-// Claude CLI and Cherry Studio send this before every conversation.
-// Return a plausible mock so they don't abort.
+// Claude CLI and Cherry Studio send this before every conversation and only
+// check that it answers; no tokenizer exists here. The 0 is a liveness reply,
+// not a provider measurement, and is never persisted as usage.
 
 async function handleCountTokens(ctx, req, res) {
   // Consume the body so the socket stays clean
@@ -379,7 +409,7 @@ async function handleCountTokens(ctx, req, res) {
 // Anthropic format adapter for OpenAI provider
 // Converts Anthropic → OpenAI → callRawInference → Anthropic response
 
-function streamAnthropicToOpenAi(res, responseText, msgId, model) {
+function streamAnthropicToOpenAi(res, responseText, msgId, model, usage = {}) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -398,7 +428,7 @@ function streamAnthropicToOpenAi(res, responseText, msgId, model) {
   writeAnthropicEvent(res, 'content_block_stop', { type: 'content_block_stop', index: 0 });
   writeAnthropicEvent(res, 'message_delta', {
     type: 'message_delta', delta: { stop_reason: responseText ? 'end_turn' : 'tool_use', stop_sequence: null },
-    usage: { output_tokens: 0 },
+    usage,
   });
   writeAnthropicEvent(res, 'message_stop', { type: 'message_stop' });
   res.end();
@@ -420,8 +450,9 @@ async function handleAnthropicToOpenAi(ctx, req, res, ...rest) {
     if (!raw || (!raw.content && !raw.toolCalls)) throw new Error('Empty response');
 
     const responseText = raw.content || '';
+    recordUsage(ctx, raw, isStream);
     if (isStream) {
-      streamAnthropicToOpenAi(res, responseText, msgId, ctx.requestedModel);
+      streamAnthropicToOpenAi(res, responseText, msgId, ctx.requestedModel, usageWire(raw));
     } else {
       sendNonStreamAnthropicResponse(res, raw, responseText, msgId, ctx.requestedModel);
     }

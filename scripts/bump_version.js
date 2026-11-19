@@ -117,13 +117,33 @@ function getDocumentationFiles(version) {
     },
     {
       path: 'docs/QA-TEST-CHECKLIST.md',
-      check: (c) => c.includes(`(v${version})`),
-      bump: (oldV, newV) => replaceInFile('docs/QA-TEST-CHECKLIST.md', new RegExp(`\\(v${oldV}\\)`, 'g'), `(v${newV})`)
+      // Anchored to the matrix header and the `konoha version` row: the per-section
+      // `(vX.Y.Z)` tags below the header are historical records and must never be rewritten.
+      check: (c) => c.includes(`Authoritative verification matrix for Konoha MCP Tools Orchestrator (v${version})`)
+        && c.includes(`| Displays \`${version}\`, queries npm registry`),
+      bump: (oldV, newV) => {
+        let n = replaceInFile(
+          'docs/QA-TEST-CHECKLIST.md',
+          new RegExp(`(Authoritative verification matrix for Konoha MCP Tools Orchestrator \\(v)${oldV.replace(/\./g, '\\.')}(\\))`),
+          (_m, a, b) => `${a}${newV}${b}`
+        );
+        n += replaceInFile(
+          'docs/QA-TEST-CHECKLIST.md',
+          new RegExp(`(\\| Displays \`)${oldV.replace(/\./g, '\\.')}(\`, queries npm registry)`),
+          (_m, a, b) => `${a}${newV}${b}`
+        );
+        return n;
+      }
     },
     {
       path: 'docs/SECURITY.md',
-      check: (c) => c.includes(`(v${version})`),
-      bump: (oldV, newV) => replaceInFile('docs/SECURITY.md', new RegExp(`\\(v${oldV}\\)`, 'g'), `(v${newV})`)
+      // Anchored to the document title: section tags record the release a control landed in.
+      check: (c) => c.includes(`# Konoha MCP Security Architecture & Ingress Controls (v${version})`),
+      bump: (oldV, newV) => replaceInFile(
+        'docs/SECURITY.md',
+        new RegExp(`(^# Konoha MCP Security Architecture & Ingress Controls \\(v)${oldV.replace(/\./g, '\\.')}(\\))`, 'm'),
+        (_m, a, b) => `${a}${newV}${b}`
+      )
     },
     {
       path: 'docs/BENCHMARK.md',
@@ -137,8 +157,39 @@ function getDocumentationFiles(version) {
     },
     {
       path: 'docs/SETUP-CURSOR.md',
-      check: (c) => c.includes(`**v${version}**`),
-      bump: (oldV, newV) => replaceInFile('docs/SETUP-CURSOR.md', new RegExp(`\\*\\*v${oldV}\\*\\*`, 'g'), `**v${newV}**`)
+      // `verified at <version>` below the intro is a dated record of the last run, not a
+      // current-version claim, so only the intro marker is managed.
+      check: (c) => c.includes(`Konoha **v${version}**`),
+      bump: (oldV, newV) => replaceInFile('docs/SETUP-CURSOR.md', new RegExp(`Konoha \\*\\*v${oldV.replace(/\./g, '\\.')}\\*\\*`, 'g'), `Konoha **v${newV}**`)
+    },
+    {
+      path: 'docs/TELEGRAM_INTEGRATION_GUIDE.md',
+      check: (c) => c.includes(`**Konoha MCP Version:** v${version}`),
+      bump: (oldV, newV) => replaceInFile('docs/TELEGRAM_INTEGRATION_GUIDE.md', new RegExp(`\\*\\*Konoha MCP Version:\\*\\* v${oldV.replace(/\./g, '\\.')}`, 'g'), `**Konoha MCP Version:** v${newV}`)
+    },
+    {
+      path: 'docs/architecture/CANONICAL-CLI.md',
+      check: (c) => c.includes(`(Konoha v${version})`),
+      bump: (oldV, newV) => replaceInFile('docs/architecture/CANONICAL-CLI.md', new RegExp(`\\(Konoha v${oldV.replace(/\./g, '\\.')}\\)`, 'g'), `(Konoha v${newV})`)
+    },
+    {
+      path: 'docs/VPS-INSTALL.md',
+      check: (c) => c.includes(`akatsuki-cyber-pack-${version}.tar.zst`),
+      bump: (oldV, newV) => replaceInFile('docs/VPS-INSTALL.md', new RegExp(`akatsuki-cyber-pack-${oldV.replace(/\./g, '\\.')}\\.tar\\.zst`, 'g'), `akatsuki-cyber-pack-${newV}.tar.zst`)
+    },
+    {
+      path: 'docs/MANUAL.md',
+      check: (c) => c.includes(`**Version of record: ${version}**`),
+      bump: (oldV, newV) => replaceInFile('docs/MANUAL.md', new RegExp(`\\*\\*Version of record: ${oldV.replace(/\./g, '\\.')}\\*\\*`, 'g'), `**Version of record: ${newV}**`)
+    },
+    {
+      path: 'docs/README.md',
+      check: (c) => c.includes(`Capability to file to tool mapping for v${version}`) && c.includes(`| v${version} ingress, auth`),
+      bump: (oldV, newV) => {
+        let n = replaceInFile('docs/README.md', new RegExp(`Capability to file to tool mapping for v${oldV.replace(/\./g, '\\.')}`, 'g'), `Capability to file to tool mapping for v${newV}`);
+        n += replaceInFile('docs/README.md', new RegExp(`\\| v${oldV.replace(/\./g, '\\.')} ingress, auth`, 'g'), `| v${newV} ingress, auth`);
+        return n;
+      }
     },
     {
       path: 'docs/SETUP-CLI.md',

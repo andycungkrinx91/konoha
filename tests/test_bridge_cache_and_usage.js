@@ -136,13 +136,66 @@ test('translated usage carries provider counts and keeps unreported ones null', 
   assert.strictEqual(reported.cache_read_input_tokens, 800);
 
   const absent = call({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] });
-  assert.strictEqual(absent.input_tokens, null, 'no provider usage must stay null, not 0');
-  assert.strictEqual(absent.output_tokens, null);
-  assert.strictEqual(absent.cache_read_input_tokens, undefined);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(absent, 'input_tokens'), false, 'no provider usage must be omitted, not null');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(absent, 'output_tokens'), false, 'no provider usage must be omitted, not null');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(absent, 'cache_read_input_tokens'), false);
 
   const partial = call({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 15 } });
   assert.strictEqual(partial.input_tokens, 15);
-  assert.strictEqual(partial.output_tokens, null);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(partial, 'output_tokens'), false, 'unreported output must stay absent, not 0');
+
+  const measuredZero = call({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 0, completion_tokens: 0 } });
+  assert.strictEqual(measuredZero.input_tokens, 0, 'provider-measured zero must survive');
+  assert.strictEqual(measuredZero.output_tokens, 0, 'provider-measured zero must survive');
+
+  for (const usage of [
+    { prompt_tokens: '12', completion_tokens: '4' },
+    { prompt_tokens: NaN, completion_tokens: -5 },
+    { prompt_tokens: Infinity }
+  ]) {
+    const malformed = call({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage });
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(malformed, 'input_tokens'), false, `malformed must be omitted: ${JSON.stringify(usage)}`);
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(malformed, 'output_tokens'), false, `malformed must be omitted: ${JSON.stringify(usage)}`);
+  }
+});
+
+test('stream usage carries provider counts in message_delta and omits when unreported', () => {
+  const { openAIResponseToAnthropic } = require('../src/bridge/gateway_adapters');
+
+  const capture = (upstream) => {
+    const events = [];
+    const res = {
+      headersSent: false,
+      writeHead() { this.headersSent = true; },
+      write(chunk) { events.push(String(chunk)); },
+      end() {}
+    };
+    openAIResponseToAnthropic(upstream, { model: 'm', msgId: 'x', res, isStream: true });
+    return events.join('');
+  };
+
+  const parseEvents = (wire) => wire.split('\n\n').filter(Boolean).map((block) => {
+    const lines = block.split('\n');
+    const event = lines.find((l) => l.startsWith('event: '))?.slice(7);
+    const data = JSON.parse(lines.find((l) => l.startsWith('data: ')).slice(6));
+    return { event, data };
+  });
+
+  const reportedWire = capture({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 12, completion_tokens: 7 } });
+  const reported = parseEvents(reportedWire);
+  const start = reported.find((e) => e.event === 'message_start');
+  const delta = reported.find((e) => e.event === 'message_delta');
+  assert.strictEqual(start.data.message.usage.input_tokens, 12);
+  assert.strictEqual(start.data.message.usage.output_tokens, 7);
+  assert.strictEqual(delta.data.usage.input_tokens, 12);
+  assert.strictEqual(delta.data.usage.output_tokens, 7, 'message_delta must carry provider output count, not fabricated 0');
+
+  const absentWire = capture({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] });
+  const absent = parseEvents(absentWire);
+  const absentStart = absent.find((e) => e.event === 'message_start');
+  const absentDelta = absent.find((e) => e.event === 'message_delta');
+  assert.deepStrictEqual(absentStart.data.message.usage, {}, 'unreported stream usage must be empty object');
+  assert.deepStrictEqual(absentDelta.data.usage, {}, 'unreported delta usage must be empty object, not {output_tokens:0}');
 });
 
 console.log('prefix stability');

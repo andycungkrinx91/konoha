@@ -55,4 +55,24 @@ assert.strictEqual(
   `CONTRACT_VERSION (${agentContract.CONTRACT_VERSION}) must match package.json (${currentVersion})`
 );
 
+// Verify that specific active-version claims match package.json v2.2.24.
+// These are the exact rows the advisory requires updated before the doc audit can close:
+const CLAIMS = [
+  { path: 'docs/README.md', regex: /Capability to file to tool mapping for v(\d+\.\d+\.\d+)/, label: 'capability row' },
+  { path: 'docs/README.md', regex: /\| v(\d+\.\d+\.\d+) ingress, auth/, label: 'security row' },
+  { path: 'docs/SECURITY.md', regex: /# Konoha MCP Security Architecture & Ingress Controls \(v(\d+\.\d+\.\d+)\)/, label: 'SECURITY title' },
+];
+const claimDrift = [];
+for (const c of CLAIMS) {
+  const full = path.join(ROOT_DIR, c.path);
+  const content = fs.readFileSync(full, 'utf8');
+  const match = content.match(c.regex);
+  assert.ok(match, `Required claim "${c.label}" missing in ${c.path}`);
+  if (match[1] !== currentVersion) {
+    claimDrift.push(`${c.path} (${c.label}) claims ${match[1]}`);
+  }
+}
+assert.deepStrictEqual(claimDrift, [], `All active-version claims must match v${currentVersion}`);
+console.log(`  ✓ ${CLAIMS.length} required-version claims match v${currentVersion}`);
+
 console.log(`\n✅ Version consistency verified across all ${manifest.length} targets at v${currentVersion}!`);

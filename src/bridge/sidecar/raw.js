@@ -246,7 +246,12 @@ async function _resolveWorkingLsPort(info, mainCsrf) {
  * @param {string} modelEnum - Model enum string (e.g. 'MODEL_PLACEHOLDER_M18')
  * @param {Array|null} tools - OpenAI tool definitions
  * @param {Array} images - Array of extracted image objects
- * @returns {{ content: string|null, toolCalls: Array|null }}
+ * @returns {{ content: string|null, toolCalls: Array|null, usage?: object|null }}
+ *
+ * `usage` is present only when the upstream reported counts (the `openai`
+ * provider path). Text/cascade/fallback branches return no `usage` because no
+ * provider payload carries one; callers must treat absence as unknown rather
+ * than as zero.
  */
 async function callRawInference(ctx, messages, modelEnum, tools = null, images = []) {
   if (ctx.bridgeConfig && ctx.bridgeConfig.provider === 'openai') {
@@ -460,8 +465,11 @@ async function callOpenAiInference(ctx, messages, modelEnum, tools = null, _ = [
 
   const content = choice.message.content || null;
   const toolCalls = choice.message.tool_calls || null;
+  // The upstream may have reported counts; carry them so the Anthropic handler
+  // can emit and persist them instead of hardcoding zeros.
+  const usage = result.usage && typeof result.usage === 'object' ? result.usage : null;
 
-  return { content, toolCalls };
+  return { content, toolCalls, usage };
 }
 
 module.exports = { callRawInference, formatMessagesAsPrompt, parseToolCalls };

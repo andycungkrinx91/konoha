@@ -1,3 +1,5 @@
+## [2.2.24] - 2026-11-19
+
 ## [2.2.23] - 2026-11-17
 
 Two bodies of work ship together. The first is the native Tree-sitter code graph, headed browser QA, the provenance-aware knowledge brain, and the embed/progress-bar rework that landed on `feature/issue-13-native-code-intelligence` after the 2026-11-13 milestone; the schema is now v9. The second is supply-chain and dynamic-execution hardening: every finding from the Socket.dev audit of `konoha-mcp@2.2.22` was traced to a root cause, the two suppressions that hid real defects were removed rather than widened, and no feature was removed to clear an alert.

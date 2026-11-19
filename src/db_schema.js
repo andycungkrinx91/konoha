@@ -22,6 +22,7 @@ const REQUIRED_FAST_SCHEMA_TABLES = [
   'skills', 'skills_fts', 'persona_memories', 'persona_memories_fts',
   'memory_audit_events', 'memory_relations',
   'projects', 'active_sessions', 'tool_calls', 'agents',
+  'provider_usage',
   'bridges', 'sdlc_tasks', 'code_edges', 'assets', 'generation_jobs'
 ];
 
@@ -421,6 +422,8 @@ function _applyCoreColumnAndIndexMigrations(conn, ftsSupported) {
     CREATE INDEX IF NOT EXISTS idx_tool_calls_agent ON tool_calls(agent);
     CREATE INDEX IF NOT EXISTS idx_tool_calls_client ON tool_calls(client);
     CREATE INDEX IF NOT EXISTS idx_tool_calls_timestamp ON tool_calls(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_provider_usage_timestamp ON provider_usage(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_provider_usage_source ON provider_usage(source);
     CREATE INDEX IF NOT EXISTS idx_projects_path ON projects(project_path);
     CREATE INDEX IF NOT EXISTS idx_mem_agent ON persona_memories(agent_name);
     CREATE INDEX IF NOT EXISTS idx_mem_type ON persona_memories(memory_type);
@@ -583,6 +586,7 @@ function validateCanonicalSchema(conn) {
     // Assert presence of mandatory canonical tables
     const requiredTables = [
       'skills', 'skill_chunks', 'tool_calls', 'active_sessions',
+      'provider_usage',
       'agents', 'bridges', 'projects', 'sdlc_tasks', 'persona_memories',
       'memory_audit_events', 'memory_relations',
       'telegram_config', 'webhooks', 'prompt_queue', 'telegram_session_targets',

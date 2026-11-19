@@ -115,6 +115,46 @@ check('logging without usage leaves the row unmeasured', () => {
   }
 });
 
+check('mixed measured and unmeasured traffic is labelled partial', () => {
+  const report = reportedUsage();
+  assert.strictEqual(report.available, true);
+  assert.strictEqual(report.totals.partial, true, 'one unmeasured tool call means the total is partial');
+  assert.strictEqual(report.totals.unmeasured_events, 1);
+  assert.strictEqual(report.totals.measured_events, 1);
+});
+
+check('the printed report discloses partial coverage while mixed rows exist', () => {
+  const { execFileSync } = require('child_process');
+  const out = execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'measure_context_budget.js')], {
+    encoding: 'utf8',
+    env: { ...process.env, KONOHA_DB_PATH: process.env.KONOHA_DB_PATH }
+  });
+  assert.match(out, /measured total/, 'aggregate totals are printed next to the last sample');
+  assert.match(out, /PARTIAL: 1 unmeasured tool-call event/, 'mixed measured/unmeasured traffic must be disclosed');
+});
+
+check('an all-measured database is not labelled partial', () => {
+  const conn = getDb();
+  try {
+    conn.prepare('DELETE FROM tool_calls WHERE input_tokens IS NULL').run();
+  } finally {
+    conn.close();
+  }
+  const report = reportedUsage();
+  assert.strictEqual(report.totals.partial, false);
+  assert.strictEqual(report.totals.unmeasured_events, 0);
+});
+
+check('the printed report discloses partial coverage', () => {
+  const { execFileSync } = require('child_process');
+  const out = execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'measure_context_budget.js')], {
+    encoding: 'utf8',
+    env: { ...process.env, KONOHA_DB_PATH: process.env.KONOHA_DB_PATH }
+  });
+  assert.match(out, /measured total/, 'aggregate totals are printed next to the last sample');
+  assert.ok(!/PARTIAL/.test(out), 'an all-measured database must not claim partial coverage');
+});
+
 check('the printed report marks byte-derived tokens as estimates', () => {
   const { execFileSync } = require('child_process');
   const out = execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'measure_context_budget.js')], {

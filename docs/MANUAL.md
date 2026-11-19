@@ -1,25 +1,25 @@
 # Konoha — Operator's Manual
 
-**Version of record: 2.2.23**
+**Version of record: 2.2.24**
 
 | Field | Value |
 |---|---|
-| Manual version | 2.2.23 |
-| Code reference | `package.json` version `2.2.23` on `security/fix-socket-alerts`, tagged `v2.2.23` when the release is cut |
-| Distribution status | **2.2.23 unreleased** — npm `konoha-mcp` latest is `2.2.22`; `2.2.23` is not published |
+| Manual version | 2.2.24 |
+| Code reference | `package.json` version `2.2.24` on `fix/socket-score`, tagged `v2.2.24` when the release is cut |
+| Distribution status | **2.2.24 unreleased** — npm `konoha-mcp` latest is `2.2.22`; `2.2.24` is not published |
 | Verified on | Linux x86_64, Node.js 24.22.2, non-root user, isolated `HOME`; Windows via dockur/QEMU VM and the `windows-latest` CI leg |
 | Audience | developers installing and operating Konoha on their own machine |
 
 The command transcripts in this manual were collected against a clean 2.2.20 installation, which is the same operator
-surface; 2.2.23 adds the supply-chain hardening recorded in `CHANGELOG.md` (no dynamic-execution sink in the packed
-tarball, no `lodash`). Its suite run on this host through `tests/run_all.js` reports 313 passed / 8 failed; all eight failures
+surface; 2.2.23 added the supply-chain hardening recorded in `CHANGELOG.md` (no dynamic-execution sink in the packed
+tarball, no `lodash`), and 2.2.24 adds provider-reported usage measurement alongside the existing byte-derived estimates. Its suite run on this host through `tests/run_all.js` reports 313 passed / 8 failed; all eight failures
 reproduce unmodified at the branch base, where they assert `ready` while this environment can only report
 `unsupported_native_spawn`, so they are environmental and not regressions. The transcripts below were not re-run for the
 bump. Whenever a statement rests on source
 inspection rather than live execution, or when a platform constraint prevented exercising a path directly, the text names
 the exact file, line, and substitute evidence.
 
-Because 2.2.23 is not on the registry, the install path in this manual is *from source*, not `npm install -g`.
+Because 2.2.24 is not on the registry, the install path in this manual is *from source*, not `npm install -g`.
 Section 2.6 gives the exact commands.
 
 ## Surfaces and their legend
@@ -138,9 +138,9 @@ All state stays on your machine. Outbound network traffic occurs only when you e
 
 ### 1.5 What this manual does not cover
 
-- The Web UI `/3d` route. It exists in the router but is excluded from the documented route set for 2.2.23.
+- The Web UI `/3d` route. It exists in the router but is excluded from the documented route set for 2.2.24.
 - 3D asset generation (Yamanaka) beyond its CLI surface.
-- Anything released after 2.2.23.
+- Anything released after 2.2.24.
 - Fixes for defects found during verification. Chapter 13 records the defects; the manual documents behaviour as it
   is, not as it should be.
 
@@ -153,13 +153,13 @@ All state stays on your machine. Outbound network traffic occurs only when you e
 | Node.js | **>= 24.0.0** (hard `engines` gate) | everything | `node -v` |
 | npm | any version bundled with Node 24 | installing the package, launching the `aislop` server via `npx` | `npm -v` |
 | `uv` / `uvx` | current | optional; the `aislop` server prefers `uvx` when present | `uvx --version` |
-| git | any | installing 2.2.23 from source | `git --version` |
+| git | any | installing 2.2.24 from source | `git --version` |
 | disk | ~600 MB free | 386 MB installed package + 193 MB `~/.konoha` after `init` | `df -h ~` |
 
 Measured on a clean 2.2.22 install: unpacked package **386 MB**, `~/.konoha` after `init` **193 MB** (16.3 MB of that
 is the SQLite database), packed tarball **114.3 MB**.
 
-Node 23 or older fails the engine gate at install time. There is no shim for older runtimes in 2.2.23.
+Node 23 or older fails the engine gate at install time. There is no shim for older runtimes in 2.2.24.
 
 ### 2.2 The install rule
 
@@ -175,7 +175,7 @@ npm install -g konoha-mcp@<version>
 konoha init
 ```
 
-For 2.2.23 specifically neither form works from the registry: `konoha-mcp@2.2.23` is not published — only `2.2.22` is.
+For 2.2.24 specifically neither form works from the registry: `konoha-mcp@2.2.24` is not published — only `2.2.22` is.
 Use section 2.6.
 
 ### 2.3 Linux (non-root)
@@ -201,7 +201,7 @@ install with `sudo`. This manual's verification install used an isolated `HOME` 
 is the same mechanism without touching an existing npm setup:
 
 ```bash
-HOME=/tmp/knh/home npm i -g --prefix /tmp/knh/prefix konoha-mcp-2.2.23.tgz
+HOME=/tmp/knh/home npm i -g --prefix /tmp/knh/prefix konoha-mcp-2.2.24.tgz
 # added 39 packages in 12s
 # /tmp/knh/prefix/bin/konoha -> ../lib/node_modules/konoha-mcp/bin/cli.js
 ```
@@ -227,7 +227,7 @@ npm install -g konoha-mcp@<version>
 konoha version
 ```
 
-Verification scope, stated plainly: **this manual's 2.2.23 evidence comes from Linux x86_64 on a host, plus Windows
+Verification scope, stated plainly: **this manual's 2.2.24 evidence comes from Linux x86_64 on a host, plus Windows
 inside the dockur/QEMU VM and the `windows-latest` CI leg.** The Windows commands above were executed there, not on
 physical Windows hardware and not on Docker Desktop for Windows, so confirm with `konoha status` after installing and
 report anything that differs.
@@ -236,21 +236,21 @@ What does back those platforms is the CI matrix, not this manual alone: `.github
 install, lint, sharded suite (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 4 shards), and fresh-install smoke step on `ubuntu-latest`, `windows-latest`, and `macos-latest` for every push and pull
 request, on manual dispatch, and nightly at 02:00 UTC. Locally, all three environments have a verification path: Linux (`pnpm test:sandbox` / `pnpm ci:act`), Windows (`docker/windows-vm/oem/run-ci.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` for the clean-room container gate on Apple silicon, plus native replay on a Mac or the symlinked-`HOME` proxy on Linux; see `docs/CI.md`).
 
-### 2.6 Installing 2.2.23 from source
+### 2.6 Installing 2.2.24 from source
 
-The published registry stops at 2.2.22, so 2.2.23 must be built and installed locally. From a clone:
+The published registry stops at 2.2.22, so 2.2.24 must be built and installed locally. From a clone:
 
 ```bash
 git clone <repo> konoha && cd konoha
-git checkout security/fix-socket-alerts   # the tree this manual describes
-pnpm pack                             # produces konoha-mcp-2.2.23.tgz, ~35 MB measured
-npm install -g ./konoha-mcp-2.2.23.tgz
-konoha version                        # Current Version: 2.2.23
+git checkout fix/socket-score   # the tree this manual describes
+pnpm pack                             # produces konoha-mcp-2.2.24.tgz, ~35 MB measured
+npm install -g ./konoha-mcp-2.2.24.tgz
+konoha version                        # Current Version: 2.2.24
 ```
 
 `pnpm pack` uses the package's own `files` list (27 entries) and bundles `cfb`, `pptxgenjs`, and `xlsx-populate` (so the patched `cfb` ships inside the tarball rather than falling back to an unpatched top-level copy), which is why the tarball is large and why an offline `npm install -g` of the tarball works without a further fetch (`npm pack` fails on a pnpm-installed workspace once `bundleDependencies` is set).
 
-`konoha upgrade` cannot help you here: it resolves from the registry, finds no 2.2.23, and aborts without touching the
+`konoha upgrade` cannot help you here: it resolves from the registry, finds no 2.2.24, and aborts without touching the
 existing install (12.1 documents the exact output).
 
 ### 2.7 Verify the install
@@ -265,7 +265,7 @@ konoha test          # exercises the MCP tool surface end to end
 `All tests passed`.
 
 One caveat about `konoha version`: it also performs a registry freshness check, and on an unpublished build the
-message "You are already running the latest version" is misleading — 2.2.23 is newer than the registry, not equal to
+message "You are already running the latest version" is misleading — 2.2.24 is newer than the registry, not equal to
 it. Do not use it as proof of freshness (13.1).
 
 ## 3. First run
@@ -318,11 +318,11 @@ konoha init --yes
 Measured on a clean install: **166.82 s** end to end. What it produced:
 
 - ten skill roots, seventeen skills each, plus `~/.agents/agents.yaml`
-- `~/.konoha/konoha.db`, 16.3 MB, measured in that 2.2.20 install (`CURRENT_SCHEMA_VERSION = 9` on the current v2.2.23 tree adds `memory_audit_events` and `memory_relations` for `45` base tables: `33` declared + `12` FTS5 shadow tables, including native code intelligence)
+- `~/.konoha/konoha.db`, 16.3 MB, measured in that 2.2.20 install (`CURRENT_SCHEMA_VERSION = 9` on the current v2.2.24 tree adds `memory_audit_events`, `memory_relations`, and `provider_usage` for `46` base tables: `34` declared + `12` FTS5 shadow tables, including native code intelligence)
 - harness configs for Antigravity, Cursor and OMP among others, each written with a SHA-256-verified backup of the
   previous file
 - the prebuilt Web UI extracted to `~/.konoha/apps/web`
-- a Web UI listener started at `http://127.0.0.1:1404/` (in that 2.2.20 run; in 2.2.23, `konoha ui start` is strictly manual per Section 5.6)
+- a Web UI listener started at `http://127.0.0.1:1404/` (in that 2.2.20 run; in 2.2.24, `konoha ui start` is strictly manual per Section 5.6)
 
 If you want a narrow install that touches only one harness:
 
@@ -1467,19 +1467,19 @@ Two behaviours to know before relying on it:
 `GET /api/v1/health` is public — the only data surface reachable before login.
 
 ```
-{"status":"healthy","version":"2.2.23","uptime":7703,"node":"v24.22.2","platform":"linux"}
+{"status":"healthy","version":"2.2.24","uptime":7703,"node":"v24.22.2","platform":"linux"}
 ```
 
 Authenticated callers get the same object plus skill and agent counts. Content served while the UI is still at the
 password gate therefore tells you the version and nothing else.
 
-One observation, not a defect you can trigger normally: the handler falls back to the packaged version (`2.2.23`) when
-the server version is unset. A correctly deployed 2.2.23 server reports `2.2.23`.
+One observation, not a defect you can trigger normally: the handler falls back to the packaged version (`2.2.24`) when
+the server version is unset. A correctly deployed 2.2.24 server reports `2.2.24`.
 
 ### 13.4 A diagnostic sequence that answers most questions
 
 ```bash
-konoha version              # 2.2.23 — trusts the local tree, not the registry
+konoha version              # 2.2.24 — trusts the local tree, not the registry
 konoha status               # per-client registration and skill counts
 konoha test                 # protocol + file tools + suites
 konoha doctor               # config and file repairs
@@ -1677,7 +1677,7 @@ session, and reproducing them here would mean reproducing your data. That is a d
 
 ### 15.7 Scope
 
-This is an operator's description of the mechanisms in 2.2.23, not a security audit. The audit artefact for the release
+This is an operator's description of the mechanisms in 2.2.24, not a security audit. The audit artefact for the release
 lives in `docs/SecurityCompliance/`, and the interesting findings there concern dependencies rather than this design.
 
 ## 16. Appendix
@@ -1787,9 +1787,9 @@ Observed in 2.2.22, carried into 2.2.23 and recorded rather than fixed. None blo
 
 ### 16.6 Version provenance
 
-This manual describes **2.2.23**, one patch ahead of the newest npm release (`2.2.22`) and the newest GitHub
+This manual describes **2.2.24**, two patches ahead of the newest npm release (`2.2.22`) and the newest GitHub
 release (`v2.2.21`) at the time of writing. The per-command evidence was produced on Linux against a fresh global install under a
-scratch prefix, on the 2.2.20 tree; 2.2.23's own evidence is the full suite and the CI matrix (`docs/CI.md`).
+scratch prefix, on the 2.2.20 tree; 2.2.24's own evidence is the full suite and the CI matrix (`docs/CI.md`).
 
 Known limitations, stated rather than papered over:
 
