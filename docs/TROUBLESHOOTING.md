@@ -455,8 +455,9 @@ The line goes to stderr and repeats the client plus the underlying message:
 ```
 
 Read the client name first. Each one is independent — the rest of the deploy already succeeded, so fix only that
-target and re-run `konoha init --client=<client>`. A permission error means the file is owned by another user;
-`sudo chown "$USER" <path>` then re-run. Do not re-run the full install for a single client.
+target and re-run `konoha init --client=<client>`. For a permission error, inspect ownership and mode before
+changing anything (`rtk ls -l <path>`), back the file up, and fix the owner or mode only if it is a file you
+created. Do not re-run the full install for a single client.
 
 ---
 
@@ -471,8 +472,10 @@ and leaves the existing file in place. The live file therefore keeps winning, an
 | Verdict | Meaning | Action |
 |---|---|---|
 | `identical` | parked copy matches the live file | none |
-| `stale` | parked copy is from an older Konoha version; the live file is Konoha's and newer | none — the residue is safe to ignore |
-| `foreign` | the live file was written by something else | decide: keep it, or delete it and re-run `konoha init` |
+| `stale` | the live file is Konoha's own and differs from the parked copy — the parked copy is leftover | none — the residue is safe to remove |
+| `foreign` | the live file was written by something else, or could not be read | decide: keep it, or delete it and re-run `konoha init` |
+
+Compare the two files before deciding: `rtk diff <name>.md <name>.md.konoha-proposed`.
 
 Konoha will not delete either file for you. Inspect with `rtk grep -n generated_by ~/.claude/agents/<name>.md`:
 a Konoha-owned profile carries the marker on line 1.
@@ -481,8 +484,9 @@ a Konoha-owned profile carries the marker on line 1.
 
 ### 🚫 `/konoha` does not appear in a client's command menu
 
-`konoha doctor` prints **Slash Command (/konoha)** with the clients that received a prompt file, and
-**Slash Command Coverage** with the ones that did not. A missing entry means one of three things:
+`konoha doctor` prints **Slash Command (/konoha)** with the clients that have Konoha's prompt file installed, and
+**Slash Command Coverage** with the ones that do not. Doctor only reads: it reports what is on disk and never
+writes a command file, so a WARNING there is fixed by `konoha init`. A missing entry means one of three things:
 
 1. **The client's config root does not exist** — the deployer writes nothing into a directory it cannot confirm.
    Start the client once so it creates its config directory, then re-run `konoha init`.

@@ -70,7 +70,8 @@ was served as an 8 KB digest with the missing 80% unmentioned.
 - **`listAgentConflicts()` (`src/agent_file_safety.js`)**: a read-only three-way classification of every parked
   `.konoha-proposed` candidate — `identical`, `stale`, or `foreign`. Only `foreign` warns.
 - **`konoha doctor` reports both** (`bin/commands/doctor_services.js`): *Slash Command (/konoha)*, *Slash Command
-  Coverage*, and *Agent Profile Conflicts*, so a silent skip is visible without reading the deployer.
+  Coverage*, and *Agent Profile Conflicts*, so a silent skip is visible without reading the deployer. Doctor only
+  reads — it passes `statusOnly` and never writes a command file.
 - **`tests/test_skill_pointer_budget.js`**: pins the maintenance skill entry under its served digest, requires every
   `konoha/<slug>` pointer to resolve, and requires every reference to be reachable.
 - **`tests/test_prefix_determinism.js`**: hashes each client contract twice and rejects dates, clock times, uuids,
