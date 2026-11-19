@@ -74,10 +74,13 @@ check('reportedUsage says so when the database holds no provider usage', () => {
 });
 
 check('recorded usage round-trips through the tool_calls row', () => {
-  log('get_skill', 'konoha/contract', 1200, 'claude', null, {
-    prompt_tokens: 2100,
-    completion_tokens: 120,
-    cached_tokens: 1500
+  log('get_skill', 'konoha/contract', 1200, {
+    client: 'claude',
+    usage: {
+      prompt_tokens: 2100,
+      completion_tokens: 120,
+      cached_tokens: 1500
+    }
   });
 
   const conn = getDb();

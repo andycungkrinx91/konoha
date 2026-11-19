@@ -179,10 +179,19 @@ function _resolveCorpusBaseline(conn, tool, query, returnedBytes) {
   }
 }
 
-function log(tool, query, returnedBytes, client = null, _baselineBytes = null, usage = null) {
-  if (!client) {
-    client = detectActiveClient();
-  }
+/**
+ * Log a tool call.
+ * @param {string} tool
+ * @param {string} query
+ * @param {number} returnedBytes
+ * @param {string|{client?:string|null, usage?:object|null}|null} [opts]
+ *        A client id (legacy positional form) or `{ client, usage }`. `usage`
+ *        is only ever a provider payload; it is never derived from bytes.
+ */
+function log(tool, query, returnedBytes, opts = null) {
+  const fromOptions = opts && typeof opts === 'object' && !Array.isArray(opts);
+  const client = (fromOptions ? opts.client : opts) || detectActiveClient();
+  const usage = fromOptions ? (opts.usage ?? null) : null;
   const conn = getDb();
   try {
     const baseline = _calculateBaseline(conn, tool, query, returnedBytes);
