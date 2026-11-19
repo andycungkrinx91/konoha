@@ -998,7 +998,8 @@ client: `.claude/commands/`, `.cursor/commands/`, `.opencode/command/`, `.comman
 `.codex/prompts/` under the repository root. The project copy is gated on the same signal as the global one — the
 client's own config root must exist — so a repository never receives a command file for a client you do not run.
 `--client=<name>` narrows both scopes. Init reports the two scopes separately, as `claudecode` and
-`claudecode (project)`.
+`claudecode (project)`. Pi and Antigravity have no prompt directory Konoha can write to, so selecting only one of
+them installs no command and says why.
 
 ### 9.6 Project-level versus global
 

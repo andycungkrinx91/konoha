@@ -166,13 +166,19 @@ function configureOmp(context) {
   else spinner.warn(`OMP setup skipped: ${ompSetup.reason || 'unknown error'}`);
 }
 
+// Every client init can select, including the two that have no command file of
+// their own. Keeping them here means `--client=pi` produces the list `['pi']`,
+// which selects no target and reports pi as unsupported — rather than an empty
+// list that would read as "no filter" and write every target.
 const COMMAND_CLIENT_FLAGS = Object.freeze([
   ['allowClaudeCode', 'claudecode'],
   ['allowCursor', 'cursor'],
   ['allowOpenCode', 'opencode'],
   ['allowCommandCode', 'commandcode'],
   ['allowCodex', 'codex'],
-  ['allowOmp', 'omp']
+  ['allowOmp', 'omp'],
+  ['allowPi', 'pi'],
+  ['allowAntigravity', 'antigravity']
 ]);
 
 function configureCommands(context) {
@@ -185,11 +191,13 @@ function configureCommands(context) {
   const clients = COMMAND_CLIENT_FLAGS
     .filter(([flag]) => context[flag])
     .map(([, client]) => client);
+  // An explicit `--client=pi` selects no command-capable client, so the empty
+  // list must stay empty. Only an absent `--client` means "every target".
   let result;
   try {
     result = deployKonohaCommands({
       home: context.home,
-      clients: clients.length > 0 ? clients : null,
+      clients: context.explicitSelection ? clients : null,
       projectRoot: context.deployProject ? context.currentCwd : null
     });
   } catch (err) {
@@ -202,7 +210,7 @@ function configureCommands(context) {
     .map((d) => (d.scope === 'project' ? `${d.client} (project)` : d.client))
     .join(', ');
   if (result.deployed.length > 0) spinner.success(`/konoha installed for: ${names}`);
-  else spinner.warn('No client received /konoha — no prompt directory was found.');
+  else spinner.warn('No client received /konoha — none of the selected clients has a prompt directory Konoha can write to.');
   for (const skip of result.skipped) info(`  ${skip.client}: ${skip.reason}`);
 }
 

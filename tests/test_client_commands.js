@@ -333,6 +333,64 @@ check('konoha init installs /konoha, globally and into the project', () => {
   }
 });
 
+check('an explicit selection of only unsupported clients writes nothing', () => {
+  const home = tempHome(['claudecode', 'cursor', 'opencode', 'commandcode', 'codex']);
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_pi_proj_'));
+  const anyMethod = new Proxy({}, { get: () => () => '' });
+  const noop = () => ({ ok: true });
+  const stubs = {
+    '../../src/cursor_manager': { ensureCursorSetup: noop },
+    '../../src/antigravity_manager': { ensureAntigravitySetup: noop },
+    '../../src/mcp_clients_manager': { ensureClaudeCodeSetup: noop, ensureCommandCodeSetup: noop },
+    '../../src/opencode_manager': { ensureOpenCodeSetup: noop },
+    '../../src/codex_manager': { ensureCodexSetup: noop },
+    '../../src/pi_manager': { ensurePiSetup: noop },
+    '../../src/omp_manager': { ensureOmpSetup: noop },
+    '../../src/agent_manager': anyMethod,
+    '../lib/runtime_mcp': { registerMcp: noop, registerHooks: noop },
+    '../lib/prompt': {
+      startSpinner: () => ({ success: noop, warn: noop, fail: noop, update: noop, stop: noop })
+    }
+  };
+  const saved = {};
+  const binDir = path.join(__dirname, '..', 'bin', 'commands');
+  for (const [spec, exports] of Object.entries(stubs)) {
+    const resolved = require.resolve(spec, { paths: [binDir] });
+    saved[resolved] = require.cache[resolved];
+    require.cache[resolved] = { id: resolved, filename: resolved, loaded: true, exports };
+  }
+  const initPath = require.resolve('../bin/commands/init_clients');
+  saved[initPath] = require.cache[initPath];
+  delete require.cache[initPath];
+
+  const quiet = console.log;
+  console.log = () => {};
+  try {
+    const { setupClientIntegrations } = require('../bin/commands/init_clients');
+    // `--client=pi` sets explicitSelection; pi has no prompt directory, so no
+    // client may be written. An empty list must not be read as "no filter".
+    setupClientIntegrations({
+      home,
+      currentCwd: project,
+      deployProject: true,
+      explicitSelection: true,
+      allowPi: true
+    });
+    for (const rel of ['.claude/commands', '.cursor/commands', '.codex/prompts', '.commandcode/commands']) {
+      assert.ok(!fs.existsSync(path.join(home, rel)), `--client=pi must not write ${rel}`);
+    }
+    assert.ok(!fs.existsSync(path.join(project, '.claude', 'commands')), '--client=pi must not write the project copy');
+  } finally {
+    console.log = quiet;
+    for (const [resolved, entry] of Object.entries(saved)) {
+      if (entry) require.cache[resolved] = entry;
+      else delete require.cache[resolved];
+    }
+    fs.rmSync(home, { recursive: true, force: true });
+    fs.rmSync(project, { recursive: true, force: true });
+  }
+});
+
 console.log('\n[Agent profile conflicts]');
 
 check('classifies a foreign profile as foreign and Konoha\'s own as stale', () => {
