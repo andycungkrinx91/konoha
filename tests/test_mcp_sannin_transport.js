@@ -135,6 +135,24 @@ async function run() {
   assert.ok(done.akatsuki_gate, 'the sign-off response must carry the Akatsuki verdict');
   assert.ok(done.report, 'the sign-off response must carry the report');
 
+  // A report without validation evidence must never verify. This is the other half
+  // of the spawn contract: the caller may report, but only evidence completes a slice.
+  const noEvidenceG1 = await sannin({ prompt: 'Build evidence-free report guard with tests', project_path: workspace, session_id: 'transport-no-evidence' });
+  assert.equal(noEvidenceG1.hitlStage, 'gate1');
+  const noEvidencePending = await sannin({ prompt: 'Build evidence-free report guard with tests', task_dir: noEvidenceG1.task_dir, choice: '1' });
+  assert.equal(noEvidencePending.status, 'spawn_pending');
+  const noEvidenceSlice = noEvidencePending.spawn_pending[0];
+  const bareReport = await callTool('report_from_agent', {
+    task_dir: noEvidenceG1.task_dir,
+    agent_name: noEvidenceSlice.agent || 'kage',
+    task_id: noEvidenceSlice.task_id,
+    summary: 'Transport fixture: evidence-free report guard recorded without tests.'
+  });
+  assert.equal(bareReport.verified, false, 'a report with no validation evidence must not verify');
+  assert.equal(bareReport.task_status, 'unverified', 'a report with no validation evidence must be recorded unverified');
+  const afterBare = await sannin({ prompt: 'Build evidence-free report guard with tests', task_dir: noEvidenceG1.task_dir });
+  assert.notEqual(afterBare.status, 'completed', 'an unverified report must not complete the workflow');
+
   // Security: auto_signoff: true over MCP sannin must NEVER bypass Gate 2 when hitl_mode is enabled
   const lockedG1 = await sannin({ prompt: 'Build locked HITL delivery module with tests', project_path: workspace, session_id: 'transport-hitl-lock', auto_signoff: true });
   assert.equal(lockedG1.status, 'awaiting_human');
