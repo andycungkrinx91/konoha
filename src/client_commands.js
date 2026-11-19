@@ -9,9 +9,11 @@
  *
  * Fail closed: a client is written only when its prompt-file contract is
  * confirmed from that client's installed bundle and its config root already
- * exists. `pi` and `antigravity` expose commands only through their own
- * plugin/extension packaging, which Konoha cannot author safely, so they are
- * reported as unsupported instead of being given a file that may never load.
+ * exists. Presence of the config root is the gate — a root that is absent is
+ * never created, so a client the user does not run receives nothing. `pi` and
+ * `antigravity` expose commands only through their own plugin/extension
+ * packaging, which Konoha cannot author safely, so they are reported as
+ * unsupported instead of being given a file that may never load.
  */
 
 const fs = require('fs');
@@ -19,8 +21,14 @@ const path = require('path');
 
 const COMMAND_NAME = 'konoha';
 
+// Ownership marker. Konoha rewrites only a file carrying this line, so a user
+// file is never clobbered and a reworded body never makes our own file look
+// user-authored. Same convention as agent profiles (`generated_by: konoha`).
+const KONOHA_COMMAND_MARKER = /^generated_by:\s*konoha\s*$/m;
+
 const KONOHA_COMMAND_BODY = `---
 description: Run the Konoha multi-agent workflow for this request
+generated_by: konoha
 ---
 
 Run the Konoha workflow for: $ARGUMENTS
@@ -33,6 +41,11 @@ Run the Konoha workflow for: $ARGUMENTS
 
 If the request is empty, ask what to build or fix and stop.
 `;
+
+// Migration: the first 2.2.23 build shipped this body without the marker, so a
+// file it wrote would otherwise read as user-owned and never upgrade again.
+// Derived, not duplicated; drop once no markerless file is in the field.
+const LEGACY_COMMAND_BODY = KONOHA_COMMAND_BODY.replace('generated_by: konoha\n', '');
 
 // Prompt-file contract per client, confirmed from the installed bundle:
 //   claudecode  ~/.local/share/claude/versions/<v>  -> `.claude/commands/`
@@ -65,7 +78,8 @@ function _inspectCommandFile(file) {
   if (!fs.existsSync(file)) return { present: false };
   const current = fs.readFileSync(file, 'utf8');
   if (current === KONOHA_COMMAND_BODY) return { present: true, unchanged: true };
-  if (!current.includes('Konoha multi-agent workflow')) return { skip: `user-owned ${file} left untouched` };
+  if (current === LEGACY_COMMAND_BODY) return { present: true };
+  if (!KONOHA_COMMAND_MARKER.test(current)) return { skip: `user-owned ${file} left untouched` };
   return { present: true };
 }
 
@@ -147,6 +161,7 @@ function deployKonohaCommands(options = {}) {
 module.exports = {
   COMMAND_NAME,
   KONOHA_COMMAND_BODY,
+  LEGACY_COMMAND_BODY,
   COMMAND_TARGETS,
   UNSUPPORTED_CLIENTS,
   deployKonohaCommands

@@ -22,7 +22,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { deployKonohaCommands, KONOHA_COMMAND_BODY, COMMAND_TARGETS, UNSUPPORTED_CLIENTS } =
+const { deployKonohaCommands, KONOHA_COMMAND_BODY, LEGACY_COMMAND_BODY, COMMAND_TARGETS, UNSUPPORTED_CLIENTS } =
   require('../src/client_commands');
 const { listAgentConflicts } = require('../src/agent_file_safety');
 
@@ -111,6 +111,40 @@ check('project scope writes beside the project when a project root is given', ()
   fs.rmSync(project, { recursive: true, force: true });
 });
 
+check('ownership is decided by the marker line, not by the body wording', () => {
+  const home = tempHome(['claudecode']);
+  const file = path.join(home, '.claude', 'commands', 'konoha.md');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+
+  // A user file that merely quotes the template sentence must survive.
+  const quoted = '---\ndescription: mine\n---\nRun the Konoha multi-agent workflow for this request\n';
+  fs.writeFileSync(file, quoted, 'utf8');
+  const first = deployKonohaCommands({ home });
+  assert.strictEqual(fs.readFileSync(file, 'utf8'), quoted, 'a user file quoting the body must not be overwritten');
+  assert.match(first.skipped.find((s) => s.client === 'claudecode').reason, /user-owned/);
+
+  // Konoha's own file with an older body must still be upgraded.
+  const older = '---\ndescription: old\ngenerated_by: konoha\n---\nold instructions\n';
+  fs.writeFileSync(file, older, 'utf8');
+  const second = deployKonohaCommands({ home });
+  assert.strictEqual(fs.readFileSync(file, 'utf8'), KONOHA_COMMAND_BODY, 'an outdated Konoha file must be rewritten');
+  assert.strictEqual(second.deployed.find((d) => d.client === 'claudecode').unchanged, undefined);
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+check('upgrades a command file written before the marker existed', () => {
+  const home = tempHome(['claudecode']);
+  const file = path.join(home, '.claude', 'commands', 'konoha.md');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, LEGACY_COMMAND_BODY, 'utf8');
+  assert.notStrictEqual(LEGACY_COMMAND_BODY, KONOHA_COMMAND_BODY, 'the legacy body must differ from the current one');
+
+  const result = deployKonohaCommands({ home });
+  assert.strictEqual(fs.readFileSync(file, 'utf8'), KONOHA_COMMAND_BODY, 'a markerless Konoha file must gain the marker');
+  assert.strictEqual(result.skipped.some((s) => s.client === 'claudecode'), false, 'it must not be reported as user-owned');
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
 check('the command body names the workflow entry points and the spawn fallback', () => {
   for (const needle of ['konoha.sannin', 'konoha.build_from_text', 'konoha.report_from_agent', 'run-agent']) {
     assert.ok(KONOHA_COMMAND_BODY.includes(needle), `command body must mention ${needle}`);
@@ -172,6 +206,52 @@ check('a throwing client is reported as a failure, the others still deploy', () 
     if (savedDeployer) require.cache[deployerPath] = savedDeployer;
     else delete require.cache[deployerPath];
     fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+check('deployGlobalClientConfigs hands the project root to the command layer', () => {
+  const home = tempHome(['claudecode']);
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_cmd_deployer_proj_'));
+
+  // The deployer binds its managers at require time, so every one of them is
+  // stubbed before the module is loaded. Only the command layer may write.
+  const stubs = {
+    '../src/mcp_clients_manager': { ensureClaudeCodeSetup: () => {}, ensureCommandCodeSetup: () => {} },
+    '../src/opencode_manager': { ensureOpenCodeSetup: () => {} },
+    '../src/codex_manager': { ensureCodexSetup: () => {} }
+  };
+  const saved = {};
+  for (const [spec, exports] of Object.entries(stubs)) {
+    const resolved = require.resolve(spec);
+    saved[resolved] = require.cache[resolved];
+    require.cache[resolved] = { id: resolved, filename: resolved, loaded: true, exports };
+  }
+  const deployerPath = require.resolve('../src/agent_deployer');
+  saved[deployerPath] = require.cache[deployerPath];
+  delete require.cache[deployerPath];
+
+  try {
+    const deployer = require('../src/agent_deployer');
+    const result = deployer.deployGlobalClientConfigs({
+      pythonCmd: 'python3',
+      serverPath: '/tmp/server.js',
+      agents: [],
+      home,
+      projectRoot: project,
+      deployProject: true,
+      force: false
+    });
+    const projectEntry = result.commands.deployed.find((d) => d.scope === 'project');
+    assert.ok(projectEntry, '--project must reach the command layer');
+    assert.strictEqual(projectEntry.path, path.join(project, '.claude', 'commands', 'konoha.md'));
+    assert.ok(fs.existsSync(projectEntry.path), 'the project-scoped command file must exist');
+  } finally {
+    for (const [resolved, entry] of Object.entries(saved)) {
+      if (entry) require.cache[resolved] = entry;
+      else delete require.cache[resolved];
+    }
+    fs.rmSync(home, { recursive: true, force: true });
+    fs.rmSync(project, { recursive: true, force: true });
   }
 });
 

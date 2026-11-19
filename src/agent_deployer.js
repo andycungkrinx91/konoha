@@ -248,7 +248,11 @@ function deployGlobalClientConfigs(options) {
 
   let commands = null;
   run('commands', () => {
-    commands = require('./client_commands').deployKonohaCommands({ home: effectiveHome, force: options.force });
+    commands = require('./client_commands').deployKonohaCommands({
+      home: effectiveHome,
+      projectRoot: deployProject ? projectRoot : null,
+      force: options.force
+    });
   });
 
   if (failures.length > 0) {
