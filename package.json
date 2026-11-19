@@ -90,6 +90,7 @@
     "ci:act": "act -W .github/workflows/cross-platform.yml -j checks --matrix os:ubuntu-latest",
     "ci:act:shard": "act -W .github/workflows/cross-platform.yml -j test --matrix os:ubuntu-latest --matrix shard:1",
     "test:sandbox": "node scripts/rtk_exec.js node scripts/sandbox.js",
+    "audit:socket": "node scripts/rtk_exec.js node scripts/socket_audit_optional.js",
     "test:mcp": "node scripts/rtk_exec.js node tests/test_mcp_protocol.js && node scripts/rtk_exec.js node tests/test_mcp_e2e.js",
     "test:workflow": "node scripts/rtk_exec.js node tests/test_workflow_gates.js && node scripts/rtk_exec.js node tests/test_workflow_loop.js",
     "test:jonin": "node scripts/rtk_exec.js node tests/test_build_workflows.js && node scripts/rtk_exec.js node tests/test_taste_skill_jonin.js && node scripts/rtk_exec.js node tests/test_jonin_universal_design.js",

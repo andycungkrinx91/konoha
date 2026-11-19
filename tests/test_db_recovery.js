@@ -629,6 +629,20 @@ console.log('10. Verifying atomic rollback, WAL/SHM sidecars, staging cleanup, a
   console.log('  ✓ Atomic rollback, sidecar preservation, staging cleanup, and concurrency lock verified');
 }
 
+// Source invariants for the salvage engine: no shell execution, constrained SQLite.
+{
+  const recSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'db_recovery.js'), 'utf8');
+  const salvageSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'db_recovery_salvage.js'), 'utf8');
+  for (const [label, src] of [['src/db_recovery.js', recSrc], ['src/db_recovery_salvage.js', salvageSrc]]) {
+    assert.ok(!src.includes("require('child_process')") && !src.includes('require("child_process")'), `${label} must not import child_process`);
+    assert.ok(!/\bexecSync\s*\(/.test(src), `${label} must not invoke execSync`);
+    assert.ok(!/\bspawnSync\s*\(/.test(src), `${label} must not invoke spawnSync`);
+    assert.ok(src.includes('allowExtension: false'), `${label} must enforce allowExtension: false`);
+    assert.ok(src.includes('PRAGMA trusted_schema = OFF'), `${label} must enforce PRAGMA trusted_schema = OFF`);
+  }
+  console.log('  ✓ db recovery sources carry no shell invocation and keep constrained SQLite salvage');
+}
+
 console.log('\n====================================================');
 console.log('✔ All SQLite disaster recovery & security tests passed!');
 console.log('====================================================');

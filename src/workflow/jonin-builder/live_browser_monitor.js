@@ -84,7 +84,10 @@ function resolveSystemBrowserCommand(url, platform = process.platform) {
   return { command: 'xdg-open', args: [safeUrl] };
 }
 
-function openSystemBrowser(url, options = {}) {
+// A detached spawn resolves asynchronously, so a missing opener (no `xdg-open` in a slim
+// container) surfaces as an 'error' event on the ChildProcess, not as a throw: without a
+// listener it kills the host process. Wait for 'spawn' or 'error', then report what happened.
+async function openSystemBrowser(url, options = {}) {
   const autoOpen = options.autoOpen !== false;
   const isCi = Boolean(process.env.CI || process.env.KONOHA_HEADLESS_TEST === '1' || options.headless === true);
   const spec = resolveSystemBrowserCommand(url, options.platform || process.platform);
@@ -96,17 +99,12 @@ function openSystemBrowser(url, options = {}) {
       args: spec.args
     };
   }
+  let child;
   try {
-    const child = spawn(spec.command, spec.args, {
+    child = spawn(spec.command, spec.args, {
       detached: true,
       stdio: 'ignore'
     });
-    child.unref();
-    return {
-      opened: true,
-      command: spec.command,
-      args: spec.args
-    };
   } catch (err) {
     return {
       opened: false,
@@ -115,6 +113,24 @@ function openSystemBrowser(url, options = {}) {
       args: spec.args
     };
   }
+  const failure = await new Promise((resolve) => {
+    child.once('spawn', () => resolve(null));
+    child.once('error', resolve);
+  });
+  if (failure) {
+    return {
+      opened: false,
+      error: failure.message,
+      command: spec.command,
+      args: spec.args
+    };
+  }
+  child.unref();
+  return {
+    opened: true,
+    command: spec.command,
+    args: spec.args
+  };
 }
 
 function inspectMotionAnd3dCapabilities(html = '', sourceCode = '') {
@@ -338,7 +354,7 @@ async function runLiveBrowserMonitor(options = {}) {
     : { ready: true, attempts: 0, status: 200, html: htmlOverride || '' };
 
   const browserLaunch = serverState.ready
-    ? openSystemBrowser(url, options)
+    ? await openSystemBrowser(url, options)
     : { opened: false, skipped_reason: 'server_not_ready' };
 
   const inspection = serverState.ready

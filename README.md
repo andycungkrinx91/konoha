@@ -205,7 +205,7 @@ Every row names the subsystem so you can verify it in source.
 | Approvals | Two HITL gates: plan approval, delivery sign-off | `src/mcp/workflow_gates.js` | 3-option picker; never auto-advances in HITL mode |
 | Compaction | Post-approval context compaction | `src/mcp/workflow_gates.js` | Prior exploration compacts (plan summary to ~1,200 chars) after Gate 1 |
 | Quality | Two-step Zero-AI-Slop pre-gate | `aislop_scan` + `anti_slop` | 100/100 scan and 0 findings required before synthesis |
-| Supply chain | Socket CLI audit | `socket ci` | Mechanical blocker on High/Medium dependency findings; `socket.yml` suppresses only documented capabilities (never `usesEval`), and `pnpm-lock.yaml` / `patches/**` stay audited |
+| Supply chain | Local `pnpm audit` gate (Socket.dev opt-in) | `tests/test_dependency_audit.js` | Fails on any advisory outside `APPROVED_MITIGATED_ADVISORIES`, across the root and `apps/web` workspaces; no account or token needed. Socket.dev runs only via `pnpm audit:socket` with `SOCKET_CLI_API_TOKEN`, and never blocks CI. `socket.yml` suppresses only documented capabilities (never `usesEval`), and `pnpm-lock.yaml` / `patches/**` stay audited |
 | Dependency posture | No `lodash`, no dynamic execution, exact pins | `tests/test_dependency_posture.js`, `tests/test_no_dynamic_execution.js` | Fails the build if `lodash` returns, if a bundled dep loses its exact pin, or if `eval`/`new Function` reappears |
 | Remediation | Bounded auto-fix loop | `src/sdlc_remediation.js` | Circuit breaker, max 7 cycles |
 | Remote | Telegram dual-mode bot + prompt queue | `src/telegram/`, `src/queue/` | Numeric `chat_id` whitelist; atomic SQLite state machine |

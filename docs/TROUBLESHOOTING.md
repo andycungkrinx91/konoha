@@ -169,7 +169,7 @@ node --version  # Must be >= 24.0.0
 
 - **Cause**: pnpm 12 no longer reads the `package.json#pnpm` block, and the `package.json#overrides` copy that duplicated the YAML was dead config (pnpm reads `pnpm-workspace.yaml#overrides`). Both were removed in 2.2.19.
 - **Current state**: `pnpm-workspace.yaml` carries `overrides` and **no `audit:` key at all** — no ignore list, no suppressions. CVE-2026-93753 is not suppressed (pnpm 12 has no CVE-level suppression), `GHSA-gcqx-w48m-w2h4` (`deepmerge`) was withdrawn upstream on 2026-11-16 and resolves to 4.1.2 anyway, and `GHSA-fc5q-39xc-vjpf` is fixed in the tree by a patch rather than waived.
-- **`GHSA-fc5q-39xc-vjpf` is patched, not ignored**: a repeated extglob whose body holds a bare wildcard compiled to nested unbounded quantifiers (`+(*a)` became `(?:[^/]*?a)+`) and backtracked exponentially on a short crafted string — 779 ms at 26 characters. `patches/picomatch@4.0.7.patch` makes `analyzeRepeatedExtglob` treat such a body as risky, so the extglob is emitted as literal text, and `tests/test_picomatch_redos_patch.js` pins both the timings and the unchanged semantics of 20 realistic globs. Upstream published nothing past 4.0.7 and **withdrew the advisory on 2026-11-18**, so `pnpm audit --json` now reports no advisories at all while the resolved version string stays 4.0.7. The patch stays as defence in depth, and `tests/test_socket_security_audit.js` gates on *unapproved* advisories instead of pinning an exact set. Vendoring the package or overriding it to a git URL was rejected: `pnpm audit` does not evaluate `file:` dependencies at all, so a vendored copy at the vulnerable 4.0.7 still audits clean, which hides the package from the gate instead of fixing it.
+- **`GHSA-fc5q-39xc-vjpf` is patched, not ignored**: a repeated extglob whose body holds a bare wildcard compiled to nested unbounded quantifiers (`+(*a)` became `(?:[^/]*?a)+`) and backtracked exponentially on a short crafted string — 779 ms at 26 characters. `patches/picomatch@4.0.7.patch` makes `analyzeRepeatedExtglob` treat such a body as risky, so the extglob is emitted as literal text, and `tests/test_picomatch_redos_patch.js` pins both the timings and the unchanged semantics of 20 realistic globs. Upstream published nothing past 4.0.7 and **withdrew the advisory on 2026-11-18**, so `pnpm audit --json` now reports no advisories at all while the resolved version string stays 4.0.7. The patch stays as defence in depth, and `tests/test_dependency_audit.js` gates on *unapproved* advisories instead of pinning an exact set. Vendoring the package or overriding it to a git URL was rejected: `pnpm audit` does not evaluate `file:` dependencies at all, so a vendored copy at the vulnerable 4.0.7 still audits clean, which hides the package from the gate instead of fixing it.
 - **2.2.20 exception**: `package.json#overrides` is back for exactly one entry, `image-size: ">=2.0.3"`. npm ignores a dependency's own `overrides`, so the shipped copy is what carries the CVE-2025-71330 / CVE-2025-71329 patch to npm consumers; pnpm still reads its own `>=2.0.4` floor from the YAML. Do not remove it, and do not re-add `package.json#pnpm` or any other override.
 - **Fix**: if you see the warning, you are on an old checkout. Pull 2.2.19+, run `pnpm install --frozen-lockfile`, and verify with `pnpm config get audit` → `undefined` (no `audit` key) plus `pnpm audit --json` → no advisories. That clean result is a withdrawn advisory, not a removed patch: `GHSA-fc5q-39xc-vjpf` was withdrawn upstream on 2026-11-18, and `patches/picomatch@4.0.7.patch` stays as defence in depth. See `docs/SECURITY.md` §9.1.
 
@@ -687,17 +687,11 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 
 ---
 
-### ⚠️ Socket audit reports `UNVERIFIED` instead of a score
+### ⚠️ Optional Socket audit reports `SKIPPED` or `UNVERIFIED`
 
-- **Symptom**: `node tests/test_socket_security_audit.js` ends with e.g. `Socket verification summary: PASS 16 | FAIL 0 | UNVERIFIED 1` and `⚠ UNVERIFIED socket fix: missing-api-permission — this check did not verify anything`.
-- **Reason**: the check could not obtain an answer, which is not the same as passing. `data.code` from the CLI names why: `no-api-token` and `invalid-token` (no `SOCKET_CLI_API_TOKEN`, or `socket login` absent), `missing-api-permission` (the token lacks the `full-scans:create` scope needed by `socket fix`), `rate-limited` (HTTP 429), `auth-error`, `network-unreachable`. `package score` and `pnpm audit` keep working in that state, so a partially verified run is normal on a machine without an account token.
-- **Fix**: to verify these checks, export a token with the `full-scans:create` scope and re-run:
-  ```bash
-  export SOCKET_CLI_API_TOKEN=<token>
-  node tests/test_socket_security_audit.js
-  ```
-  To make an unverified check fail the build, set `KONOHA_SOCKET_REQUIRE_VERIFIED=1`. A real API defect is reported as `FAIL api-error-<status>` (for example `api-error-502`) and always exits 1 — that is a bug to fix, not a limit to accept.
-- **Watch out**: the `socket npm audit` fallback prints `⚠ PARTIAL`. It scans an npm-resolved subset of the root `package.json`, not the pnpm tree, because the repository ships no `package-lock.json`. `pnpm audit` is the authoritative check for the real dependency tree.
+- **Symptom**: `pnpm audit:socket` prints `SKIPPED: SOCKET_CLI_API_TOKEN is not set …` or `RESULT: UNVERIFIED` with a reason.
+- **Meaning**: the optional Socket.dev integration did not verify anything. It is not part of mandatory CI, which runs `pnpm audit --json` over the root and `apps/web` workspaces (`tests/test_dependency_audit.js`).
+- **Resolution**: export `SOCKET_CLI_API_TOKEN` (with `full-scans:create` and `packages:list`) and re-run, or ignore it — the local gate already covers the pnpm-resolved tree.
 
 ---
 

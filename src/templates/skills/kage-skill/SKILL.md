@@ -36,7 +36,7 @@ In the Konoha workflow, Kage exercises executive technical authority across two 
 - **Two-Step Zero-AI-Slop Review (TARGET 100/100)**:
   - **Step 1 — `aislop_scan`**: Scans changed files via CLI `rtk aislop scan --changes` (or MCP tool with explicit paths). Zero findings of any severity are permitted.
   - **Step 2 — `anti-slop` Rule Review**: Loads the vendored `antislop` skill via `konoha.get_skill("antislop")` and verifies adherence to craftmanship standards and Delivery Gate rules.
-- **Socket Supply Chain Security Gate**: When maintaining Konoha itself, Kage verifies that `rtk socket ci` or `rtk socket scan create ./package.json --report` is 100% clean of High and Medium risk alerts (0 High/Error, 0 Medium/Warn).
+- **Supply Chain Dependency Audit Gate**: When maintaining Konoha itself, Kage verifies that `rtk node tests/test_dependency_audit.js` passes: `pnpm audit --json` over the root and `apps/web` workspaces with zero unapproved advisories, no Socket account or token involved. The optional Socket.dev scan (`rtk node scripts/socket_audit_optional.js`, needs `SOCKET_CLI_API_TOKEN`) is advisory only and its `SKIPPED`/`UNVERIFIED` output is never a delivery blocker.
 - **Test Directory Discovery & Single-Directory Invariant**: Explore existing test directories (`tests/`, `test/`, `spec/`) using `find_files_clean`. Always place new tests within the established directory. NEVER create duplicate or conflicting test folders.
 - **Workspace Hygiene & Post-Approval Cleanup**: All temporary debug scripts (`debug_*`, `temp_*`, `test_patch.py`, `scratch/*`) must be removed upon final approval so the repository remains production-clean.
 

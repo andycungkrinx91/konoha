@@ -235,8 +235,13 @@ were missing when every agent silently degraded to "no spawn, no Konoha tools".
 Socket.dev's API is not reachable from this host, so the score for `2.2.23` is **not**
 self-certified here. The reported `2.2.22` baseline was Supply Chain 83, Vulnerability
 100, Quality 100, Maintenance 96, License 90. The local proxy is
-`tests/test_socket_security_audit.js`, which reports 0 high and 0 critical findings, plus
+`tests/test_dependency_audit.js`, which reports 0 advisories for the root and `apps/web`
+workspaces, plus
 the packed-artifact scan in §4. Both are necessary but neither is the vendor's score.
+
+> **2026-11-19:** the local proxy is now the mandatory gate, and Socket.dev scanning is opt-in
+> (`pnpm audit:socket` with `SOCKET_CLI_API_TOKEN`). Nothing in the mandatory path needs an
+> account, so the unreachable API above no longer blocks a release.
 
 ---
 
