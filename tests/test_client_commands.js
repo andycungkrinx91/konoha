@@ -117,6 +117,19 @@ check('the command body names the workflow entry points and the spawn fallback',
   }
 });
 
+check('statusOnly reports what is installed without writing anything', () => {
+  const home = tempHome(['claudecode']);
+  const before = deployKonohaCommands({ home, statusOnly: true });
+  assert.deepStrictEqual(before.deployed, [], 'a client with no command file must not be reported as deployed');
+  assert.match(before.skipped.find((s) => s.client === 'claudecode').reason, /no command file/);
+  assert.ok(!fs.existsSync(path.join(home, '.claude', 'commands')), 'statusOnly must not create the directory');
+
+  deployKonohaCommands({ home });
+  const after = deployKonohaCommands({ home, statusOnly: true });
+  assert.deepStrictEqual(after.deployed.map((d) => d.client), ['claudecode']);
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
 console.log('\n[Deploy failure reporting]');
 
 check('a throwing client is reported as a failure, the others still deploy', () => {

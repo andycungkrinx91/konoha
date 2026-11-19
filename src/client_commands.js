@@ -58,41 +58,58 @@ function resolveHome(home) {
 }
 
 /**
+ * Classifies a command file without touching it.
+ * @returns {{present?:true, unchanged?:true, skip?:string}}
+ */
+function _inspectCommandFile(file) {
+  if (!fs.existsSync(file)) return { present: false };
+  const current = fs.readFileSync(file, 'utf8');
+  if (current === KONOHA_COMMAND_BODY) return { present: true, unchanged: true };
+  if (!current.includes('Konoha multi-agent workflow')) return { skip: `user-owned ${file} left untouched` };
+  return { present: true };
+}
+
+/**
  * Writes Konoha's command file unless a user authored one there. Konoha's own
  * file is rewritten so upgrades land.
  * @returns {{unchanged?:true, skip?:string}}
  */
 function _writeCommandFile(file) {
-  if (fs.existsSync(file)) {
-    const current = fs.readFileSync(file, 'utf8');
-    if (current === KONOHA_COMMAND_BODY) return { unchanged: true };
-    if (!current.includes('Konoha multi-agent workflow')) return { skip: `user-owned ${file} left untouched` };
-  }
+  const state = _inspectCommandFile(file);
+  if (state.skip || state.unchanged) return state;
   fs.writeFileSync(file, KONOHA_COMMAND_BODY, { encoding: 'utf8', mode: 0o644 });
   return {};
 }
 
+function _recordDeployment(target, scope, file, outcome, ctx) {
+  if (outcome.skip) {
+    ctx.skipped.push({ client: target.client, scope, reason: outcome.skip });
+    return;
+  }
+  const unchanged = outcome.unchanged ? { unchanged: true } : {};
+  ctx.deployed.push({ client: target.client, scope, path: file, ...unchanged });
+  for (const alias of target.alsoServes || []) {
+    ctx.deployed.push({ client: alias, scope, path: file, sharedWith: target.client, ...unchanged });
+  }
+}
+
 function _deployScope(target, { scope, base, segments }, ctx) {
-  const { options, home, deployed, skipped } = ctx;
+  const { options, home } = ctx;
   if (!options.force && !fs.existsSync(path.join(home, target.configRoot))) {
-    skipped.push({ client: target.client, scope, reason: `${target.configRoot} not present for this user` });
+    ctx.skipped.push({ client: target.client, scope, reason: `${target.configRoot} not present for this user` });
     return;
   }
   const file = path.join(base, ...segments, `${COMMAND_NAME}.md`);
+  if (options.statusOnly) {
+    const state = _inspectCommandFile(file);
+    _recordDeployment(target, scope, file, state.present ? state : { skip: `no command file at ${file}` }, ctx);
+    return;
+  }
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    const outcome = _writeCommandFile(file);
-    if (outcome.skip) {
-      skipped.push({ client: target.client, scope, reason: outcome.skip });
-      return;
-    }
-    const unchanged = outcome.unchanged ? { unchanged: true } : {};
-    deployed.push({ client: target.client, scope, path: file, ...unchanged });
-    for (const alias of target.alsoServes || []) {
-      deployed.push({ client: alias, scope, path: file, sharedWith: target.client, ...unchanged });
-    }
+    _recordDeployment(target, scope, file, _writeCommandFile(file), ctx);
   } catch (err) {
-    skipped.push({ client: target.client, scope, reason: `${err.code || 'error'}: ${err.message}` });
+    ctx.skipped.push({ client: target.client, scope, reason: `${err.code || 'error'}: ${err.message}` });
   }
 }
 
@@ -112,6 +129,7 @@ function _deployTarget(target, ctx) {
  * @param {string} [options.home] overrides HOME (tests)
  * @param {string|null} [options.projectRoot] also deploy the project-scoped copy
  * @param {boolean} [options.force] write even when the client config root is missing
+ * @param {boolean} [options.statusOnly] report what is installed without writing (doctor)
  * @returns {{deployed: Array<{client:string,scope:string,path:string}>, skipped: Array<{client:string,scope:string,reason:string}>}}
  */
 function deployKonohaCommands(options = {}) {

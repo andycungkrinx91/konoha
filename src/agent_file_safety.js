@@ -163,10 +163,10 @@ const AGENT_PROFILE_DIRS = Object.freeze([
 
 /**
  * Classifies one parked `.konoha-proposed` candidate against the live file:
- *   `foreign`   the live file is not Konoha's, so Konoha's version never landed
- *   `stale`     the live file is Konoha's own and newer; parking happened when
- *               the live file was still foreign and the write path later
- *               matched content and returned before clearing the candidate
+ *   `foreign`   the live file is not Konoha's (or is unreadable), so Konoha's
+ *               version never landed
+ *   `stale`     the live file is Konoha's own and differs from the parked copy;
+ *               the candidate is residue, since Konoha's content is in place
  *   `identical` the parked copy equals the live file exactly
  */
 function _classifyAgentConflict(dir, entry) {
@@ -175,9 +175,13 @@ function _classifyAgentConflict(dir, entry) {
   const backup = `${target}.konoha-backup`;
   const record = (kind) => ({ path: target, proposed, backup: fileExists(backup) ? backup : null, kind });
   if (!fileExists(target)) return record('foreign');
+  let live;
   try {
-    if (fs.readFileSync(target, 'utf8') === fs.readFileSync(proposed, 'utf8')) return record('identical');
-  } catch (_) { /* unreadable candidate stays reported as foreign */ }
+    live = fs.readFileSync(target, 'utf8');
+    if (live === fs.readFileSync(proposed, 'utf8')) return record('identical');
+  } catch (_) {
+    return record('foreign');
+  }
   return record(isKonohaOwnedAgentFile(target) ? 'stale' : 'foreign');
 }
 

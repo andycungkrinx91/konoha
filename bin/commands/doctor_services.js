@@ -203,7 +203,7 @@ function checkGeminiAndAgentsConfig(context) {
 function checkClientCommandsAndConflicts(context) {
   let commands = null;
   try {
-    commands = require('../../src/client_commands').deployKonohaCommands({ home: HOME });
+    commands = require('../../src/client_commands').deployKonohaCommands({ home: HOME, statusOnly: true });
   } catch (e) {
     context.record('Slash Command (/konoha)', 'FAILED', `Error: ${e.message}`);
     context.markError();
@@ -215,9 +215,9 @@ function checkClientCommandsAndConflicts(context) {
       .filter((s) => s.scope === 'user' && !/not present for this user/.test(s.reason))
       .map((s) => `${s.client} (${s.reason})`);
     if (names.length > 0) {
-      context.record('Slash Command (/konoha)', 'HEALTHY', `Deployed for: ${names.join(', ')}`);
+      context.record('Slash Command (/konoha)', 'HEALTHY', `Installed for: ${names.join(', ')}`);
     } else {
-      context.record('Slash Command (/konoha)', 'WARNING', 'No client command directory was written');
+      context.record('Slash Command (/konoha)', 'WARNING', 'No /konoha command file is installed — run `konoha init`');
     }
     if (unsupported.length > 0) {
       context.record('Slash Command Coverage', 'WARNING', unsupported.join('; '));
@@ -237,7 +237,7 @@ function checkClientCommandsAndConflicts(context) {
   if (foreign.length === 0) {
     const detail = residue.length === 0
       ? 'No parked agent profiles'
-      : `${residue.length} parked candidate(s) are residue from an older deploy (Konoha's version is already live)`;
+      : `${residue.length} parked candidate(s) differ from Konoha's live profile; they are leftovers and can be removed`;
     context.record('Agent Profile Conflicts', 'HEALTHY', detail);
     return;
   }
