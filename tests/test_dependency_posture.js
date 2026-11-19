@@ -57,7 +57,11 @@ const BUNDLED_SINKS = {
   pptxgenjs: ['dist/pptxgen.bundle.js', 'dist/pptxgen.bundle.js.map'],
   'xlsx-populate': ['browser', 'examples'],
   // pnpm leaves an empty `dist/` after the patch deletes its two files; the sink is the files.
-  jszip: ['dist/jszip.js', 'dist/jszip.min.js']
+  jszip: ['dist/jszip.js', 'dist/jszip.min.js'],
+  // Upstream ships a scraper that fetches remote code and runs it in node:vm (Socket finding,
+  // konoha-mcp@2.2.23). Konoha imports only cl100k_base encoding; the scraper is unreachable
+  // from our runtime graph and is removed from the installed/published tree.
+  'gpt-tokenizer': ['src/scraper']
 };
 for (const [pkg, entries] of Object.entries(BUNDLED_SINKS)) {
   // jszip is transitive: it has no root link, so resolve it the way its consumers do.
@@ -99,7 +103,8 @@ for (const pkg of Object.keys(BUNDLED_SINKS)) {
 }
 for (const [pkg, patchFile] of [
   ['pptxgenjs@4.0.1', 'patches/pptxgenjs@4.0.1.patch'],
-  ['jszip@3.10.2', 'patches/jszip@3.10.2.patch']
+  ['jszip@3.10.2', 'patches/jszip@3.10.2.patch'],
+  ['gpt-tokenizer@4.1.0', 'patches/gpt-tokenizer@4.1.0.patch']
 ]) {
   assert.ok(workspace.includes(patchFile), `pnpm-workspace.yaml must register ${pkg} -> ${patchFile}`);
   assert.ok(/^deleted file mode/m.test(read(patchFile)), `${patchFile} must delete the browser build`);

@@ -242,6 +242,7 @@ overrides:
 patchedDependencies:
   cfb@1.2.2: 86f9d4ed6439e4ce1aeb24f9beca3002e4e106e38e37879a1c3f69673b8ebae9
   docx@9.14.0: 750ce554f4284608f8748f69b03dc2cf8aa5099d856d4234654eea2f3a699a2c
+  gpt-tokenizer@4.1.0: 4f2c8fa7e892543cf9a1f57cf78552ad9aa03aa2a292d6a969061a3a283b67e2
   jszip@3.10.2: 89d5f11cdd849272ec38901c8e5258e275e290e93a2761ccf41ad501dbc3e05c
   picomatch@4.0.7: 30ae93f32a6fecca7f7b3a60163a12e4b931a7a8365b757fa68936dbd3aff656
   playwright-core@1.64.1: e3a9eb0242a161d8c41248e9fcb67374728a324f7e320da22c9f52208d57f6b7
@@ -275,7 +276,7 @@ importers:
         version: 9.14.0(patch_hash=750ce554f4284608f8748f69b03dc2cf8aa5099d856d4234654eea2f3a699a2c)
       gpt-tokenizer:
         specifier: 4.1.0
-        version: 4.1.0
+        version: 4.1.0(patch_hash=4f2c8fa7e892543cf9a1f57cf78552ad9aa03aa2a292d6a969061a3a283b67e2)
       hash-wasm:
         specifier: 4.12.0
         version: 4.12.0
@@ -1965,7 +1966,7 @@ snapshots:
       semver: 7.8.6
       serialize-error: 8.1.0
 
-  gpt-tokenizer@4.1.0: {}
+  gpt-tokenizer@4.1.0(patch_hash=4f2c8fa7e892543cf9a1f57cf78552ad9aa03aa2a292d6a969061a3a283b67e2): {}
 
   graceful-fs@4.2.11: {}
 
