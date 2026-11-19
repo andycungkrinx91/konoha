@@ -303,6 +303,25 @@ In the konoha repo: `find_skill("konoha maintenance")` after `konoha migrate`.
 
 ---
 
+## Native `/konoha` command and subagent support
+
+`/konoha` is a client-side prompt file, so it exists only where Konoha writes one. Pi and Antigravity load commands from their own plugin/extension packaging and get no file. The command layer and the native-subagent capability are separate: a client can have no command file and still accept a spawned subagent.
+
+| Client | Command file | Skills directory | MCP config | Native subagent tool |
+|---|---|---|---|---|
+| `claudecode` | `~/.claude/commands/konoha.md` | `~/.claude/skills` | `~/.claude.json` | `Agent(subagent_type=…)` |
+| `cursor` | `~/.cursor/commands/konoha.md` | `~/.cursor/skills` | `~/.cursor/mcp.json` | `Task(subagent_type=…)` |
+| `opencode` | `~/.config/opencode/command/konoha.md` | `~/.config/opencode/skills` | `~/.config/opencode/opencode.json` | `task(subagent_type=…)` |
+| `commandcode` | `~/.commandcode/commands/konoha.md` | `~/.commandcode/skills` | `~/.commandcode/mcp.json` | `Task(subagent_type=…)` |
+| `codex` | `~/.codex/prompts/konoha.md` | `~/.codex/skills` | `~/.codex/config.toml` | `spawn_agent(agent_type=…)` |
+| `omp` | `~/.codex/prompts/konoha.md` (same file as `codex`) | `~/.omp/agent/skills` | `~/.omp/agent/mcp.json` | `task(context=…, tasks=[…])` |
+| `antigravity` | none | `~/.gemini/skills`, `~/.gemini/antigravity-cli/skills` | `~/.gemini/config/mcp_config.json` | `invoke_subagent({TypeName:…})` |
+| `pi` | none | `~/.pi/agent/skills` | `~/.pi/agent/mcp.json` | `subagent(agent=…)`, only with the `pi-subagents` extension |
+
+A client listed as `none` still reaches every Konoha tool over MCP; run the workflow with `konoha.sannin`, or force a slice through a subprocess with `rtk konoha run-agent --agent <name> --task <text> --execute`, which works regardless of the harness.
+
+This table is pinned by `tests/test_client_capability_matrix.js`: editing the code without the doc, or the doc without the code, fails that test.
+
 ## Troubleshooting
 
 | Symptom | Fix |
