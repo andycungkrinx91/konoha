@@ -489,7 +489,8 @@ a Konoha-owned profile carries the marker on line 1.
 writes a command file, so a WARNING there is fixed by `konoha init`. A missing entry means one of three things:
 
 1. **The client's config root does not exist** — the deployer writes nothing into a directory it cannot confirm.
-   Start the client once so it creates its config directory, then re-run `konoha init`.
+   Start the client once so it creates its config directory, then re-run `konoha init`. This gate applies to the
+   `--project` copy as well, so a repository only receives a command file for a client that is configured.
 2. **The client is unsupported** — Pi and Antigravity have no prompt directory Konoha can write to. Pi loads
    commands only through its extension packaging.
 3. **You own the file** — a `konoha.md` without Konoha's marker is left untouched and reported as user-owned.

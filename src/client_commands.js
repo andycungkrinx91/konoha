@@ -53,10 +53,13 @@ const LEGACY_COMMAND_BODY = KONOHA_COMMAND_BODY.replace('generated_by: konoha\n'
 //   opencode    opencode binary                     -> `<config>/opencode/command/`
 //   commandcode dist/bundled/.../custom-slash-commands.md -> `~/.commandcode/commands/`
 //   codex + omp omp's prompt loader reads `~/.codex/prompts`, so one file serves both
-// Each of those also has a project form: commandcode's reference documents
+// Each client also has a project form. Two are documented in the installed
+// bundle and were read there: command-code's reference lists
 // `.commandcode/commands/` beside the user directory, and omp's loader lists
-// `.codex/prompts/` next to `~/.codex/prompts`. `projectDir` only differs where
-// the project path is not the same relative shape as the user path.
+// `.codex/prompts/` beside `~/.codex/prompts`. The other three are the
+// documented project path of the same client but were not read out of the
+// bundle, so they carry the same assumption as the user path above.
+// `projectDir` is set only where the project shape differs (opencode).
 const COMMAND_TARGETS = Object.freeze([
   { client: 'claudecode', configRoot: '.claude', dir: ['.claude', 'commands'] },
   { client: 'cursor', configRoot: '.cursor', dir: ['.cursor', 'commands'] },
@@ -111,6 +114,10 @@ function _recordDeployment(target, scope, file, outcome, ctx) {
   }
 }
 
+// The client's own config root is the only signal that the client is installed,
+// so it gates both scopes: a project copy is written only for a client whose
+// global root exists. That keeps `--project` from scattering command files into
+// repositories for clients the user does not run.
 function _deployScope(target, { scope, base, segments }, ctx) {
   const { options, home } = ctx;
   if (!options.force && !fs.existsSync(path.join(home, target.configRoot))) {
@@ -131,8 +138,17 @@ function _deployScope(target, { scope, base, segments }, ctx) {
   }
 }
 
+// `--client=<x>` must narrow the command layer too. A target is selected when
+// its own client, or a client it also serves, was requested.
+function _isSelected(target, options) {
+  const wanted = options.clients;
+  if (!wanted) return true;
+  return [target.client, ...(target.alsoServes || [])].some((name) => wanted.includes(name));
+}
+
 function _deployTarget(target, ctx) {
   const { options, home } = ctx;
+  if (!_isSelected(target, options)) return;
   _deployScope(target, { scope: 'user', base: home, segments: target.dir }, ctx);
   if (!options.projectRoot) return;
   _deployScope(target, {
@@ -145,6 +161,7 @@ function _deployTarget(target, ctx) {
 /**
  * @param {object} [options]
  * @param {string} [options.home] overrides HOME (tests)
+ * @param {string[]|null} [options.clients] restrict to these client names (init's `--client`)
  * @param {string|null} [options.projectRoot] also deploy the project-scoped copy
  * @param {boolean} [options.force] write even when the client config root is missing
  * @param {boolean} [options.statusOnly] report what is installed without writing (doctor)
@@ -157,6 +174,7 @@ function deployKonohaCommands(options = {}) {
   const ctx = { options, home, deployed, skipped };
   for (const target of COMMAND_TARGETS) _deployTarget(target, ctx);
   for (const entry of UNSUPPORTED_CLIENTS) {
+    if (options.clients && !options.clients.includes(entry.client)) continue;
     skipped.push({ client: entry.client, scope: 'user', reason: entry.reason });
   }
   return { deployed, skipped };

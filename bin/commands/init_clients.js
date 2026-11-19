@@ -166,14 +166,38 @@ function configureOmp(context) {
   else spinner.warn(`OMP setup skipped: ${ompSetup.reason || 'unknown error'}`);
 }
 
+const COMMAND_CLIENT_FLAGS = Object.freeze([
+  ['allowClaudeCode', 'claudecode'],
+  ['allowCursor', 'cursor'],
+  ['allowOpenCode', 'opencode'],
+  ['allowCommandCode', 'commandcode'],
+  ['allowCodex', 'codex'],
+  ['allowOmp', 'omp']
+]);
+
 function configureCommands(context) {
   const { deployKonohaCommands } = require('../../src/client_commands');
   header('⌘ Installing the /konoha slash command');
   const spinner = startSpinner('Writing the prompt file into each configured client...');
-  const result = deployKonohaCommands({
-    home: context.home,
-    projectRoot: context.deployProject ? context.currentCwd : null
-  });
+  // `--client=<x>` narrows the command layer the same way it narrows the
+  // per-client setup above; otherwise init would write files for clients the
+  // user did not ask for.
+  const clients = COMMAND_CLIENT_FLAGS
+    .filter(([flag]) => context[flag])
+    .map(([, client]) => client);
+  let result;
+  try {
+    result = deployKonohaCommands({
+      home: context.home,
+      clients: clients.length > 0 ? clients : null,
+      projectRoot: context.deployProject ? context.currentCwd : null
+    });
+  } catch (err) {
+    // A command file is an extra; it must never abort the install. Reported,
+    // not swallowed.
+    spinner.warn(`/konoha was not installed: ${err.message}`);
+    return;
+  }
   const names = result.deployed
     .map((d) => (d.scope === 'project' ? `${d.client} (project)` : d.client))
     .join(', ');

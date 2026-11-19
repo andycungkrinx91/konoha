@@ -995,7 +995,9 @@ the template in a file of your own does not make it Konoha's.
 
 `--project` also writes the command into the repository, using the project form of the same directory for each
 client: `.claude/commands/`, `.cursor/commands/`, `.opencode/command/`, `.commandcode/commands/`, and
-`.codex/prompts/` under the repository root. Init reports the two scopes separately, as `claudecode` and
+`.codex/prompts/` under the repository root. The project copy is gated on the same signal as the global one — the
+client's own config root must exist — so a repository never receives a command file for a client you do not run.
+`--client=<name>` narrows both scopes. Init reports the two scopes separately, as `claudecode` and
 `claudecode (project)`.
 
 ### 9.6 Project-level versus global

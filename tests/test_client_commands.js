@@ -145,6 +145,21 @@ check('upgrades a command file written before the marker existed', () => {
   fs.rmSync(home, { recursive: true, force: true });
 });
 
+check('a client filter narrows the command layer too', () => {
+  const home = tempHome(['claudecode', 'cursor', 'opencode', 'codex']);
+  const result = deployKonohaCommands({ home, clients: ['claudecode'] });
+  assert.deepStrictEqual(result.deployed.map((d) => d.client), ['claudecode']);
+  assert.strictEqual(result.skipped.length, 0, 'unrequested clients are not "skipped", they were not asked for');
+  assert.ok(!fs.existsSync(path.join(home, '.cursor', 'commands')), 'cursor must not be written');
+
+  // omp has no prompt directory of its own: it reads codex's, so asking for
+  // omp must select the codex target and report both names.
+  const shared = deployKonohaCommands({ home, clients: ['omp'] });
+  assert.deepStrictEqual(shared.deployed.map((d) => d.client).sort(), ['codex', 'omp']);
+  assert.ok(!fs.existsSync(path.join(home, '.cursor', 'commands')), 'the filter must hold across runs');
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
 check('the command body names the workflow entry points and the spawn fallback', () => {
   for (const needle of ['konoha.sannin', 'konoha.build_from_text', 'konoha.report_from_agent', 'run-agent']) {
     assert.ok(KONOHA_COMMAND_BODY.includes(needle), `command body must mention ${needle}`);
