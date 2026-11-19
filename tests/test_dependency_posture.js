@@ -147,4 +147,71 @@ assert.ok(
 assert.ok(!/isarray@1\.0\.7/.test(lock) && !/isarray@1\.0\.7/.test(workspace), 'no stale isarray@1.0.7 override');
 console.log('  ok   isarray override current');
 
+// Copyleft packages may exist in the resolved tree only when this allowlist names
+//    them and NOTICE explains them. Nothing here is bundled into the published
+//    tarball; the point of the gate is that a new copyleft package cannot arrive
+//    silently through a transitive dependency, which is what moved the Socket
+//    license score from 100 to 90 (see NOTICE, "Copyleft in the install graph").
+const COPYLEFT_ALLOWLIST = ['@img/sharp-libvips-', 'lightningcss'];
+const PERMISSIVE = new Set([
+  'MIT', 'ISC', 'BSD-2-CLAUSE', 'BSD-3-CLAUSE', '0BSD', 'APACHE-2.0',
+  'BLUEOAK-1.0.0', 'UNLICENSE', 'CC0-1.0', 'ZLIB', 'PYTHON-2.0', 'BSL-1.0'
+]);
+// An SPDX expression is permissive when any `OR` alternative is entirely permissive,
+//    so `(MIT OR GPL-3.0-or-later)` (jszip) and `(MIT AND Zlib)` (pako) both pass.
+function isPermissive(expr) {
+  return String(expr)
+    .toUpperCase()
+    .split(/\s+OR\s+/)
+    .some((alt) => alt.split(/\s+AND\s+/).every((t) => PERMISSIVE.has(t.replace(/[()]/g, '').trim())));
+}
+const STORE = path.join(ROOT, 'node_modules', '.pnpm');
+function assertCopyleftAllowlisted() {
+  assert.ok(
+    fs.existsSync(STORE),
+    `the copyleft gate needs a populated ${STORE}; run pnpm install (a missing store must fail, not skip)`
+  );
+  const found = [];
+  for (const entry of fs.readdirSync(STORE)) {
+    const nm = path.join(STORE, entry, 'node_modules');
+    if (!fs.existsSync(nm)) continue;
+    const names = [];
+    for (const name of fs.readdirSync(nm)) {
+      if (name.startsWith('.')) continue;
+      if (name.startsWith('@')) {
+        const scope = path.join(nm, name);
+        if (fs.statSync(scope).isDirectory()) {
+          for (const sub of fs.readdirSync(scope)) names.push(`${name}/${sub}`);
+        }
+      } else {
+        names.push(name);
+      }
+    }
+    for (const name of names) {
+      const manifest = path.join(nm, name, 'package.json');
+      if (!fs.existsSync(manifest)) continue;
+      const license = JSON.parse(fs.readFileSync(manifest, 'utf8')).license;
+      // A missing or non-string license is not evidence of permission, so it fails
+      //    the gate the same way an unlisted copyleft expression does.
+      if (typeof license !== 'string' || !license.trim()) found.push(`${name} (no license field)`);
+      else if (!isPermissive(license)) found.push(`${name} (${license})`);
+    }
+  }
+  const unlisted = found.filter((hit) => !COPYLEFT_ALLOWLIST.some((allowed) => hit.startsWith(allowed)));
+  assert.deepStrictEqual(unlisted, [], `unlisted copyleft package(s) in the install tree: ${unlisted.join(', ')}`);
+  const notice = read('NOTICE');
+  for (const allowed of COPYLEFT_ALLOWLIST) {
+    assert.ok(
+      found.some((hit) => hit.startsWith(allowed)),
+      `allowlist entry "${allowed}" matches no installed package; drop it or fix the name`
+    );
+    assert.ok(
+      notice.includes(allowed),
+      `NOTICE must explain the copyleft package "${allowed}"`
+    );
+  }
+  console.log(`  ok   copyleft confined to the allowlist (${found.length} package(s), all documented in NOTICE)`);
+}
+assertCopyleftAllowlisted();
+
 console.log('\nAll test_dependency_posture checks passed successfully!');

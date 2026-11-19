@@ -250,7 +250,25 @@ pnpm --dir apps/web run dev
 pnpm run build:web
 ```
 
-`pnpm --dir apps/web run build` runs `vite build && node scripts/write-build-meta.js`, which stamps `apps/web/build/build-meta.json` with `{ "version": "<apps/web/package.json version>", "builtAt": "<ISO>" }`. During `konoha init`, `resolveWebBuildSource` skips any candidate build whose `build-meta.json` version does not match the CLI version (logging `Skipping stale Web UI build <v> at <dir>`), and `_syncWebBuildOutput` reports the version it actually installed — `Pre-built Web UI installed to … (v<installed>)`. A build with no `build-meta.json` logs `Web UI provenance unknown …` rather than claiming a version match.
+`pnpm --dir apps/web run build` runs `vite build && node scripts/write-build-meta.js`, which stamps `apps/web/build/build-meta.json` with `{ "version": "<apps/web/package.json version>", "builtAt": "<ISO>" }`.
+
+A build directory counts as a source only when it holds **all three** of `handler.js`, `build-meta.json`, and a `version` string inside that metadata equal to the CLI version. `apps/web/package.json` is copied into the build by `vite`, so its `version` field proves nothing — it is the manifest of the *source*, not a record of the build. `readBuildMeta(dir)` is the single reader for this rule:
+
+| State | `resolveWebBuildSource` result | `shouldBuildWebUiOnDemand` reason |
+|---|---|---|
+| `handler.js` + metadata, version matches | accepted, `Web UI build accepted: … (v<x>)` | `verified` — no rebuild |
+| `handler.js` + metadata, version differs | `Skipping stale Web UI build <v> at <dir>` | `stale` — rebuild |
+| `handler.js`, no metadata | `Skipping unverified Web UI build at <dir>: missing build-meta.json` | `provenance-missing` — rebuild |
+| `handler.js`, metadata without `version` | rejected: `build-meta.json has no version` | `provenance-no-version` — rebuild |
+| metadata unparseable | rejected: `build-meta.json is not valid JSON` | `provenance-invalid` — rebuild |
+| no `handler.js` | rejected: `missing handler.js` | `no-handler` — rebuild |
+
+When every candidate is rejected, `resolveWebBuildSource` returns `null` and `installWebUiRuntime` builds on demand instead of copying an unverified tree. The install then reports one of two lines and nothing in between:
+
+- `Web UI v<version> verified at <dest>`
+- `ERROR: Web UI at <dest> is unverified (<reason>); reported version <version> is not claimed. Run \`pnpm run build:web\` and re-run \`konoha init\`.`
+
+`_syncWebBuildOutput` validates the source metadata *before* touching the destination, stamps the destination `package.json` from that metadata, re-reads `dest/build-meta.json` after copying, and removes the destination build directory if the verification fails — so a failed sync leaves no build rather than a lying one.
 
 ### 15. 🖥️ Headed QA & Provenance-Aware Memory Behavior
 - **Headed QA runs on the host**:

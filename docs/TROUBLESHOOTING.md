@@ -666,6 +666,52 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
 
 ---
 
+### 🧾 `ERROR: Web UI provenance unknown at …/apps/web/build (no build-meta.json)` (fixed after 2.2.23)
+
+- **Symptom**: `konoha init` prints `Web UI application installed to ~/.konoha/apps/web` and then fails, or the Web UI reports a version it cannot back up:
+  ```
+  ERROR: Web UI provenance unknown at /home/user/.konoha/apps/web/build (no build-meta.json);
+  reported version 2.2.23 is unverified.
+  ```
+- **Reason**: two fail-open paths, both reading the wrong file for provenance. `resolveWebBuildSource()` accepted any candidate that had `handler.js` because the version check was written as `declared && currentVersion && declared !== currentVersion`, so a build with **no** `build-meta.json` skipped the comparison entirely and was installed. Then `installWebUiRuntime()` compared versions using the **destination** `apps/web/package.json`, which `copyTree` copies verbatim from the source manifest — it always carries the release version, so the install looked up to date and the on-demand build never fired.
+- **Fix**: a build is a source only when its own `build-meta.json` declares a string `version` that matches the release; `handler.js` proves the tree was compiled, not which source produced it, and the copied manifest proves nothing. When no candidate qualifies, `konoha init` builds the Web UI on demand with `pnpm run build:web`, which writes the metadata, and only prints `v<version>` after re-reading it at both source and destination. A rejected sync removes the unverified destination so an absent build is served instead of a mislabelled one.
+- **Verify**:
+  ```bash
+  cat ~/.konoha/apps/web/build/build-meta.json
+  ```
+  It must contain a `version` equal to `konoha --version`. If the file is missing, rebuild:
+  ```bash
+  cd <konoha-checkout>/apps/web && pnpm run build:web
+  ```
+- **Do not** hand-write `build-meta.json` — the installer trusts it, so a fabricated file defeats the check it exists to make.
+
+---
+
+### ⚠️ Socket audit reports `UNVERIFIED` instead of a score
+
+- **Symptom**: `node tests/test_socket_security_audit.js` ends with e.g. `Socket verification summary: PASS 16 | FAIL 0 | UNVERIFIED 1` and `⚠ UNVERIFIED socket fix: missing-api-permission — this check did not verify anything`.
+- **Reason**: the check could not obtain an answer, which is not the same as passing. `data.code` from the CLI names why: `no-api-token` and `invalid-token` (no `SOCKET_CLI_API_TOKEN`, or `socket login` absent), `missing-api-permission` (the token lacks the `full-scans:create` scope needed by `socket fix`), `rate-limited` (HTTP 429), `auth-error`, `network-unreachable`. `package score` and `pnpm audit` keep working in that state, so a partially verified run is normal on a machine without an account token.
+- **Fix**: to verify these checks, export a token with the `full-scans:create` scope and re-run:
+  ```bash
+  export SOCKET_CLI_API_TOKEN=<token>
+  node tests/test_socket_security_audit.js
+  ```
+  To make an unverified check fail the build, set `KONOHA_SOCKET_REQUIRE_VERIFIED=1`. A real API defect is reported as `FAIL api-error-<status>` (for example `api-error-502`) and always exits 1 — that is a bug to fix, not a limit to accept.
+- **Watch out**: the `socket npm audit` fallback prints `⚠ PARTIAL`. It scans an npm-resolved subset of the root `package.json`, not the pnpm tree, because the repository ships no `package-lock.json`. `pnpm audit` is the authoritative check for the real dependency tree.
+
+---
+
+### 📉 Socket license score dropped from 100 to 90
+
+- **Symptom**: `npx socket package score npm konoha-mcp@2.2.23 --json` reports `data.self.score.license === 90` and the deep score reports `70`; `konoha-mcp@2.2.19` reported `100`. Overall and vulnerability scores are unaffected. The number is sometimes reported as "92" — that figure does not reproduce against the published package; the measured values are 90 shallow and 70 deep.
+- **Cause**: `@huggingface/transformers@4.3.2` (added in `2.2.22`) hard-depends on `sharp`, which pulls the platform-specific prebuilt libvips packages `@img/sharp-libvips-*@1.3.4` under `LGPL-3.0-or-later`. Socket flags them `copyleftLicense` and `nonpermissiveLicense` (severity `low`). `sharp` itself is Apache-2.0; the deep score drops further because its tree carries the LGPL binaries. `pnpm.overrides` cannot change this — every `sharp` release depends on the same libvips family.
+- **Not the cause**: bundled document engines. `bundleDependencies` is `cfb`, `pptxgenjs`, `xlsx-populate`, and their 19-package closure is permissive throughout (Apache-2.0, MIT, ISC, BlueOak-1.0.0 — see `docs/SECURITY.md` §12.6). `marked` and `playwright` score `license: 80` in isolation with no license-category alert at all, so their contribution is not a licence defect.
+- **Compliance position**: no LGPL code is redistributed. The `@img/*` packages are installed by the consumer's package manager from their own tarballs, one per platform (`optional: true` in `pnpm-lock.yaml`), and are not in `bundleDependencies`. `NOTICE` §"Copyleft in the install graph (not redistributed)" records this, alongside the `MPL-2.0` `lightningcss` build tooling. `sharp` is imported unconditionally by `@huggingface/transformers`, so `--omit=optional` is not a workaround: it removes the embedding backend.
+- **Guard**: `tests/test_dependency_posture.js` fails when a copyleft-licensed package outside `COPYLEFT_ALLOWLIST` appears in `node_modules/.pnpm`, when an allowlist entry matches nothing, or when `NOTICE` stops explaining one. It deliberately does not assert the Socket license number — that score is computed server-side from a mutable alert set and would make CI flaky.
+- **The only way back to 100**: drop the `@huggingface/transformers` embedding backend, which is the sole reason `sharp` is in the tree.
+
+---
+
 ### 🔐 Web UI login offers the default passphrase instead of first-run setup (fixed in 2.2.20; affects ≤ 2.2.19)
 
 - **Symptom**: The login card shows two tabs ("Passphrase Sign-In" selected by default, plus "First-Run Setup"), a `default passphrase (konohagakure)` badge, and a hint line naming the default value. Clicking "First-Run Setup" and submitting it in 2.2.19 or earlier returns `401 Unauthorized` from a real browser.

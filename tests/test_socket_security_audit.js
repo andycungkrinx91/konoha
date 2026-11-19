@@ -22,20 +22,6 @@ function spawnArgs(command, args, options) {
   return [`${quote(command)} ${args.map(quote).join(' ')}`, undefined, { ...options, shell: true }];
 }
 
-function runCommand(command, args, cwd = REPO_ROOT, envOverride = {}) {
-  try {
-    return execFileSync(...spawnArgs(command, args, {
-      cwd,
-      encoding: 'utf8',
-      timeout: 180000,
-      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', ...envOverride }
-    }));
-  } catch (err) {
-    if (err.stdout || err.stderr) return `${err.stdout || ''}${err.stderr || ''}`;
-    throw err;
-  }
-}
-
 // Every scratch directory this suite creates is removed here, so a run leaves no
 // `konoha_socket_*` debris behind on any OS.
 function withTempDir(prefix, fn) {
@@ -81,77 +67,127 @@ function firstJsonValue(text) {
 
 function verifySocketFixAudit() {
   console.log('[Socket Audit] Running `socket fix --all --no-apply-fixes --json`...');
-  const stdout = runCommand('npx', ['socket', 'fix', '--all', '--no-apply-fixes', '--json']);
-  const parsed = firstJsonValue(stdout);
-  if (!parsed) {
-    console.log('⚠ SKIPPED socket fix: no JSON (offline or local-only CLI); coverage continues via socket npm audit and pnpm audit');
+  const res = runSocketJson(['fix', '--all', '--no-apply-fixes', '--json']);
+  const verdict = classifySocketEnvelope(res);
+  const payload = `${res.stdout}\n${res.stderr}`;
+
+  if (verdict.outcome === OUTCOME.UNVERIFIED) {
+    record('socket fix', OUTCOME.UNVERIFIED, verdict.reason, payload.slice(0, 400));
+    console.log(`⚠ socket fix could not be verified (${verdict.reason}); this is not a finding and not a pass`);
     return;
   }
-  if (parsed.ok === false) {
-    // A documented CLI/account limit (no org resolved, missing token scope, quota) is not a
-    // finding — but any other API failure is, and a blanket pass would hide it.
-    assert.ok(
-      isAuthLimited(parsed),
-      `socket fix failed for an unrecognised reason, which the audit must not read as clean: ` +
-      `${parsed.message || '(no message)'} — ${parsed.cause || JSON.stringify(parsed.data || {})}`
-    );
-    console.log(`⚠ SKIPPED socket fix: ${parsed.message || 'documented CLI limit'} (auth/scope limit)`);
-    return;
+  if (verdict.outcome === OUTCOME.FAIL) {
+    // A missing envelope used to be `SKIPPED`, which is how a broken CLI invocation passed
+    // as clean. It is a failure: the command ran and did not answer.
+    recordFailure('socket fix', verdict.reason, verdict.detail || payload);
   }
-  assert.ok(
-    parsed.data && Array.isArray(parsed.data.ghsaDetails),
-    `socket fix reported ok without a ghsaDetails array; a missing field is not "0 findings":\n${stdout.slice(0, 400)}`
-  );
-  assert.strictEqual(
-    parsed.data.ghsaDetails.length,
-    0,
-    `Found unresolved GHSAs/CVEs: ${JSON.stringify(parsed.data.ghsaDetails)}`
-  );
-  console.log('✓ Socket fix analysis clean: 0 open GHSAs/CVEs detected');
+
+  const data = res.parsed.data;
+  if (!data || typeof data !== 'object') recordFailure('socket fix', 'no-data-object', payload);
+  if (!Array.isArray(data.ghsaDetails)) recordFailure('socket fix', 'no-ghsaDetails-array', JSON.stringify(data));
+  if (data.ghsaDetails.length !== 0) {
+    recordFailure('socket fix', 'unresolved-advisories', JSON.stringify(data.ghsaDetails));
+  }
+  record('socket fix', OUTCOME.PASS, '0 open GHSAs/CVEs');
+  console.log('✓ PASS socket fix: 0 open GHSAs/CVEs');
 }
 
-// Limits of the Socket CLI itself, proven on this host — none is a vulnerability:
-// - sandboxed HOME hides the `socket login` config, so no org can be resolved
-// - the account token lacks the `full-scans:create` scope (HTTP 403)
-// - npm 11.19+ rejects the wrapper's own `--allow-scripts` flag (EALLOWSCRIPTS)
-// `socket package` scores and `pnpm audit` still run and enforce real results.
-const SOCKET_CLI_LIMITS = [
-  'Unable to resolve a Socket account organization',
-  'requires a Socket API token',
-  'socket login',
-  'SOCKET_CLI_API_TOKEN',
-  'EALLOWSCRIPTS',
-  '--allow-scripts is not allowed',
-  'full-scans:create',
-  'Insufficient permissions',
-  'Authorization failed',
-  '429',
-  'quota',
-  'Quota',
-  '403',
-  'ENOTFOUND',
-  'ENOLOCK',
-  'offline'
-];
+// A check can end in three states. `PASS` and `FAIL` are both verified answers; `UNVERIFIED`
+// means no answer was obtainable at all, which is not a pass. The previous version matched
+// substrings such as "403" or "quota" in an error message, so a genuine API defect read as
+// an account limit and the check quietly passed.
+const OUTCOME = Object.freeze({ PASS: 'PASS', FAIL: 'FAIL', UNVERIFIED: 'UNVERIFIED' });
 
-function isCliLimit(text) {
-  return SOCKET_CLI_LIMITS.some((marker) => String(text || '').includes(marker));
+const outcomes = [];
+
+function record(name, outcome, reason, detail) {
+  outcomes.push({ name, outcome, reason, detail });
+}
+
+function summarizeOutcomes(list = outcomes) {
+  return {
+    pass: list.filter((o) => o.outcome === OUTCOME.PASS).length,
+    fail: list.filter((o) => o.outcome === OUTCOME.FAIL).length,
+    unverified: list.filter((o) => o.outcome === OUTCOME.UNVERIFIED).length
+  };
+}
+
+function recordFailure(name, reason, detail) {
+  record(name, OUTCOME.FAIL, reason, detail);
+  assert.fail(`${name}: ${reason}${detail ? ` — ${String(detail).slice(0, 400)}` : ''}`);
 }
 
 /**
- * The tokenless CLI answers `{ ok: false, message: "Input error", data: "...requires a
- * Socket API token..." }`. The auth reason lives in `data`, so both fields must be
- * searched — checking only `message` misses it and fails as a score error.
+ * Classifies the CLI's own JSON envelope. HTTP statuses are read from `data.code`, never
+ * from a substring of the message: the CLI reports auth, permission, and quota limits as
+ * `{ ok: false, message: "Socket API error", data: { code: <http status> } }`, and a 5xx is
+ * a defect in the API rather than a limit on this account.
+ *
+ * `VERIFIED` is internal — it means "the CLI answered, validate the payload yourself".
  */
-function isAuthLimited(res) {
-  return isCliLimit(res && res.message) || isCliLimit(JSON.stringify((res && res.data) || ''));
+function classifySocketEnvelope({ status, parsed, stderr } = {}) {
+  if (!parsed) {
+    if (/ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ETIMEDOUT|ENETUNREACH|socket hang up/i.test(String(stderr || ''))) {
+      return { outcome: OUTCOME.UNVERIFIED, reason: 'network-unreachable' };
+    }
+    return { outcome: OUTCOME.FAIL, reason: 'no-json' };
+  }
+  if (parsed.ok === true) return { outcome: 'VERIFIED', reason: 'ok' };
+
+  const message = String(parsed.message || '');
+  if (message === 'Input error') {
+    // The tokenless CLI answers exit 2 with the requirement embedded in `data`, so the
+    // reason has to be read from there; any other input error is a broken invocation.
+    if (/requires a Socket API token/.test(String(parsed.data || ''))) {
+      return { outcome: OUTCOME.UNVERIFIED, reason: 'no-api-token' };
+    }
+    return { outcome: OUTCOME.FAIL, reason: 'input-error', detail: parsed.data };
+  }
+  if (message === 'Auth Error') return { outcome: OUTCOME.UNVERIFIED, reason: 'auth-error' };
+
+  if (message === 'Socket API error') {
+    const code = parsed.data && typeof parsed.data === 'object' ? parsed.data.code : null;
+    if (typeof code !== 'number' || !Number.isFinite(code)) {
+      return { outcome: OUTCOME.FAIL, reason: 'api-error-unstructured', detail: parsed.cause || parsed.data };
+    }
+    if (code === 401) return { outcome: OUTCOME.UNVERIFIED, reason: 'invalid-token' };
+    if (code === 403) return { outcome: OUTCOME.UNVERIFIED, reason: 'missing-api-permission' };
+    if (code === 429) return { outcome: OUTCOME.UNVERIFIED, reason: 'rate-limited' };
+    return { outcome: OUTCOME.FAIL, reason: `api-error-${code}`, detail: parsed.cause || parsed.data };
+  }
+
+  // An envelope this suite does not recognise cannot be read as clean.
+  return { outcome: OUTCOME.FAIL, reason: 'unrecognized-envelope', detail: message || parsed };
+}
+
+// execFileSync throws away the exit status the classifier needs, so the socket CLI is run
+// through spawnSync and the envelope is recovered from whichever stream carries it.
+function runSocketJson(args, opts = {}) {
+  const [command, argv, options] = spawnArgs('npx', ['socket', ...args], {
+    cwd: opts.cwd || REPO_ROOT,
+    encoding: 'utf8',
+    timeout: opts.timeout || 300000,
+    env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', ...(opts.env || {}) }
+  });
+  const res = spawnSync(command, argv, options);
+  const stdout = res.stdout || '';
+  const stderr = res.stderr || '';
+  return {
+    status: typeof res.status === 'number' ? res.status : null,
+    stdout,
+    stderr,
+    parsed: firstJsonValue(stdout) || firstJsonValue(stderr)
+  };
 }
 
 // Socket CLI runs a fully local scan with no login: the wrapper shells out to the package
-// manager's advisory database. Verified on this host — `socket npm audit` inside a lockfile
-// project prints "found 0 vulnerabilities" while `org: (not set) | token: (not set)`.
-// The API-backed commands (`package score`, `scan create`, `fix`) do need a token.
-function buildLocalScanTarget(dir) {
+// manager's advisory database. The API-backed commands (`package score`, `scan create`,
+// `fix`) do need a token.
+//
+// Coverage ceiling, stated so it is never mistaken for the whole tree: the synthesized
+// lockfile resolves only the root `package.json` dependency set through npm. It is not the
+// pnpm-resolved tree, and `pnpm audit` remains authoritative for that one.
+function buildPartialLocalScanTarget(dir) {
   const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'));
   fs.writeFileSync(
     path.join(dir, 'package.json'),
@@ -168,45 +204,64 @@ function buildLocalScanTarget(dir) {
     timeout: 300000,
     env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' }
   }));
+  const lock = JSON.parse(fs.readFileSync(path.join(dir, 'package-lock.json'), 'utf8'));
+  return Math.max(0, Object.keys(lock.packages || {}).length - 1);
 }
 
 function verifySocketNpmAudit() {
   console.log('[Socket Audit] Running `socket npm audit`...');
-  const stdout = runCommand('npx', ['socket', 'npm', 'audit']);
-  if (stdout.includes('found 0 vulnerabilities')) {
-    console.log('✓ Socket-wrapped npm audit clean: 0 vulnerabilities found');
+  const repo = runSocketJson(['npm', 'audit']);
+  const repoText = `${repo.stdout}\n${repo.stderr}`;
+  if (repoText.includes('found 0 vulnerabilities')) {
+    record('socket npm audit (repo)', OUTCOME.PASS, 'found 0 vulnerabilities');
+    console.log('✓ PASS socket npm audit: 0 vulnerabilities in the repository lockfile');
     return;
   }
-  // Only a documented limit justifies the fallback: ENOLOCK when no lockfile is in scope and
-  // EALLOWSCRIPTS when npm 11+ rejects the wrapper's own flag. Any other failure means the
-  // wrapper really broke, and scanning around it would hide that.
+  // Only the two documented reasons a repository without `package-lock.json` cannot be
+  // scanned in place justify the fallback: ENOLOCK when no lockfile is in scope, and
+  // EALLOWSCRIPTS when npm 11+ rejects the wrapper's own flag.
   assert.ok(
-    /EALLOWSCRIPTS|--allow-scripts is not allowed|ENOLOCK|requires an existing lockfile/.test(stdout),
-    `socket npm audit failed for an unrecognised reason, so the local fallback would hide it:\n${stdout.slice(0, 800)}`
+    /EALLOWSCRIPTS|--allow-scripts is not allowed|ENOLOCK|requires an existing lockfile/.test(repoText),
+    `socket npm audit failed for an unrecognised reason, so the local fallback would hide it:\n${repoText.slice(0, 800)}`
   );
-  // The repo ships no package-lock.json (pnpm-only), so the wrapper needs a lockfile-backed
-  // project. Rebuild the same dependency set and scan it with an isolated HOME, which is the
-  // only way to prove the no-login path instead of silently reusing the account config.
+
   withTempDir('konoha_socket_local_', (localDir) => {
-    buildLocalScanTarget(localDir);
+    const packages = buildPartialLocalScanTarget(localDir);
+    console.log(
+      `⚠ PARTIAL: npm-resolved subset of root package.json dependencies (${packages} packages) — ` +
+      'this is not the pnpm-resolved tree; pnpm audit is authoritative for it.'
+    );
     withTempDir('konoha_socket_nologin_', (isolatedHome) => {
-      // win32 resolves the home directory from USERPROFILE, and XDG_CONFIG_HOME covers the
-      // config-file lookup, so all three must point at the isolated directory.
-      const localOut = runCommand('npx', ['socket', 'npm', 'audit'], localDir, {
-        HOME: isolatedHome,
-        USERPROFILE: isolatedHome,
-        XDG_CONFIG_HOME: isolatedHome
+      // win32 resolves the home directory from USERPROFILE and the config file from
+      // XDG_CONFIG_HOME, so all three must point at the isolated directory. With
+      // SOCKET_CLI_NO_API_TOKEN the absence of a credential is a fact the CLI states,
+      // not something inferred from a failure.
+      const local = runSocketJson(['npm', 'audit'], {
+        cwd: localDir,
+        env: {
+          HOME: isolatedHome,
+          USERPROFILE: isolatedHome,
+          XDG_CONFIG_HOME: isolatedHome,
+          SOCKET_CLI_NO_API_TOKEN: '1'
+        }
       });
-      assert.ok(
-        localOut.includes('found 0 vulnerabilities'),
-        `Local lockfile scan must report 0 vulnerabilities, got:\n${localOut}`
-      );
-      const banner = localOut.match(/org: ([^|]*)\|\s*token: (.*)/);
-      if (banner) {
-        assert.strictEqual(banner[1].trim(), '(not set)', `No-login scan must resolve no org, got ${banner[1].trim()}`);
-        assert.strictEqual(banner[2].trim(), '(not set)', `No-login scan must send no token, got ${banner[2].trim()}`);
+      const localText = `${local.stdout}\n${local.stderr}`;
+
+      // The banner is the proof that no org and no token were in play. Requiring it turns
+      // "we could not see the banner" into a failure instead of a silent skip.
+      const banner = localText.match(/CLI: [^|]*\| cmd: [^|]*\| org: ([^|]*)\| token: ([^|]*)/);
+      if (!banner) recordFailure('socket local scan (tokenless)', 'no-banner', localText);
+      const org = banner[1].trim();
+      const token = banner[2].trim();
+      if (org !== '(not set)') recordFailure('socket local scan (tokenless)', `resolved-org:${org}`, localText);
+      if (!['(disabled)', '(not set)'].includes(token)) {
+        recordFailure('socket local scan (tokenless)', `token-present:${token}`, localText);
       }
-      console.log('✓ Socket local scan (no login required): 0 vulnerabilities across the shipped dependency set');
+      if (!localText.includes('found 0 vulnerabilities')) {
+        recordFailure('socket local scan (tokenless)', 'vulnerabilities-reported', localText);
+      }
+      record('socket local scan (tokenless)', OUTCOME.PASS, `0 vulnerabilities, org ${org}, token ${token}`, { packages });
+      console.log(`✓ PASS socket local scan (no login): 0 vulnerabilities, org ${org}, token ${token}, PARTIAL coverage`);
     });
   });
 }
@@ -376,48 +431,50 @@ function verifyDirectDependencyScores() {
   ].filter(dep => deps.includes(dep) || dep === '@socketregistry/globalthis');
 
   for (const dep of criticalPackages) {
-    try {
-      const stdout = runCommand('npx', ['socket', 'package', 'score', 'npm', dep, '--json']);
-      const res = firstJsonValue(stdout);
-      assert.ok(res, `Score query must emit JSON for ${dep}: ${stdout.slice(0, 300)}`);
-      // Sandboxed HOME hides the Socket login config; the CLI then answers ok:false with an
-      // auth message instead of a score. That is a proven CLI/account limit, not a finding.
-      if (res.ok !== true && isAuthLimited(res)) {
-        console.log(`  - ${dep}: ⚠ SKIPPED (Socket token unavailable in sandboxed HOME; validated via pnpm audit)`);
-        continue;
-      }
-      assert.strictEqual(res.ok, true, `Score query must succeed for ${dep}: ${res.message || ''}`);
-      const selfScore = res.data?.self?.score;
-      if (selfScore) {
-        assert.strictEqual(
-          selfScore.vulnerability,
-          100,
-          `Package ${dep} must have 100 vulnerability score (found ${selfScore.vulnerability})`
-        );
-      }
-      const alerts = res.data?.self?.alerts || [];
-      const criticals = alerts.filter(a => a.severity === 'critical');
-      const highs = alerts.filter(a => a.severity === 'high');
-      assert.strictEqual(criticals.length, 0, `Critical alerts found in ${dep}: ${JSON.stringify(criticals)}`);
-      assert.strictEqual(highs.length, 0, `High alerts found in ${dep}: ${JSON.stringify(highs)}`);
-      console.log(`  - ${dep}: vuln=100, supplyChain=${selfScore?.supplyChain || 99}, high=0, critical=0`);
-    } catch (err) {
-      const errCombined = `${err.message || ''} ${err.stdout || ''} ${err.stderr || ''}`;
-      // In quota-constrained, air-gapped, or rate-limited environments, record status gracefully
-      if (
-        errCombined.includes('429') ||
-        errCombined.includes('quota') ||
-        errCombined.includes('Quota') ||
-        errCombined.includes('403') ||
-        errCombined.includes('ENOTFOUND')
-      ) {
-        console.log(`  - ${dep}: ⚠ SKIPPED (Socket API rate-limited / quota exhausted; validated via socket fix)`);
-      } else {
-        throw err;
-      }
+    const res = runSocketJson(['package', 'score', 'npm', dep, '--json']);
+    const verdict = classifySocketEnvelope(res);
+    const payload = `${res.stdout}\n${res.stderr}`;
+
+    if (verdict.outcome === OUTCOME.UNVERIFIED) {
+      record(`score ${dep}`, OUTCOME.UNVERIFIED, verdict.reason, payload.slice(0, 300));
+      console.log(`  - ${dep}: ⚠ UNVERIFIED (${verdict.reason})`);
+      continue;
     }
+    if (verdict.outcome === OUTCOME.FAIL) {
+      recordFailure(`score ${dep}`, verdict.reason, verdict.detail || payload);
+    }
+
+    // Every field below was previously read optionally (`res.data?.self?.score` behind
+    // `if (selfScore)`, alerts behind `|| []`), so an envelope without a score or without
+    // an alerts array was reported as "0 high, 0 critical". A missing field is not clean.
+    const data = res.parsed.data;
+    if (!data || typeof data !== 'object') recordFailure(`score ${dep}`, 'no-data-object', payload);
+    if (!data.self || typeof data.self !== 'object') recordFailure(`score ${dep}`, 'no-data-self', payload);
+    const score = data.self.score;
+    if (!score || typeof score !== 'object') recordFailure(`score ${dep}`, 'no-score-object', payload);
+    if (!Number.isFinite(score.vulnerability)) {
+      recordFailure(`score ${dep}`, 'vulnerability-not-finite', JSON.stringify(score));
+    }
+    if (score.vulnerability !== 100) {
+      recordFailure(`score ${dep}`, `vulnerability-${score.vulnerability}`, JSON.stringify(score));
+    }
+    if (!Array.isArray(data.self.alerts)) recordFailure(`score ${dep}`, 'alerts-not-array', payload);
+
+    const criticals = data.self.alerts.filter((a) => a && a.severity === 'critical');
+    const highs = data.self.alerts.filter((a) => a && a.severity === 'high');
+    if (criticals.length > 0) recordFailure(`score ${dep}`, 'critical-alerts', JSON.stringify(criticals));
+    if (highs.length > 0) recordFailure(`score ${dep}`, 'high-alerts', JSON.stringify(highs));
+
+    record(`score ${dep}`, OUTCOME.PASS, 'vuln=100, 0 high, 0 critical', {
+      supplyChain: score.supplyChain,
+      alerts: data.self.alerts.length
+    });
+    console.log(`  - ${dep}: PASS vuln=100, supplyChain=${score.supplyChain}, high=0, critical=0`);
   }
-  console.log('✓ Direct dependency Socket score check complete: 0 high, 0 critical alerts');
+
+  const scores = outcomes.filter((o) => o.name.startsWith('score '));
+  const summary = summarizeOutcomes(scores);
+  console.log(`Socket scores: ${summary.pass} verified at 100, ${summary.unverified} unverified, ${summary.fail} failed`);
 }
 
 function verifyDbRecoveryRemediation() {
@@ -437,6 +494,83 @@ function verifyDbRecoveryRemediation() {
   console.log('✓ src/db_recovery.js and src/db_recovery_salvage.js verified: 0 shell invocations, constrained SQLite salvage active');
 }
 
+// The classifier decides whether a run counts as verified, so it is pinned offline: these
+// fixtures are the exact envelopes this CLI produces, including the one that used to pass
+// because a "403" appeared somewhere in the message.
+function verifyOutcomeClassifier() {
+  console.log('[Socket Audit] Verifying the outcome classifier against fixtures...');
+  const fixtures = [
+    {
+      name: 'tokenless score query is UNVERIFIED',
+      input: { status: 2, parsed: { ok: false, message: 'Input error', data: "✖ This command requires a Socket API token for access (try `socket login`)" } },
+      expected: { outcome: OUTCOME.UNVERIFIED, reason: 'no-api-token' }
+    },
+    {
+      name: 'a real input error is FAIL',
+      input: { status: 2, parsed: { ok: false, message: 'Input error', data: '✖ Expecting at least one package' } },
+      expected: { outcome: OUTCOME.FAIL, reason: 'input-error' }
+    },
+    {
+      name: 'HTTP 401 is an invalid token',
+      input: { status: 1, parsed: { ok: false, message: 'Socket API error', data: { code: 401 } } },
+      expected: { outcome: OUTCOME.UNVERIFIED, reason: 'invalid-token' }
+    },
+    {
+      name: 'HTTP 403 is a missing API permission',
+      input: { status: 1, parsed: { ok: false, message: 'Socket API error', data: { code: 403 } } },
+      expected: { outcome: OUTCOME.UNVERIFIED, reason: 'missing-api-permission' }
+    },
+    {
+      name: 'HTTP 429 is rate limiting',
+      input: { status: 1, parsed: { ok: false, message: 'Socket API error', data: { code: 429 } } },
+      expected: { outcome: OUTCOME.UNVERIFIED, reason: 'rate-limited' }
+    },
+    {
+      name: 'HTTP 500 is an API defect, not a limit',
+      input: { status: 1, parsed: { ok: false, message: 'Socket API error', data: { code: 500 } } },
+      expected: { outcome: OUTCOME.FAIL, reason: 'api-error-500' }
+    },
+    {
+      name: 'an API error with no status code is FAIL',
+      input: { status: 1, parsed: { ok: false, message: 'Socket API error' } },
+      expected: { outcome: OUTCOME.FAIL, reason: 'api-error-unstructured' }
+    },
+    {
+      name: 'a DNS failure is UNVERIFIED',
+      input: { status: 1, parsed: null, stderr: 'getaddrinfo ENOTFOUND api.socket.dev' },
+      expected: { outcome: OUTCOME.UNVERIFIED, reason: 'network-unreachable' }
+    },
+    {
+      name: 'a missing binary is FAIL, not offline',
+      input: { status: 1, parsed: null, stderr: 'Error: spawn ENOENT' },
+      expected: { outcome: OUTCOME.FAIL, reason: 'no-json' }
+    },
+    {
+      name: 'a verified envelope leaves payload validation to the caller',
+      input: { status: 0, parsed: { ok: true, data: { self: { score: { vulnerability: 100 }, alerts: [] } } } },
+      expected: { outcome: 'VERIFIED', reason: 'ok' }
+    },
+    {
+      name: '"403" in the message does not override the real status code',
+      input: { status: 1, parsed: { ok: false, message: 'Socket API error', cause: 'forbidden by gateway (403)', data: { code: 502 } } },
+      expected: { outcome: OUTCOME.FAIL, reason: 'api-error-502' }
+    }
+  ];
+
+  for (const fixture of fixtures) {
+    const actual = classifySocketEnvelope(fixture.input);
+    assert.strictEqual(actual.outcome, fixture.expected.outcome, `${fixture.name}: outcome ${actual.outcome}`);
+    assert.strictEqual(actual.reason, fixture.expected.reason, `${fixture.name}: reason ${actual.reason}`);
+  }
+  assert.strictEqual(
+    summarizeOutcomes([
+      { outcome: OUTCOME.PASS }, { outcome: OUTCOME.FAIL }, { outcome: OUTCOME.UNVERIFIED }, { outcome: OUTCOME.PASS }
+    ]).pass,
+    2,
+    'the summary must count only PASS entries as passes'
+  );
+  console.log(`✓ outcome classifier: ${fixtures.length} fixtures, 403-in-message no longer reads as a limit`);
+}
 // The gate's decision has to be checkable without the network: a withdrawal must pass, a
 // registered mitigation must pass, and a new advisory must fail. These fixtures also pin
 // the parsing rules (a banner before the JSON, a truncated or vacuous scan) and the
@@ -478,25 +612,60 @@ function verifyAuditGateLogic() {
   console.log('✓ advisory gate logic: withdrawal tolerated, mitigation tolerated, new advisory rejected, malformed scan rejected');
 }
 
+// Deterministic checks throw on failure; recording them keeps the summary honest about how
+// many checks ran, and rethrowing preserves the existing fail-fast behaviour.
+function runCheck(name, fn) {
+  try {
+    fn();
+    record(name, OUTCOME.PASS, 'ok');
+  } catch (err) {
+    record(name, OUTCOME.FAIL, 'threw', err && err.message);
+    throw err;
+  }
+}
+
 async function main() {
   console.log('====================================================');
   console.log('     KONOHA SOCKET.DEV SUPPLY-CHAIN SECURITY AUDIT   ');
   console.log('====================================================');
-  verifyAuditGateLogic();
-  verifySocketConfigRules();
-  verifyDbRecoveryRemediation();
+  runCheck('outcome classifier', verifyOutcomeClassifier);
+  runCheck('advisory gate logic', verifyAuditGateLogic);
+  runCheck('socket.yml configuration', verifySocketConfigRules);
+  runCheck('db recovery remediation', verifyDbRecoveryRemediation);
   verifySocketFixAudit();
   verifySocketNpmAudit();
-  verifyPnpmAuditMatrix();
+  runCheck('pnpm audit matrix', verifyPnpmAuditMatrix);
   verifyDirectDependencyScores();
+
+  const { pass, fail, unverified } = summarizeOutcomes();
   console.log('\n====================================================');
-  console.log('✔ ALL SOCKET CLI SECURITY CHECKS PASSED (0 HIGH, 0 CRITICAL)');
+  console.log(`Socket verification summary: ${OUTCOME.PASS} ${pass} | ${OUTCOME.FAIL} ${fail} | ${OUTCOME.UNVERIFIED} ${unverified}`);
+  for (const entry of outcomes.filter((o) => o.outcome === OUTCOME.UNVERIFIED)) {
+    console.log(`⚠ UNVERIFIED ${entry.name}: ${entry.reason} — this check did not verify anything`);
+  }
+  console.log(`Socket verification complete: ${pass} PASS, ${fail} FAIL, ${unverified} UNVERIFIED`);
   console.log('====================================================');
+
+  // UNVERIFIED is not a pass, but on a host without a Socket token it is the expected
+  // result, so promoting it to failure by default would keep this gate permanently red.
+  // `KONOHA_SOCKET_REQUIRE_VERIFIED=1` is the strict mode for CI that claims verification.
+  if (fail > 0) process.exit(1);
+  if (unverified > 0 && process.env.KONOHA_SOCKET_REQUIRE_VERIFIED === '1') {
+    console.log('KONOHA_SOCKET_REQUIRE_VERIFIED=1: an unverified check is a failure.');
+    process.exit(1);
+  }
 }
 
 // Exported so the gate's rules can be exercised directly, and the entry point guarded so a
 // `require()` of this file inspects the rules instead of running the whole audit.
-module.exports = { classifyAdvisories, parseAuditJson, withTempDir };
+module.exports = {
+  classifyAdvisories,
+  classifySocketEnvelope,
+  parseAuditJson,
+  summarizeOutcomes,
+  verifyOutcomeClassifier,
+  withTempDir
+};
 
 if (require.main === module) {
   main().catch((err) => {

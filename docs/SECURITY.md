@@ -107,6 +107,24 @@ The mitigation stays regardless, because the code is unchanged and so is the ris
 
 Consequence: the advisory gate in `tests/test_socket_security_audit.js` no longer pins a set that a third party can delete. It fails on any advisory outside `APPROVED_MITIGATED_ADVISORIES`, tolerates a registered entry being absent, and re-proves the patch and its regression suite whenever it reappears. `.aislop/config.yml` still sets `ci.failBelow: 100`, which is now reachable. See `docs/TROUBLESHOOTING.md` §"`GHSA-fc5q-39xc-vjpf` is patched, not ignored" for the mitigation history.
 
+### 9.2 Socket verification has three outcomes, and only one of them is clean
+
+A missing answer is not a clean answer. `tests/test_socket_security_audit.js` records every Socket check as one of three outcomes and prints the ledger:
+
+| Outcome | Meaning | Exit code |
+|---|---|---|
+| `PASS` | The CLI answered and the payload proved the property | 0 |
+| `FAIL` | The CLI answered with something that contradicts the property, or did not answer at all | 1 |
+| `UNVERIFIED` | No answer was obtainable: no token, no permission, rate limit, network unreachable | 0, or 1 with `KONOHA_SOCKET_REQUIRE_VERIFIED=1` |
+
+- **Scores are read strictly.** `package score` must return `data.self.score.vulnerability === 100` and a `data.self.alerts` array. An envelope without `self`, without a numeric score, or without an alerts array is a `FAIL` — the previous code used optional chaining (`res.data?.self?.score`) behind `if (selfScore)` and defaulted alerts to `[]`, so a shapeless response scored as "0 high, 0 critical".
+- **Errors are classified by structure, never by substring.** The CLI reports failures as `{ ok: false, message: "Socket API error", data: { code: <http status> } }`; `classifySocketEnvelope()` reads that number. `401`, `403`, and `429` are genuine limits the account imposes (`UNVERIFIED: invalid-token | missing-api-permission | rate-limited`); any other status, including `5xx`, is an `api-error-<code>` `FAIL`. Matching `"403"` anywhere in a message was the fail-open bug: a gateway 502 whose text mentioned 403 was read as an account limit. The classifier is pinned by eleven offline fixtures, including exactly that envelope.
+- **`socket fix` without JSON is a failure.** It used to print `SKIPPED`, which is how a broken invocation passed as clean.
+- **The tokenless fallback proves its own premise.** `socket npm audit` runs with `HOME`, `USERPROFILE`, and `XDG_CONFIG_HOME` pointing at a temp directory and `SOCKET_CLI_NO_API_TOKEN=1`; the run must print the CLI banner showing `org: (not set)` and `token: (disabled)`. A missing banner is a `FAIL`, because "we could not see who we were" is not evidence of a tokenless scan.
+- **The fallback's coverage is labelled.** The repository ships no `package-lock.json`, so the wrapper's scope is synthesized with `npm install --package-lock-only`. That resolves the root `package.json` dependency set through npm, which is **not** the pnpm-resolved tree; the run prints `⚠ PARTIAL: … this is not the pnpm-resolved tree; pnpm audit is authoritative for it`, and `pnpm audit` remains the gate for the real tree.
+
+`UNVERIFIED` does not fail the suite by default because a host without `SOCKET_CLI_API_TOKEN` cannot produce a verified socket score, and a gate that is permanently red gets deleted. It is printed with its reason in the summary so it can never be mistaken for a pass; CI that claims verification sets `KONOHA_SOCKET_REQUIRE_VERIFIED=1`.
+
 ---
 
 ## 10. Akatsuki Security Sandbox Controls & Dual-Mode Isolation
@@ -185,6 +203,11 @@ Consequence: the advisory gate in `tests/test_socket_security_audit.js` no longe
 ### 12.6 Release-Time Dependency Audit
 - `tests/test_dependency_posture.js` fails the build if `lodash` reappears in the lockfile or manifest, if the `xlsx-populate` patch loses its `lodash-lite` shim or stops deleting the browser bundle, if the `pptxgenjs` or `jszip` patches stop deleting their browser builds, if an installed tree still contains a deleted bundle (a stale `node_modules` after a patch edit), if any bundled dependency loses its exact pin, if the publish workflow reverts to `--no-frozen-lockfile`, or if `onnxruntime-node` builds are re-enabled.
 - **License attribution is part of the audit.** The tarball redistributes `bundleDependencies` and their transitive closure — 19 packages across Apache-2.0, MIT, ISC, and BlueOak-1.0.0. `NOTICE` names each one with its license and copyright, records that `jszip` is redistributed under its MIT option rather than GPL-3.0-or-later, and `tests/test_package_tarball_files.js` reads the packed artifact to fail on an unattributed package or a missing license file. Patched files stay under the license of the package they patch.
+- **Copyleft is confined to an allowlist (`tests/test_dependency_posture.js`).** Everything redistributed stays permissive-only. Two families in the *install graph* are copyleft and are named in `NOTICE` under "Copyleft in the install graph (not redistributed)":
+  - `@img/sharp-libvips-<platform>` (`LGPL-3.0-or-later`) — reached through `sharp@0.35.5`, a hard dependency of `@huggingface/transformers@4.3.2`, which requires `sharp` at module load. `sharp` needs the prebuilt libvips binaries for image decoding; Konoha calls transformers for text embeddings only. The package is host-specific and `optional: true` in the lockfile, is installed from its own published tarball rather than redistributed, and cannot be removed without removing the embedding backend.
+  - `lightningcss` / `lightningcss-<platform>` (`MPL-2.0`) — transitive build tooling of `vite` and `@tailwindcss/vite`, both `apps/web` devDependencies. MPL-2.0 copyleft is file-level and covers only lightningcss's own files, none of which are modified; the frontend bundle it compiles ships as `apps/web/build/` but contains no lightningcss code.
+
+  The test walks the populated `node_modules/.pnpm` store, treats an SPDX expression as permissive when **any** `OR` branch is permissive (so `jszip`'s `(MIT OR GPL-3.0-or-later)` and `pako`'s `(MIT AND Zlib)` pass), and fails on any copyleft package that is not on the allowlist, on an allowlist entry that matches nothing installed, and on an allowlist entry `NOTICE` does not explain. This replaces a hard assertion on Socket's server-computed license score, which is not a property of the repository: `marked@17.0.0`, `marked@18.2.0`, `playwright@1.60.0`, `playwright@1.64.1`, and `pnpm@12.15.0` all score 80 on a shallow self-license check with **no** license-category alert, MIT and Apache-2.0 alike.
 
 ---
 
