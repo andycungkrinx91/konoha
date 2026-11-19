@@ -217,6 +217,9 @@ konoha ui start
   - Pi (pi.dev) CLI (`~/.pi/agent/mcp.json`)
   - OMP Agent (`~/.omp/agent/mcp.json`)
 - One-click Setup and Disconnect buttons.
+- This screen reports MCP registration only. Slash-command deployment (`/konoha` prompt files) and parked agent-profile
+  conflicts are surfaced by `konoha doctor` under *Slash Command (/konoha)*, *Slash Command Coverage*, and *Agent
+  Profile Conflicts* — not here.
 
 ### 13. 📋 SDLC Tasks & Governance Screen (`Tasks.svelte`)
 - Full visual dashboard for the Native SDLC Governance Layer (`/tasks`):

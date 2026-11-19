@@ -593,11 +593,17 @@ function _finalizeSanninDispatch(prep, envelope) {
     : '';
 
   const currentSt = loadWorkflowStatus(resolvedTaskDir);
+  // Tasks are owned by the plan (Gate 1) and by the slices that report into them.
+  // Re-seeding them from the route on every call reset finished work to pending, so
+  // a resumed call re-dispatched a slice whose child had already run.
+  const existingTasks = Array.isArray(currentSt.tasks) ? currentSt.tasks : [];
   const syncBundle = syncTodoAndWalkthrough(currentSt, {
     client: actClient, taskDir: resolvedTaskDir, taskId,
-    tasks: parallelWorkstreams.length > 1
-      ? parallelWorkstreams.map((ws, i) => ({ id: `task_${i + 1}`, task: `${effPrompt} (${ws.domain} slice)`, agent: ws.agent, status: 'pending' }))
-      : [{ id: 'task_1', task: effPrompt, agent: selectedAgent, status: 'in_progress' }]
+    tasks: existingTasks.length > 0
+      ? undefined
+      : (parallelWorkstreams.length > 1
+        ? parallelWorkstreams.map((ws, i) => ({ id: `task_${i + 1}`, task: `${effPrompt} (${ws.domain} slice)`, agent: ws.agent, status: 'pending' }))
+        : [{ id: 'task_1', task: effPrompt, agent: selectedAgent, status: 'in_progress' }])
   });
   const advisorSupervisor = initAdvisorSessionSupervisor({ client: spawnClient, status: currentSt, goal: effPrompt, todos: syncBundle.todos });
   saveWorkflowStatus(resolvedTaskDir, currentSt);

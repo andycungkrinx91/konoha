@@ -445,6 +445,56 @@ Unregistered names (`orchestrator`, `null`, tests) appear under **Direct Tool Ca
 
 ---
 
+### 🧷 `[konoha deploy] N client deployment(s) incomplete: …`
+
+Init and `konoha doctor` now name every client whose configuration failed to write instead of swallowing the error.
+The line goes to stderr and repeats the client plus the underlying message:
+
+```
+[konoha deploy] 1 client deployment(s) incomplete: codex: EACCES: permission denied, open '/home/<you>/.codex/config.toml'
+```
+
+Read the client name first. Each one is independent — the rest of the deploy already succeeded, so fix only that
+target and re-run `konoha init --client=<client>`. A permission error means the file is owned by another user;
+`sudo chown "$USER" <path>` then re-run. Do not re-run the full install for a single client.
+
+---
+
+### 🧟 A subagent profile will not update, and `~/.claude/agents/` holds `.konoha-proposed` files
+
+Konoha never overwrites an agent profile it does not own. When the file on disk is missing its
+`generated_by: konoha` marker, the deployer parks its own copy beside the live one as `<name>.md.konoha-proposed`
+and leaves the existing file in place. The live file therefore keeps winning, and an old profile stays in service.
+
+`konoha doctor` reports these under **Agent Profile Conflicts**, with a three-way verdict:
+
+| Verdict | Meaning | Action |
+|---|---|---|
+| `identical` | parked copy matches the live file | none |
+| `stale` | parked copy is from an older Konoha version; the live file is Konoha's and newer | none — the residue is safe to ignore |
+| `foreign` | the live file was written by something else | decide: keep it, or delete it and re-run `konoha init` |
+
+Konoha will not delete either file for you. Inspect with `rtk grep -n generated_by ~/.claude/agents/<name>.md`:
+a Konoha-owned profile carries the marker on line 1.
+
+---
+
+### 🚫 `/konoha` does not appear in a client's command menu
+
+`konoha doctor` prints **Slash Command (/konoha)** with the clients that received a prompt file, and
+**Slash Command Coverage** with the ones that did not. A missing entry means one of three things:
+
+1. **The client's config root does not exist** — the deployer writes nothing into a directory it cannot confirm.
+   Start the client once so it creates its config directory, then re-run `konoha init`.
+2. **The client is unsupported** — Pi and Antigravity have no prompt directory Konoha can write to. Pi loads
+   commands only through its extension packaging.
+3. **You own the file** — a `konoha.md` without Konoha's marker is left untouched and reported as user-owned.
+   Delete it or merge your content, then re-run `konoha init`.
+
+Codex and OMP share `~/.codex/prompts/konoha.md`; that single file is expected, not a missing OMP entry.
+
+---
+
 ### 🥷 Agent Still Loading SKILL.md Files Directly
 
 The agent's instructions must be updated. Check the following:

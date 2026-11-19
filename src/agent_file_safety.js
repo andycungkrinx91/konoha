@@ -152,6 +152,58 @@ function _writeProtectedFileSafe(targetPath, content, isOwnedFn, conflictMeta = 
   return { status: 'written', path: targetPath };
 }
 
+const AGENT_PROFILE_DIRS = Object.freeze([
+  ['.claude', 'agents'],
+  ['.cursor', 'agents'],
+  ['.codex', 'agents'],
+  ['.config', 'opencode', 'agents'],
+  ['.commandcode', 'agents'],
+  ['.omp', 'agent', 'agents']
+]);
+
+/**
+ * Classifies one parked `.konoha-proposed` candidate against the live file:
+ *   `foreign`   the live file is not Konoha's, so Konoha's version never landed
+ *   `stale`     the live file is Konoha's own and newer; parking happened when
+ *               the live file was still foreign and the write path later
+ *               matched content and returned before clearing the candidate
+ *   `identical` the parked copy equals the live file exactly
+ */
+function _classifyAgentConflict(dir, entry) {
+  const proposed = path.join(dir, entry);
+  const target = path.join(dir, entry.slice(0, -'.konoha-proposed'.length));
+  const backup = `${target}.konoha-backup`;
+  const record = (kind) => ({ path: target, proposed, backup: fileExists(backup) ? backup : null, kind });
+  if (!fileExists(target)) return record('foreign');
+  try {
+    if (fs.readFileSync(target, 'utf8') === fs.readFileSync(proposed, 'utf8')) return record('identical');
+  } catch (_) { /* unreadable candidate stays reported as foreign */ }
+  return record(isKonohaOwnedAgentFile(target) ? 'stale' : 'foreign');
+}
+
+/**
+ * Reports agent files where Konoha's candidate was parked at
+ * `.konoha-proposed` instead of being deployed. Read-only: nothing is applied
+ * and nothing is deleted, because the file in place may be user-owned. Without
+ * this the conflict is invisible and the foreign profile silently stays in
+ * effect — which is how a client ends up spawning an agent nobody can resolve.
+ * @param {string} home user home directory
+ * @returns {Array<{path:string, proposed:string, backup:string|null, kind:string}>}
+ */
+function listAgentConflicts(home) {
+  const root = home || require('os').homedir();
+  const conflicts = [];
+  for (const segments of AGENT_PROFILE_DIRS) {
+    const dir = path.join(root, ...segments);
+    let entries = [];
+    try { entries = fs.readdirSync(dir); } catch (_) { continue; }
+    for (const entry of entries) {
+      if (entry.endsWith('.konoha-proposed')) conflicts.push(_classifyAgentConflict(dir, entry));
+    }
+  }
+  return conflicts;
+}
+
 /**
  * Safely writes an agent definition file without clobbering user-authored files.
  * Pre-existing foreign files stay intact, receive a one-time `.konoha-backup`,
@@ -208,6 +260,7 @@ module.exports = {
   isKonohaManagedRuleFile,
   writeAgentFileSafe,
   writeManagedFileSafe,
+  listAgentConflicts,
   snapshotNonKonohaRuleFiles,
   restoreNonKonohaRuleFiles
 };

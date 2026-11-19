@@ -2,6 +2,7 @@
 
 const { isReadOnlyAgent } = require('../agent_file_safety');
 const { hasPiSubagentSupport } = require('../pi_manager');
+const { normalizeAgentName } = require('../canonical_agents');
 
 const SPAWNABLE_SUBAGENTS = Object.freeze([
   'genin',
@@ -192,8 +193,14 @@ function _cliTaskExcerpt(prompt) {
   return _shellQuotePosix(truncateSpawnTask(raw).replace(/`/g, ''));
 }
 
+// Agent tokens must survive to the deployed profile name verbatim. The previous
+// sanitizer stripped every non `[a-z0-9-]` character, so `tokubetsu_jonin` became
+// `tokubetsujonin` while the profile on disk is `tokubetsu-jonin.md`; the native
+// spawn then named an agent no client could resolve and the CLI fallback failed
+// the same way. normalizeAgentName is the single canonical mapping (`_`/space ->
+// `-`, `@` stripped, lowercase), so every directive and the profile agree.
 function _safeAgentToken(raw) {
-  const cleaned = String(raw || 'subagent').replace(/^mcp_/, '').toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+  const cleaned = normalizeAgentName(String(raw || 'subagent').replace(/^mcp_/, ''));
   return cleaned || 'subagent';
 }
 

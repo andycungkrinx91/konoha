@@ -55,6 +55,9 @@ function dispatchRouter(state) {
 function executeRouter(state) {
   if (state.error || state.phase === 'error') return 'node_error';
   if (state.budgetExceeded) return 'node_budget_exceeded';
+  // No child ran, so there is nothing to review: end the turn and let the client
+  // spawn the directive and report back. Resuming re-enters node_execute.
+  if (state.spawnPending) return '__end__';
   if (state.phase === 'document') return 'node_dispatch';
   return 'node_review';
 }

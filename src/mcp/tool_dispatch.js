@@ -326,6 +326,22 @@ function _mergeSanninGraphResponse(parsedSannin, graphInitRes, threadId) {
     };
   }
 
+  // A slice that only has a spawn directive is not routed work: the client has to
+  // run the directive and report back. Answering it with the routing envelope made
+  // the caller believe a subagent had been dispatched.
+  if (graphInitRes.spawnPending) {
+    return {
+      ...parsedSannin,
+      status: 'spawn_pending',
+      phase: graphInitRes.phase,
+      spawn_pending: graphInitRes.spawn_pending || (wfStatus && wfStatus.spawn_pending) || [],
+      next_action: 'spawn_and_report',
+      resume_node: 'node_execute',
+      langgraph_checkpoint: checkpoint,
+      workflow_state: typeof graphInitRes.status === 'object' ? graphInitRes.status : undefined
+    };
+  }
+
   if (parsedSannin.status === 'routed') {
     return {
       ...graphInitRes,

@@ -1,0 +1,48 @@
+# 🍃 Konoha Change History That Constrains Maintenance (v2.2.17 → v2.2.23) (v2.2.23)
+
+Read this before "fixing" the install, migrate, or upgrade path. Each row already shipped as a bug once.
+
+| Trap | Do not | Guard |
+|---|---|---|
+| Schema/version conflation | Derive `user_version` from the app version | `src/db_schema.js` is the only writer; `konoha doctor` prints `schema 9, app 2.2.23` |
+| Shelling out to migration | `spawnSync(process.execPath, [...migrate.js...])` and trust `status === 0` | in-process `runMigration()`, `tests/test_install_migrate_embed_functions.js` |
+| Silent budget truncation | Cap the embedding pass below the caller's timeout | `migrate_time_budget_seconds` 900 / `install_build_migrate_timeout_ms` 900000 |
+| `konoha embed` as a recovery hint | Recommend it for partial coverage | it implies `--rebuild-embeddings` → `DELETE FROM skill_chunks` then re-embeds everything (`src/vector_search.js:515`). Recovery is `konoha migrate` |
+| Shorter cyber-pack dir list | Hardcode client skill dirs | deduped union of `DEFAULT_SKILLS_DIRS` + `getGlobalHarnessSkillTargets()` |
+| Flat runtime mirror | `require('../bin/lib/...')` from a `src/` module | `src/config_access.js` |
+| Transitive `image-size` | Trust the lockfile | `overrides.image-size >= 2.0.3`, `bundleDependencies`, `pnpm pack` (npm `pack` / global install drop bundled deps) |
+| Patched dependency, unpatched consumer | Assume `pnpm-workspace.yaml#patchedDependencies` reaches users | `cfb` + `xlsx-populate` are both in `bundleDependencies`; `tests/test_global_install.js` asserts the patched copy ships and is the one resolved |
+| Install-script shim | Add `postinstall` back | no install scripts; `tests/test_global_install.js` |
+| PATH-blind upgrade report | Compare the package root with itself | `bin/lib/upgrade_verify.js` |
+| Doc-level pins | Let docs drift from code | `PROMPT_CEILING_BYTES` (`src/mcp/memory_subagent_runner.js`), asserted independently by `tests/test_remediation_contract.js` |
+| Over-claiming the token ceiling | Quote 8192 as the harness budget | `token_guard.js` bounds Konoha's internal LangGraph payload only |
+| Cyber-pack residue survives upgrade | Ship an upgrade that leaves legacy rows/on-disk copies and only `doctor --clean-cyber-pack` can remove them | `purgeLegacyResidue` runs from `src/migrate.js`; explicit opt-in is never destroyed; `tests/test_upgrade_cyber_pack_purge.js` |
+| Stdin EOF as the only MCP exit | Rely on `readline` `close` to end a stdio server | `startStdioOrphanGuard` (`ppid === 1` poll) + `mcp_stdio_idle_timeout_ms`; `tests/test_mcp_orphan_guard.js` |
+| "Already started" treated as current | Report success when a UI listener already holds the port | `konoha ui start` exits 1 with `already running`; `tests/test_ui_manual_only.js` |
+| Custom model cache or downloader | Reintroduce a bespoke Konoha model cache directory or downloader | `@huggingface/transformers` owns model loading and native `FileCache` (`HF_HOME`); `tests/test_bundled_models.test.js` |
+| Full `setupSchema` in hot paths | Call `db.setupSchema(conn)` inside repeated API handlers/loops | Use `db.ensureSchema(conn)` for runtime fast-path; keep `db.setupSchema(conn)` for full migration/cleanup tests |
+| `new Function` in an emitted payload | Compile a guardrail checker with `new Function(source)()` | embed it verbatim as a function expression; `tests/test_no_dynamic_execution.js` |
+| Caret on a patched or bundled dep | Let `^1.21.0` resolve to bytes the lockfile never saw | exact pins + `--frozen-lockfile` in `publish.yml`; `tests/test_dependency_posture.js` |
+| Regenerating the `xlsx-populate` patch from stock | Recreate it without `lib/lodash-lite.js` and the `browser/` deletion | `lodash` returns and the eval sink ships again; `tests/test_xlsx_populate_lodash_lite.js` |
+| Shipping a browser build | Let `jszip/dist/` or a `pptxgen.bundle.js` ride along in the tarball | they polyfill `setImmediate` with `new Function`; patch them out and assert the packed tree, `tests/test_dependency_posture.js` |
+| Editing a patch without reinstalling | Leave a stale `node_modules` that still holds the deleted bundle | `pnpm install` after every patch edit; `tests/test_dependency_posture.js` asserts the installed trees, not just the patch files |
+| `addImage({ path })` | Pass a filesystem path or URL into pptxgenjs | `addInlineImage(slide, buffer)` (PNG magic-byte checked) is the only call site |
+| Suppressing a Socket alert as a "fix" | Add `usesEval: false` or ignore `pnpm-lock.yaml` / `patches/**` | remove the sink instead; suppressions describe intent, `tests/test_dependency_audit.js` |
+| Splicing only the first contract block | Replace the first `KONOHA-CONTRACT-START`…`END` pair and assume the file is clean | `buildManagedContract` strips **every** span first; a second block made redeploy a no-op and shipped 2.2.23 beside 2.2.12, `tests/test_omp_manager.js` |
+| Procedure in the per-turn addendum | Put framework scaffolding commands or scan procedure in `buildOmpWorkflowAddendum` | those load on demand from `jonin-skill` / `konoha` references; the addendum is paid every request, `tests/test_lightweight_contracts.js` (≤ 4200 B) |
+| Writing to `~/.omp/AGENTS.md` | Treat it as OMP's user context file | the native user path is `~/.omp/agent/AGENTS.md`; the dot-directory copy is never injected, so a contract deployed there is invisible |
+| Quoting a cache-hit rate from `tool_calls` | Read `cached_tokens` / `input_tokens` / `output_tokens` as if they were recorded | the columns exist but no MCP path writes them; measure payload bytes instead, `src/tools_savings_logger.js` |
+| Stripping the legacy roster block for "savings" | Delete `<!-- KONOHA-START -->` from `~/.omp/agent/AGENTS.md` | it is the **only** roster in that file (`buildMainAgentContract('omp')` carries none); deleting it is a behavior regression, not a saving |
+| Narrowing agent-file ownership to the frontmatter marker | Detect Konoha-owned agent files by `generated_by: konoha` alone | pre-marker releases identify themselves by the contract block; without it every deploy parks its own output as `.konoha-proposed` and `@genin` keeps `Write`/`Edit`/`Bash` forever (`src/agent_file_safety.js`, `tests/test_deploy_safety.js`) |
+| Auto-detecting a project from `cwd` under a temp `HOME` | Let `ensureOmpSetup` write `cwd/.omp/mcp.json` for any caller | a sandboxed run then points the checkout at a launcher that dies with it, and every delegated agent starts without `konoha.*`; compare against `os.userInfo().homedir`, never `process.env.HOME` (`src/omp_manager.js`, `tests/test_omp_manager.js`) |
+| Prompting from inside a hook | Make `PreToolUse` wait for a human answer | a hook gets one JSON reply and no controlling terminal; the interactive path is `--hitl` in `scripts/konoha_project_mcp_guard.js`, and it prompts on `/dev/tty` (the payload owns stdin) or exits `2`; `tests/test_project_konoha_mcp_guardrail.js` (tests 12, 14) |
+| A denial with no alternative | Return "blocked" without naming the Konoha route | `describeGuardrailRemediation(code)` covers all eleven codes; an unnamed denial just teaches the agent to retry; test 9 |
+| Matching a risk acceptance by target path | Scope `_exceptionCovers` on the extracted path | `_extractTargetPath` returns grep's `pattern` first, so path equality rejects the call the human approved; match code + tool only |
+| A risk acceptance that never expires | Persist an exception with no TTL | 30-minute default, pruned on read; `tests/test_project_konoha_mcp_guardrail.js` (test 11) |
+| Committing the exception store | Let `.konoha/guardrail-*.json*` reach a tag | an acceptance is machine-local; both paths are gitignored |
+| Auto-accepting on the menu default | Treat an empty answer or EOF as accept | `askHitlDecision` maps `''` and EOF to block; accepting needs a justification of 8+ characters |
+| A relative `require` in the shipped plugin copy | Resolve `src/guardrail_hitl` with `require('../src/guardrail_hitl')` from `.agents/plugins/konoha-mcp-guard/scripts/` | that directory has no `src/` sibling, and because `_runHitl` is `async` the throw becomes a rejected promise: exit `2` — the code a real block returns — with only `Cannot find module` on stderr, so no briefing and no menu. Resolve every `src/` module through `_resolveSrcModule`; `tests/test_project_konoha_mcp_guardrail.js` (test 6) |
+| A guardrail that can be talked out of a rule | Let any write tool or `rtk` shell command reach `.konoha/guardrail-exceptions.json` | the store *is* the bypass, so the gated agent writes its own permission and passes the call it was just denied. Both branches deny `GUARDRAIL_STATE_WRITE_DENIED` for the two store files, `NON_ACCEPTABLE_CODES` (secrets, shell violations, the store itself, retired IPC) refuses to be recorded or honoured, and a stored TTL is clamped to `MAX_EXCEPTION_TTL_MS` on write and on read; `tests/test_project_konoha_mcp_guardrail.js` (test 15) |
+| Measuring `get_skill` without checking the mirror it read | Quote a token figure for a skill some client mirror never refreshed | twelve mirrors serve twelve clients; `getSkillsScanDirs()` is the list and `tests/test_skill_tree_parity.js` now compares every one against `src/templates/skills` |
+
+Only `skill`-type rows are exempt from the embedding time budget (`src/vector_search.js:533`). Reference documents can therefore remain unembedded after a "successful" migrate, and `runMigration` reports them via `deferredSkills`.

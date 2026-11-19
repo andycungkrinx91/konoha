@@ -973,13 +973,31 @@ konoha init --client=codex
 
 Selecting a single client updates only that target harness. Passing `--client=all` refreshes every detected harness, `CI=true` forces non-interactive execution without `--yes`, and every modified file is backed up under `~/.konoha/backups/configs/<client>/global/<timestamp>-<sha>-<file>.bak` (older `.back` siblings in `$HOME` come from earlier installers). Remove those older `.back` files once the updated configuration is verified.
 
-### 9.5 Project-level versus global
+### 9.5 Slash commands (`/konoha` and the agent shorthands)
+
+Init also writes a `/konoha` prompt file into every client whose prompt directory it can confirm. The file is a
+template the client expands with your argument, not a server route:
+
+| Client | Prompt file |
+|---|---|
+| [CC] | `~/.claude/commands/konoha.md` |
+| Cursor | `~/.cursor/commands/konoha.md` |
+| OpenCode | `~/.config/opencode/command/konoha.md` (project: `.opencode/command/`) |
+| Command Code | `~/.commandcode/commands/konoha.md` |
+| Codex and OMP | `~/.codex/prompts/konoha.md` (one file serves both) |
+
+A client whose config root is absent is skipped and named in `konoha doctor` under *Slash Command Coverage*;
+nothing is created for it. Pi and Antigravity are reported as unsupported there — Pi loads commands only through
+its extension packaging, and Antigravity has no prompt directory. A `konoha.md` you wrote yourself is never
+overwritten; the deployer leaves it alone and says so.
+
+### 9.6 Project-level versus global
 
 `--project` writes rules into the current repository instead of the home directory, which is how you make one
 repository use a different rule set. `--no-project` suppresses it. Never run the project form inside a repository you
 do not want modified — including this one, which is why this manual's own verification ran out-of-tree.
 
-### 9.6 The MCP servers
+### 9.7 The MCP servers
 
 `konoha status` reports two registrations per client — `konoha` and `aislop`. [CC]'s `~/.claude.json`
 carries both, and Antigravity receives 58 tool schemas (56 canonical + 2 deprecated aliases) under `~/.gemini/antigravity-cli/mcp/konoha/`.
@@ -1345,6 +1363,33 @@ FROM tool_calls GROUP BY tool ORDER BY 3 DESC;
 `tool_calls` is a real table with real per-call rows, so this is the check available when a report looks too good. If
 `SUM(bytes_saved)` is dominated by one tool type, or by rows where `returned_bytes` was tiny against a large baseline,
 you are looking at the sizing effect described in 12.1 rather than a retrieval strategy that worked.
+
+### 12.7 The constant tax, measured
+
+Savings are half the ledger. The other half is what Konoha puts into every request whether you use it or not.
+`node scripts/measure_context_budget.js` prints that, and `--check` fails if a budget regresses:
+
+| Term | Size | When it is paid |
+|---|---|---|
+| MCP tool manifest (56 tools) | 28,742 B / ~7,564 tok | once per session, in the client's tool list |
+| Client contract head | 1,014 B / ~267 tok | every turn (worst of eight clients) |
+| Subagent contract | 2,242 B / ~590 tok | once per delegated child |
+| `konoha` skill entry | 7,329 B / ~1,929 tok | only when loaded |
+
+The main-agent floor is ~7,831 tokens before any conversation, or ~9,760 with the skill loaded; each delegated child
+adds its own ~590. Everything else is on demand: the twelve `konoha/*` references, the skill library, and file reads.
+
+Two properties matter more than the numbers:
+
+- **The head is byte-stable.** `tests/test_prefix_determinism.js` hashes each client contract twice and rejects
+  dates, clock times, uuids, pids and request ids. A volatile byte in the prefix defeats provider prompt caching for
+  the whole conversation, which costs far more than the prefix itself.
+- **The entry fits its own digest.** Skills are served through an 8,000-byte cap. A 40 KB `SKILL.md` was silently cut
+  to 8 KB, so a load returned a fifth of the rules with no indication that anything was missing. The entry is now
+  7,329 B and names its references, so one load is complete.
+
+Run it before and after any change to prompts, contracts, or the manifest. Growth that cannot be justified against a
+measured saving is the regression this chapter exists to catch.
 
 ## 13. Diagnostics and health
 

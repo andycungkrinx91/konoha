@@ -31,6 +31,7 @@ const {
 const Database = require('../src/sqlite_driver');
 const { MemorySaver } = require('@langchain/langgraph');
 const { globalCircuitRegistry } = require('../src/circuit_breaker');
+const { setSliceExecutor, clearSliceExecutor } = require('../src/mcp/langgraph/slice_executor_registry');
 
 async function runTests() {
   console.log('Running test_langgraph_workflow tests...');
@@ -179,11 +180,21 @@ async function runTests() {
     };
     fs.writeFileSync(path.join(taskDir, 'status.json'), JSON.stringify(initialStatus), 'utf8');
 
+    // A slice with no executor stops at spawn_pending, which would end the graph
+    // before review ever ran. The cap being tested is the review-side remediation
+    // limit, so the work has to report as done for the loop to be reachable.
+    setSliceExecutor('thread-cb-remediate', async (task) => ({
+      task_id: task.id,
+      status: 'completed',
+      summary: `Attempted ${task.id}`,
+      child_execution_verified: true
+    }));
     const res = await graph.invoke({
       prompt: 'Refactor defect loop',
       taskDir,
       tokenBudget: 16384,
     }, { configurable: { thread_id: 'thread-cb-remediate' } });
+    clearSliceExecutor('thread-cb-remediate');
 
     assert.strictEqual(res.circuitOpen, true, 'Circuit breaker must be open after max remediation cycles');
     assert.ok(res.error.includes('Circuit breaker tripped'), 'Must report circuit breaker error');
@@ -238,10 +249,30 @@ async function runTests() {
     assert.strictEqual(rejRes.status.plan_approved, false, 'Plan must remain unapproved on rejection');
 
     // Stage 2: Resume with Gate 1 approval -> executes through to Gate 2 (human signoff)
+    // The graph never spawns a child itself, so this stands in for the client that
+    // would run the directive. Without it the run must stop at spawn_pending, which
+    // is asserted immediately below.
+    const stage2Unspawned = await graph.invoke({
+      hitlChoice: 'compact_and_approve',
+      taskDir,
+    }, config);
+    assert.strictEqual(stage2Unspawned.spawnPending, true, 'an unexecuted slice must stop at spawn_pending');
+    assert.ok(
+      (stage2Unspawned.spawn_pending || []).every((p) => p.spawn_directive),
+      'a pending slice must carry the directive the client has to run'
+    );
+
+    setSliceExecutor('thread-hitl-gates', async (task) => ({
+      task_id: task.id,
+      status: 'completed',
+      summary: `Completed ${task.id}`,
+      child_execution_verified: true
+    }));
     const stage2 = await graph.invoke({
       hitlChoice: 'compact_and_approve',
       taskDir,
     }, config);
+    clearSliceExecutor('thread-hitl-gates');
 
     assert.strictEqual(stage2.hitlPending, true, 'Gate 2 must pause workflow for human signoff');
     assert.strictEqual(stage2.hitlStage, 'gate2', 'Workflow must pause at Gate 2');

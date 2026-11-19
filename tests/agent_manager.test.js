@@ -2,12 +2,24 @@
  * @fileoverview Integration tests for agent_manager.js
  * Runs with `node agent_manager.test.js` (no test framework needed).
  * Uses the function-based API that agent_manager actually exports.
+ *
+ * HOME is redirected to a throwaway directory BEFORE any src/ module loads.
+ * `bin/lib/paths.js` resolves every user path at require time, so assigning
+ * `process.env.HOME` later has no effect on an already-loaded module — the
+ * previous version did exactly that and leaked `test-agent-x` into the real
+ * `~/.claude/agents` and `~/.konoha/konoha.db`.
  */
 
-const assert = require('assert');
-const { execSync } = require('child_process');
-const path = require('path');
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const TEST_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_agent_manager_'));
+process.env.HOME = TEST_HOME;
+process.env.USERPROFILE = TEST_HOME;
+process.env.KONOHA_HOME = path.join(TEST_HOME, '.konoha');
+
+const assert = require('assert');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -51,23 +63,6 @@ console.log('\n[Model Resolution]');
 
 console.log('\n[AgentManager Functions]');
 {
-  const tempDir = path.join(
-    __dirname,
-    '.tmp_' + Math.random().toString(36).slice(2)
-  );
-  fs.mkdirSync(tempDir, { recursive: true });
-
-  const origHome = process.env.HOME;
-  process.env.HOME = tempDir;
-
-  // Clear require cache
-  Object.keys(require.cache).forEach((key) => {
-    const k = key.split(path.sep).join('/');
-    if (k.includes('agent_manager') || k.includes('db_agents') || k.includes('skills.db')) {
-      delete require.cache[key];
-    }
-  });
-
   const am = require('../src/agent_manager');
   const { loadAgents, createSubagent, deleteAgent } = am;
 
@@ -111,13 +106,7 @@ console.log('\n[AgentManager Functions]');
     });
   }
 
-  // Final cleanup
-  process.env.HOME = origHome;
-  try {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  } catch {
-    /* ignore */
-  }
+  // Final cleanup happens once, after every suite (see summary below).
 }
 
 // ---------------------------------------------------------------------------
@@ -405,6 +394,12 @@ console.log('\n[MCP Tool Name Mapping]');
 // ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
+
+try {
+  fs.rmSync(TEST_HOME, { recursive: true, force: true });
+} catch {
+  /* ignore */
+}
 
 console.log(
   `\n${'═'.repeat(50)}`

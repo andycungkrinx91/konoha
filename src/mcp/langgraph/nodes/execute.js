@@ -10,6 +10,7 @@ const { normalizeAgentName } = require('../../../canonical_agents');
 const { getActiveClient } = require('../../runtime_state');
 const { detectActiveClient, resolveFirstSpawnClient } = require('../../client_detection');
 const { finalizeNodeResult } = require('../budget');
+const { getSliceExecutor } = require('../slice_executor_registry');
 const { syncTodoAndWalkthrough } = require('../../todo_walkthrough_sync');
 const worktree = require('../../worktree_isolation');
 
@@ -28,6 +29,13 @@ async function _executeTaskBranchConcurrently(task, idx, status, state, sliceExe
   const targetAgent = normalizeAgentName(task.agent || status.assigned_agent || 'anbu');
   if (typeof sliceExecutor === 'function') {
     branchResult = await sliceExecutor(task, idx, status, state);
+    // A sliceExecutor is the caller's own trusted executor: it ran the work and
+    // reports the outcome. Absent an explicit denial, its documented `completed`
+    // status is the completion signal — the MCP runner path below is the one
+    // that never spawns anything and therefore never earns that status.
+    if (branchResult && branchResult.child_execution_verified === undefined) {
+      branchResult.child_execution_verified = branchResult.status === 'completed';
+    }
   } else {
     const projectPath = state.projectPath || status.project_path || process.cwd();
     const taskDir = state.taskDir || status.task_dir || '';
@@ -47,18 +55,26 @@ async function _executeTaskBranchConcurrently(task, idx, status, state, sliceExe
     });
     let parsedMcp = {};
     try { parsedMcp = JSON.parse(rawMcp); } catch (_) { parsedMcp = {}; }
+    // `runMcpAgentAsync` prepares a prompt and a spawn directive; it never starts
+    // a child process. Reporting the slice as completed with "exit 0" made an
+    // unspawned slice indistinguishable from a finished one, which is how a run
+    // could reach Gate 2 having executed nothing. Without a sliceExecutor there
+    // is no exit code to cite, so the slice stays pending and carries the
+    // directive the client must actually run.
     branchResult = {
       task_id: task.id,
       agent: parsedMcp.agent || targetAgent,
       model: parsedMcp.model || 'inherit',
       spawn_directive: parsedMcp.spawn_directive || null,
-      summary: `Executed specialist @${targetAgent} slice (${task.id}): ${task.task || task.id}`,
-      status: 'completed',
-      child_execution_verified: true,
-      validation: [`verified_specialist_slice:${targetAgent} (exit 0)`]
+      spawn_error: parsedMcp.spawn_error || null,
+      summary: `Spawn directive prepared for @${targetAgent} slice (${task.id}); no child process was started by the MCP runner`,
+      status: 'spawn_pending',
+      child_execution_verified: false,
+      validation: []
     };
   }
   const completedAt = Date.now();
+  const childVerified = branchResult?.child_execution_verified === true;
   const advisorEval = await evaluateWorkerTurnAsync({
     agent: task.agent || status.assigned_agent || 'anbu',
     taskId: task.id,
@@ -68,8 +84,8 @@ async function _executeTaskBranchConcurrently(task, idx, status, state, sliceExe
     ownedFiles: task.owned_files || [],
     filesModified: branchResult?.filesModified || [],
     worktreePath: task.worktree_path || null,
-    status: 'completed',
-    validation: branchResult?.validation || ['verified_specialist_slice (exit 0)']
+    status: childVerified ? 'completed' : 'spawn_pending',
+    validation: branchResult?.validation || []
   });
   return {
     task,
@@ -82,6 +98,7 @@ async function _executeTaskBranchConcurrently(task, idx, status, state, sliceExe
       completed_at: completedAt,
       elapsed_ms: Math.max(1, completedAt - startedAt),
       worktree_path: task.worktree_path || null,
+      child_execution_verified: childVerified,
       advisor_status: advisorEval.status,
       advisor_judge_tokens: (advisorEval.judge_usage && advisorEval.judge_usage.total_tokens) || 0
     }
@@ -91,6 +108,10 @@ async function _executeTaskBranchConcurrently(task, idx, status, state, sliceExe
 async function completePendingTasks(status, state, config) {
   const tasks = status.tasks || [];
   const pendingTasks = tasks.filter(t => t.status !== 'completed');
+  // The previous turn's directives are stale by definition: a slice that was
+  // reported complete is no longer waiting on a child, and leaving the old entry
+  // in place made the graph end on a spawn that had already happened.
+  status.spawn_pending = [];
   if (pendingTasks.length === 0) return tasks;
 
   const sliceResults = state.sliceResults;
@@ -105,7 +126,9 @@ async function completePendingTasks(status, state, config) {
     return tasks;
   }
 
-  const sliceExecutor = state.sliceExecutor || config?.configurable?.sliceExecutor || null;
+  // `state.sliceExecutor` covers a direct node call; the registry covers a graph run,
+  // because LangGraph rebuilds `configurable` and would drop a caller's function.
+  const sliceExecutor = state.sliceExecutor || getSliceExecutor(state.threadId || config?.configurable?.thread_id);
   if ((state.requireExplicitDelegation || status.require_explicit_delegation) && !sliceExecutor) {
     return tasks;
   }
@@ -119,14 +142,39 @@ async function completePendingTasks(status, state, config) {
     : [];
 
   for (const outcome of branchOutcomes) {
-    outcome.task.status = 'completed';
-    outcome.task.result = outcome.branchResult;
+    const verified = outcome.branchResult && outcome.branchResult.child_execution_verified === true;
+    if (verified) {
+      outcome.task.status = 'completed';
+      outcome.task.result = outcome.branchResult;
+      recordCompletedDispatch(status, outcome.task.dispatch_id);
+    } else {
+      // No child process produced this slice. Keep it visible as pending work and
+      // hand the directive back so the client can actually spawn it; the review
+      // node's delegation guard then routes to dispatch instead of Gate 2.
+      outcome.task.status = 'spawn_pending';
+      outcome.task.spawn_directive = (outcome.branchResult && outcome.branchResult.spawn_directive) || null;
+      // The result stays attached so a caller can read the directive it must run;
+      // `status` on the task is what marks the slice as unfinished.
+      outcome.task.result = outcome.branchResult;
+      status.spawn_pending = Array.isArray(status.spawn_pending) ? status.spawn_pending : [];
+      status.spawn_pending.push({
+        task_id: outcome.task.id,
+        agent: outcome.task.agent || null,
+        spawn_directive: outcome.task.spawn_directive,
+        spawn_error: (outcome.branchResult && outcome.branchResult.spawn_error) || null
+      });
+    }
     outcome.task.started_at = outcome.telemetry.started_at;
-    outcome.task.completed_at = outcome.telemetry.completed_at;
-    recordCompletedDispatch(status, outcome.task.dispatch_id);
+    outcome.task.completed_at = verified ? outcome.telemetry.completed_at : null;
     status.parallel_execution_telemetry.push(outcome.telemetry);
   }
-  if (branchOutcomes.length >= 2) {
+  // The status phase is what a resumed call and the delegation guard read; a slice
+  // waiting on its client belongs to the execute stage, not to whatever phase the
+  // previous node left behind.
+  if (status.spawn_pending.length > 0) {
+    status.phase = 'execute';
+  }
+  if (branchOutcomes.length >= 2 && branchOutcomes.every(o => o.branchResult && o.branchResult.child_execution_verified === true)) {
     status.parallel_execution_proof = {
       concurrent_count: branchOutcomes.length,
       branches: status.parallel_execution_telemetry.slice(-branchOutcomes.length),
@@ -233,6 +281,7 @@ async function executeNode(state, config) {
   const breakerStatus = breaker.getStatus();
   const circuitOpen = breakerStatus.state === 'OPEN';
 
+  const spawnPending = Array.isArray(status.spawn_pending) && status.spawn_pending.length > 0;
   const outputPayload = {
     status,
     phase: status.phase || 'review',
@@ -243,10 +292,20 @@ async function executeNode(state, config) {
     circuitOpen,
     circuitState: breakerStatus.state,
     error: executionError,
+    // A slice whose child was never started cannot be reviewed. Returning here
+    // hands the directive to the client, which spawns the child and reports back
+    // through `report_from_agent`; the next invoke resumes at this node with the
+    // tasks completed. Without this the graph bounced execute -> review ->
+    // dispatch until the remediation cap opened the circuit breaker.
+    spawnPending,
+    spawn_pending: spawnPending ? status.spawn_pending : undefined,
   };
 
-  const nextNode = outputPayload.phase === 'document' ? 'node_dispatch' : 'node_review';
+  const nextNode = spawnPending
+    ? '__end__'
+    : (outputPayload.phase === 'document' ? 'node_dispatch' : 'node_review');
   return finalizeNodeResult(state, outputPayload, nextNode, {
+    resumeNode: spawnPending ? 'node_execute' : undefined,
     source: {
       status,
       phase: outputPayload.phase,
@@ -254,6 +313,7 @@ async function executeNode(state, config) {
       circuitOpen,
       circuitState: breakerStatus.state,
       error: executionError,
+      spawnPending,
     }
   });
 }

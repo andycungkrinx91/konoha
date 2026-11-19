@@ -194,6 +194,62 @@ function checkGeminiAndAgentsConfig(context) {
   }
 }
 
+/**
+ * `/konoha` exists only where a prompt file was deployed, and a parked
+ * `.konoha-proposed` candidate means a foreign profile won and is silently in
+ * effect. Both are invisible otherwise, which is exactly how a client ends up
+ * with no `/konoha` and an unresolvable agent name.
+ */
+function checkClientCommandsAndConflicts(context) {
+  let commands = null;
+  try {
+    commands = require('../../src/client_commands').deployKonohaCommands({ home: HOME });
+  } catch (e) {
+    context.record('Slash Command (/konoha)', 'FAILED', `Error: ${e.message}`);
+    context.markError();
+  }
+
+  if (commands) {
+    const names = commands.deployed.filter((d) => d.scope === 'user').map((d) => d.client);
+    const unsupported = commands.skipped
+      .filter((s) => s.scope === 'user' && !/not present for this user/.test(s.reason))
+      .map((s) => `${s.client} (${s.reason})`);
+    if (names.length > 0) {
+      context.record('Slash Command (/konoha)', 'HEALTHY', `Deployed for: ${names.join(', ')}`);
+    } else {
+      context.record('Slash Command (/konoha)', 'WARNING', 'No client command directory was written');
+    }
+    if (unsupported.length > 0) {
+      context.record('Slash Command Coverage', 'WARNING', unsupported.join('; '));
+    }
+  }
+
+  let conflicts = [];
+  try {
+    conflicts = require('../../src/agent_file_safety').listAgentConflicts(HOME);
+  } catch (e) {
+    context.record('Agent Profile Conflicts', 'FAILED', `Error: ${e.message}`);
+    context.markError();
+    return;
+  }
+  const foreign = conflicts.filter((c) => c.kind === 'foreign');
+  const residue = conflicts.filter((c) => c.kind !== 'foreign');
+  if (foreign.length === 0) {
+    const detail = residue.length === 0
+      ? 'No parked agent profiles'
+      : `${residue.length} parked candidate(s) are residue from an older deploy (Konoha's version is already live)`;
+    context.record('Agent Profile Conflicts', 'HEALTHY', detail);
+    return;
+  }
+  // Never auto-apply: the file in place is user-authored, so overwriting it
+  // would destroy user config. Report the exact resolution instead.
+  context.record(
+    'Agent Profile Conflicts',
+    'WARNING',
+    `${foreign.length} foreign profile(s) in effect; Konoha's version parked at ${foreign[0].proposed}`
+  );
+}
+
 function inspectPromptHooksStatus() {
   const HOOKS_CONFIG_PATH = path.join(HOME, '.gemini', 'config', 'hooks.json');
   if (!fileExists(HOOKS_CONFIG_PATH)) return { promptOk: false, sanitizeOk: false };
@@ -484,6 +540,7 @@ module.exports = {
   checkDatabaseAndMigrations,
   checkEmbeddingHealth,
   checkGeminiAndAgentsConfig,
+  checkClientCommandsAndConflicts,
   checkPromptHookConfig,
   checkGovernanceAndServices,
   checkVpsPreflight

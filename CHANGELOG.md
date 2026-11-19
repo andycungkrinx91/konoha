@@ -55,6 +55,46 @@ Every delegation path could reach `UNSUPPORTED_NATIVE_SPAWN` for reasons that ha
 - **`tests/test_spawn_harness_contracts.js`**: 16 checks covering the four identities (real OMP environment, real Pi environment, `C:\…\.omp\…`, empty), the `ACTIVE_CLIENT` override, the `omp` argv shape, all eight harness invocations, a real child process on the installed harness, the fail-closed path when nothing is installed, the CLI and parallel fallbacks, OMP `task` schema conformance, the Windows `.cmd` route, the execute-bit / `PATHEXT` filter on the `PATH` probe, the Windows process-tree kill invocation, and the `resolveClientFromInfo` ordering. Each guard was broken on purpose to confirm the suite reports it.
 - **`tests/run_all.js` strips the OMP state-directory variables too**: the suite already stripped the `PI_*` session identity so a local run would match CI, but `PI_CODING_AGENT_DIR` and `OMP_SESSION_FILE` also identify a harness, so the suite kept seeing OMP from a plain `node tests/run_all.js`.
 
+### Client Commands, Spawn Evidence & Context Budget
+
+Three failures shared one shape: Konoha reported work it had not done. A slash command was claimed for every client
+while no client received one, a delegate was reported `completed` while no child process existed, and a 40 KB skill
+was served as an 8 KB digest with the missing 80% unmentioned.
+
+**Added**
+- **`/konoha` is deployed per client (`src/client_commands.js`)**: init writes a prompt file into each client whose
+  prompt directory it can confirm from the installed bundle — `~/.claude/commands/`, `~/.cursor/commands/`,
+  `~/.config/opencode/command/`, `~/.commandcode/commands/`, and `~/.codex/prompts/` (one file serves Codex and
+  OMP). A missing config root is skipped, Pi and Antigravity are reported unsupported, and a user-owned file is
+  never overwritten.
+- **`listAgentConflicts()` (`src/agent_file_safety.js`)**: a read-only three-way classification of every parked
+  `.konoha-proposed` candidate — `identical`, `stale`, or `foreign`. Only `foreign` warns.
+- **`konoha doctor` reports both** (`bin/commands/doctor_services.js`): *Slash Command (/konoha)*, *Slash Command
+  Coverage*, and *Agent Profile Conflicts*, so a silent skip is visible without reading the deployer.
+- **`tests/test_skill_pointer_budget.js`**: pins the maintenance skill entry under its served digest, requires every
+  `konoha/<slug>` pointer to resolve, and requires every reference to be reachable.
+- **`tests/test_prefix_determinism.js`**: hashes each client contract twice and rejects dates, clock times, uuids,
+  pids, and per-request ids, so the cached prefix stays byte-identical across turns.
+- **`scripts/measure_context_budget.js`**: prints the constant per-session cost (manifest, contract head, skill
+  entry) beside the on-demand references and the per-request ceilings; `--check` asserts the three budgets.
+
+**Fixed**
+- **`tokubetsu_jonin` spawned as `tokubetsujonin` (`src/mcp/lazy_subagent.js`)**: `_safeAgentToken` stripped the
+  underscore without restoring the hyphen, so both the native directive and the CLI fallback named an agent that
+  does not exist. It now normalizes through `normalizeAgentName`.
+- **A delegation that spawned nothing reported `completed` (`src/mcp/langgraph/nodes/execute.js`)**: the MCP runner
+  path hardcoded `child_execution_verified: true` and a fabricated validation string. It now returns
+  `spawn_pending` with the directive attached, and only a real `report_from_agent` completes the task.
+- **`spawn_pending` was erased on the next sync (`src/mcp/todo_walkthrough_sync.js`)**: `normalizeTodoItems` mapped
+  every unknown status to `pending`, so the honest state survived exactly one pass.
+- **Every client deploy failure was swallowed (`src/agent_deployer.js`)**: each client ran inside `catch (_) {}`. It
+  now collects failures and reports them on stderr as `[konoha deploy] N client deployment(s) incomplete: …`.
+- **`konoha/SKILL.md` lost 80% of itself on every load (`src/templates/skills/konoha/SKILL.md`)**: the 40 KB file
+  was silently truncated to the 8 KB served digest, dropping invariants 12–29 and every later section with no
+  pointer. The entry is now 7 KB and names twelve references, so one load returns the complete rule set.
+- **`yamanaka` was the one tool without `additionalProperties: false` (`src/mcp_tool_manifest.json`)**: the schema
+  accepted extra keys while every sibling rejected them.
+
 ### Guardrail Human-in-the-Loop
 
 A guardrail denial was a dead end: the agent was told "blocked" and retried the same call. It is now a decision point with two real outcomes.
