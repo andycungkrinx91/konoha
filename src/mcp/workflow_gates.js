@@ -204,11 +204,8 @@ function _serializeHitlPromptEnvelope(baseFields, { stage, gateName, choices, st
 const PLAN_ARTIFACT_NAME = 'plan.md';
 
 /** Open `plan.md` for writing without ever following a symlink to another inode. */
-function _openPlanArtifactExclusive(planPath) {
-  // O_NOFOLLOW does not exist on Windows; there the descriptor check below and
-  // the post-open identity check carry the defense instead.
-  const NOFOLLOW = fs.constants.O_NOFOLLOW || 0;
-  const createFlags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | NOFOLLOW;
+function _openPlanArtifactExclusive(planPath, nofollow) {
+  const createFlags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | nofollow;
   try {
     return fs.openSync(planPath, createFlags, 0o644);
   } catch (err) {
@@ -216,10 +213,10 @@ function _openPlanArtifactExclusive(planPath) {
   }
   // Regeneration overwrites an existing artifact, but only a real file: a
   // symlink (dangling or not) is refused by lstat, and O_NOFOLLOW refuses it
-  // again at open on platforms that implement it.
+  // again at open.
   const before = fs.lstatSync(planPath);
   if (!before.isFile()) return null;
-  const fd = fs.openSync(planPath, fs.constants.O_WRONLY | NOFOLLOW);
+  const fd = fs.openSync(planPath, fs.constants.O_WRONLY | nofollow);
   const opened = fs.fstatSync(fd);
   if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) {
     fs.closeSync(fd);
@@ -231,6 +228,11 @@ function _openPlanArtifactExclusive(planPath) {
 function writePlanArtifact(resolvedTaskDir, planText) {
   const text = String(planText === undefined || planText === null ? '' : planText);
   if (!resolvedTaskDir || !text.trim()) return null;
+  // Without O_NOFOLLOW there is no way to prove the final component is not a
+  // link, and a path check cannot close that window. Skip the artifact rather
+  // than risk writing outside the task dir; Gate 1 still shows the plan inline.
+  const nofollow = fs.constants.O_NOFOLLOW;
+  if (!nofollow) return null;
   let fd = null;
   try {
     fs.mkdirSync(resolvedTaskDir, { recursive: true });
@@ -238,7 +240,7 @@ function writePlanArtifact(resolvedTaskDir, planText) {
     // task dir and the artifact can never be placed relative to a link.
     const taskDir = fs.realpathSync(resolvedTaskDir);
     const planPath = path.join(taskDir, PLAN_ARTIFACT_NAME);
-    fd = _openPlanArtifactExclusive(planPath);
+    fd = _openPlanArtifactExclusive(planPath, nofollow);
     if (fd === null) return null;
     fs.ftruncateSync(fd, 0);
     fs.writeFileSync(fd, text, 'utf8');
