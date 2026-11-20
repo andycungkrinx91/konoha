@@ -121,41 +121,36 @@ test('bridge no longer hardcodes zero usage', () => {
   assert.ok(src.includes('buildAnthropicUsage'), 'usage must derive from the upstream response');
 });
 
-test('translated usage carries provider counts and keeps unreported ones null', () => {
+test('translated usage carries provider counts and fails when counts are missing', () => {
   const { openAIResponseToAnthropic } = require('../src/bridge/gateway_adapters');
   const call = (upstream) => {
     let body = null;
     const res = { writeHead() {}, end(chunk) { body = JSON.parse(chunk); } };
     openAIResponseToAnthropic(upstream, { model: 'm', msgId: 'x', res });
-    return body.usage;
+    return body;
   };
+  const upstreamWith = (usage) => ({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], ...(usage ? { usage } : {}) });
 
-  const reported = call({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 1200, completion_tokens: 40, cached_tokens: 800 } });
-  assert.strictEqual(reported.input_tokens, 1200);
-  assert.strictEqual(reported.output_tokens, 40);
-  assert.strictEqual(reported.cache_read_input_tokens, 800);
+  const reported = call(upstreamWith({ prompt_tokens: 1200, completion_tokens: 40, cached_tokens: 800 }));
+  assert.strictEqual(reported.usage.input_tokens, 1200);
+  assert.strictEqual(reported.usage.output_tokens, 40);
+  assert.strictEqual(reported.usage.cache_read_input_tokens, 800);
 
-  const absent = call({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] });
-  assert.strictEqual(Object.prototype.hasOwnProperty.call(absent, 'input_tokens'), false, 'no provider usage must be omitted, not null');
-  assert.strictEqual(Object.prototype.hasOwnProperty.call(absent, 'output_tokens'), false, 'no provider usage must be omitted, not null');
-  assert.strictEqual(Object.prototype.hasOwnProperty.call(absent, 'cache_read_input_tokens'), false);
+  const measuredZero = call(upstreamWith({ prompt_tokens: 0, completion_tokens: 0 }));
+  assert.strictEqual(measuredZero.usage.input_tokens, 0, 'provider-measured zero must survive');
+  assert.strictEqual(measuredZero.usage.output_tokens, 0, 'provider-measured zero must survive');
 
-  const partial = call({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 15 } });
-  assert.strictEqual(partial.input_tokens, 15);
-  assert.strictEqual(Object.prototype.hasOwnProperty.call(partial, 'output_tokens'), false, 'unreported output must stay absent, not 0');
-
-  const measuredZero = call({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 0, completion_tokens: 0 } });
-  assert.strictEqual(measuredZero.input_tokens, 0, 'provider-measured zero must survive');
-  assert.strictEqual(measuredZero.output_tokens, 0, 'provider-measured zero must survive');
-
-  for (const usage of [
-    { prompt_tokens: '12', completion_tokens: '4' },
-    { prompt_tokens: NaN, completion_tokens: -5 },
-    { prompt_tokens: Infinity }
+  // An incomplete or absent pair cannot satisfy the required schema fields, so
+  // the response is an Anthropic error rather than a `{}` usage object.
+  for (const [label, upstream] of [
+    ['absent', upstreamWith(null)],
+    ['partial', upstreamWith({ prompt_tokens: 15 })],
+    ['malformed', upstreamWith({ prompt_tokens: '12', completion_tokens: '4' })],
+    ['negative', upstreamWith({ prompt_tokens: NaN, completion_tokens: -5 })]
   ]) {
-    const malformed = call({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage });
-    assert.strictEqual(Object.prototype.hasOwnProperty.call(malformed, 'input_tokens'), false, `malformed must be omitted: ${JSON.stringify(usage)}`);
-    assert.strictEqual(Object.prototype.hasOwnProperty.call(malformed, 'output_tokens'), false, `malformed must be omitted: ${JSON.stringify(usage)}`);
+    const failed = call(upstream);
+    assert.strictEqual(failed.type, 'error', `${label}: must fail instead of emitting usage`);
+    assert.strictEqual(failed.usage, undefined, `${label}: no usage object on an error body`);
   }
 });
 
@@ -192,10 +187,11 @@ test('stream usage carries provider counts in message_delta and omits when unrep
 
   const absentWire = capture({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] });
   const absent = parseEvents(absentWire);
-  const absentStart = absent.find((e) => e.event === 'message_start');
-  const absentDelta = absent.find((e) => e.event === 'message_delta');
-  assert.deepStrictEqual(absentStart.data.message.usage, {}, 'unreported stream usage must be empty object');
-  assert.deepStrictEqual(absentDelta.data.usage, {}, 'unreported delta usage must be empty object, not {output_tokens:0}');
+  assert.strictEqual(absent.length, 1, 'only an error event is emitted');
+  assert.strictEqual(absent[0].event, 'error');
+  assert.strictEqual(absent[0].data.type, 'error');
+  assert.strictEqual(absent.find((e) => e.event === 'message_start'), undefined, 'no message_start before usage is known');
+  assert.strictEqual(absent.find((e) => e.event === 'message_delta'), undefined, 'no schema-invalid message_delta');
 });
 
 console.log('prefix stability');

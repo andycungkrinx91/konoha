@@ -60,7 +60,7 @@ async function handleOpenAiDirect(ctx, req, res, messages, ...rest) {
   } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
 
   if (isStream) {
-    return streamOpenAiDirect(ctx, req, res, messages, completionId, tools, images);
+    return streamOpenAiDirect(ctx, req, res, messages, completionId, tools, images, payload.stream_options);
   }
 
   try {
@@ -154,7 +154,7 @@ async function _handleStreamFetchResponse(response, res) {
 }
 
 function streamOpenAiDirect(ctx, req, res, messages, ...rest) {
-  const [_completionId, tools, _] = rest;
+  const [_completionId, tools, _, streamOptions] = rest;
   setupStreamResponse(res);
 
   const bridgeConfig = ctx.bridgeConfig || {};
@@ -175,6 +175,9 @@ function streamOpenAiDirect(ctx, req, res, messages, ...rest) {
 
   const reqBody = { model: ctx.requestedModel, messages, stream: true };
   if (tools) reqBody.tools = tools;
+  // Caller-requested usage reporting must survive this rewrite, otherwise the
+  // gateway never receives the final usage-bearing chunk.
+  if (streamOptions) reqBody.stream_options = streamOptions;
 
   let abortController = new AbortController();
   res.on('close', () => {

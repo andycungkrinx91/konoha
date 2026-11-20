@@ -8,16 +8,16 @@ const { callRawInference } = require('../sidecar/raw');
 const { sanitizeRequest } = require('../sanitize');
 
 /**
- * Anthropic wire usage for an inference result. Lazy require keeps this module
- * loadable on its own; an unreported count is omitted, never written as 0.
+ * Anthropic wire usage for an inference result, or null when the provider did
+ * not report both counts. Lazy require keeps this module loadable on its own.
+ * The schema requires integer `input_tokens` and `output_tokens`, so an
+ * incomplete pair cannot be emitted as `{}` and must never become a zero.
  */
 function usageWire(raw) {
-  try {
-    const { buildAnthropicUsage, anthropicUsageWire } = require('../gateway_adapters');
-    return anthropicUsageWire(buildAnthropicUsage(raw));
-  } catch (_) {
-    return {};
-  }
+  const { buildAnthropicUsage, anthropicUsageWire } = require('../gateway_adapters');
+  const wire = anthropicUsageWire(buildAnthropicUsage(raw));
+  if (typeof wire.input_tokens !== 'number' || typeof wire.output_tokens !== 'number') return null;
+  return wire;
 }
 
 /** Persist provider-reported counts from this path; best-effort only. */
@@ -156,7 +156,7 @@ function extractAnthropicText(content) {
 
 // Anthropic SSE response builders
 
-function buildAnthropicMessage(id, model, usage = null) {
+function buildAnthropicMessage(id, model, usage) {
   return {
     id: `msg_${id}`,
     type: 'message',
@@ -165,16 +165,52 @@ function buildAnthropicMessage(id, model, usage = null) {
     content: [],
     stop_reason: null,
     stop_sequence: null,
-    usage: usage || {},
+    usage,
   };
+}
+
+/** Open the SSE response without committing to a `message_start` yet. */
+function ensureAnthropicStreamHeaders(res) {
+  if (res.headersSent) return;
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.writeHead(200);
+}
+
+/**
+ * Fail the request in Anthropic's error shape. Before any response is written
+ * the stream still gets an `error` event, which the SDK yields verbatim; it
+ * must precede `message_start` because the accumulator rejects out-of-order
+ * events.
+ */
+function sendUsageUnavailable(res, isStream) {
+  const { USAGE_UNAVAILABLE_MESSAGE } = require('../gateway_adapters');
+  const body = { type: 'error', error: { type: 'api_error', message: USAGE_UNAVAILABLE_MESSAGE } };
+  if (isStream) {
+    ensureAnthropicStreamHeaders(res);
+    writeAnthropicEvent(res, 'error', body);
+    res.end();
+    return;
+  }
+  sendJson(res, 502, body);
 }
 
 function writeAnthropicEvent(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
-function streamRawAnthropicResponse(res, raw, responseText) {
+function streamRawAnthropicResponse(res, raw, responseText, msgId, model) {
   const wireUsage = usageWire(raw);
+  if (!wireUsage) {
+    sendUsageUnavailable(res, true);
+    return;
+  }
+  ensureAnthropicStreamHeaders(res);
+  writeAnthropicEvent(res, 'message_start', {
+    type: 'message_start',
+    message: buildAnthropicMessage(msgId, model, wireUsage),
+  });
   if (raw.toolCalls && raw.toolCalls.length > 0) {
     for (let i = 0; i < raw.toolCalls.length; i++) {
       const tc = raw.toolCalls[i];
@@ -229,6 +265,11 @@ function sendNonStreamAnthropicResponse(res, raw, responseText, msgId, modelKey)
     }
   }
   if (responseText) content.push({ type: 'text', text: responseText });
+  const wireUsage = usageWire(raw);
+  if (!wireUsage) {
+    sendUsageUnavailable(res, false);
+    return;
+  }
   sendJson(res, 200, {
     id: `msg_${msgId}`,
     type: 'message',
@@ -237,7 +278,7 @@ function sendNonStreamAnthropicResponse(res, raw, responseText, msgId, modelKey)
     content,
     stop_reason: raw.toolCalls ? 'tool_use' : 'end_turn',
     stop_sequence: null,
-    usage: usageWire(raw),
+    usage: wireUsage,
   });
 }
 
@@ -336,14 +377,7 @@ async function handleAnthropicMessages(ctx, req, res) {
 
   const initiateStream = () => {
     if (isStream && !headersSentForStream) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.writeHead(200);
-      writeAnthropicEvent(res, 'message_start', {
-        type: 'message_start',
-        message: buildAnthropicMessage(msgId, resolved.key),
-      });
+      ensureAnthropicStreamHeaders(res);
       headersSentForStream = true;
     }
   };
@@ -376,7 +410,7 @@ async function handleAnthropicMessages(ctx, req, res) {
 
     if (isStream) {
       initiateStream();
-      streamRawAnthropicResponse(res, raw, responseText);
+      streamRawAnthropicResponse(res, raw, responseText, msgId, resolved.key);
     } else {
       sendNonStreamAnthropicResponse(res, raw, responseText, msgId, resolved.key);
     }
@@ -409,15 +443,16 @@ async function handleCountTokens(ctx, req, res) {
 // Anthropic format adapter for OpenAI provider
 // Converts Anthropic → OpenAI → callRawInference → Anthropic response
 
-function streamAnthropicToOpenAi(res, responseText, msgId, model, usage = {}) {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.writeHead(200);
+function streamAnthropicToOpenAi(res, responseText, msgId, model, usage) {
+  if (!usage) {
+    sendUsageUnavailable(res, true);
+    return;
+  }
+  ensureAnthropicStreamHeaders(res);
 
   writeAnthropicEvent(res, 'message_start', {
     type: 'message_start',
-    message: buildAnthropicMessage(msgId, model),
+    message: buildAnthropicMessage(msgId, model, usage),
   });
   writeAnthropicEvent(res, 'content_block_start', {
     type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' },
@@ -457,7 +492,10 @@ async function handleAnthropicToOpenAi(ctx, req, res, ...rest) {
       sendNonStreamAnthropicResponse(res, raw, responseText, msgId, ctx.requestedModel);
     }
   } catch (err) {
-    sendJson(res, 500, { type: 'error', error: { type: 'api_error', message: err.message } });
+    // A stream may already have written headers and pings, so a JSON body here
+    // would be a second, invalid response on the same connection.
+    const { sendAnthropicErrorResponse } = require('../gateway_adapters');
+    sendAnthropicErrorResponse(res, 500, 'api_error', err.message, isStream);
   }
 }
 
