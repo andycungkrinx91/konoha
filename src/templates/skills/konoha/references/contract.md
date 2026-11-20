@@ -25,7 +25,7 @@ verifiable rules exist. No rule here is invented.
 6. Cross-platform compatibility across all 3 local CI test environments must be verified: (1) Linux (`pnpm test:sandbox [-- --shard=I/8]` Debian + `pnpm ci:act` / `pnpm ci:act:shard` Ubuntu `act`), (2) Windows (`docker/windows-vm/oem/run-ci.cmd [-Shard I/N]` / `retest.cmd` via `dockur/windows`), and (3) macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox [-- --shard=I/8]` + `macos-latest` CI).
 7. Aislop gate: shipped code must pass `rtk npx aislop scan --changes` with score 100/100 Healthy, 0 errors, 0 warnings.
 8. Maximum 700 lines per file/script (`.js`, `.py`, `.svelte`; enforced by `scripts/lint.js`).
-9. Local Socket CLI checks are mandatory after dependency changes.
+9. The local dependency audit is mandatory after dependency changes: `rtk node tests/test_dependency_audit.js` (`pnpm audit --json` over the root and `apps/web` workspaces, no account or token). The Socket.dev scan is opt-in only (`pnpm audit:socket` with `SOCKET_CLI_API_TOKEN`) and never blocks CI.
 10. SecurityCompliance must match actual implementation.
 11. Local commit author: `andycungkrinx91 <andy.silva270114@gmail.com>`.
 12. Konoha is mandatory: use bounded file tools and Konoha skill lookup (`find_skill`, `get_skill`); no raw `cat`/`grep`.

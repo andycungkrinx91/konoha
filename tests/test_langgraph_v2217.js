@@ -18,6 +18,7 @@ const { wrapGuardedNode } = require('../src/mcp/langgraph/node_guard');
 const { StateGraph } = require('@langchain/langgraph');
 const { KonohaWorkflowState } = require('../src/mcp/langgraph/state');
 const { errorNode } = require('../src/mcp/langgraph/nodes/error');
+const { setSliceExecutor, clearSliceExecutor } = require('../src/mcp/langgraph/slice_executor_registry');
 
 async function runTests() {
   console.log('Running test_langgraph_v2217 tests...');
@@ -124,12 +125,22 @@ async function runTests() {
     };
     fs.writeFileSync(path.join(taskDir, 'status.json'), JSON.stringify(status), 'utf8');
 
+    // The graph hands spawn directives to the client rather than spawning, so the
+    // client's execution has to be stood in for; otherwise the run ends at
+    // spawn_pending and never reaches the signoff this test is about.
+    setSliceExecutor('thread-auto-signoff', async (task) => ({
+      task_id: task.id,
+      status: 'completed',
+      summary: `Built ${task.id}`,
+      child_execution_verified: true
+    }));
     const res = await graph.invoke({
       prompt: 'Build core module with auto signoff',
       taskDir,
       autoSignoff: true,
       tokenBudget: 16384,
     }, { configurable: { thread_id: 'thread-auto-signoff' } });
+    clearSliceExecutor('thread-auto-signoff');
 
     assert.strictEqual(res.phase, 'done', 'Should complete directly to done with autoSignoff');
     assert.strictEqual(res.gateVerdict, 'pass');

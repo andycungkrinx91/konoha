@@ -1,6 +1,6 @@
 # Konoha Architectural Gap Analysis
 
-**Document Version:** 1.1.0 (Konoha v2.2.19)  
+**Document Version:** 1.1.0 (Konoha v2.2.24)  
 **Date:** 2026-11-08  
 **Status:** Canonical Analysis
 

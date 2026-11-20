@@ -69,6 +69,17 @@ function _isValidTargetUrl(targetUrl) {
   }
 }
 
+function _parseStreamUsage(value) {
+  if (value === undefined || value === '') return null;
+  if (value === null) return null;
+  if (typeof value === 'boolean') return value;
+  if (value === 1 || value === 0) return value === 1;
+  const text = String(value).trim().toLowerCase();
+  if (text === 'always' || text === 'true' || text === '1' || text === 'on' || text === 'yes') return true;
+  if (text === 'never' || text === 'false' || text === '0' || text === 'off' || text === 'no') return false;
+  return null;
+}
+
 function _insertSingleBridgeRow(stmt, b) {
   const name = b.name;
   if (!name) return;
@@ -89,7 +100,10 @@ function _insertSingleBridgeRow(stmt, b) {
   }
   const rawKey = b.apiKey || b.api_key || null;
   const apiKey = encryptApiKey(rawKey);
-  stmt.run(name, port, provider, enabled, targetUrl, apiKey);
+  const streamUsage = _parseStreamUsage(
+    b.supportsStreamUsage !== undefined ? b.supportsStreamUsage : b.supports_stream_usage
+  );
+  stmt.run(name, port, provider, enabled, targetUrl, apiKey, streamUsage === null ? null : (streamUsage ? 1 : 0));
 }
 
 function autoMigrateJsonIfNeeded(conn) {
@@ -101,8 +115,8 @@ function autoMigrateJsonIfNeeded(conn) {
   const bridgesToInsert = _loadBridgesToInsert();
 
   const stmt = conn.prepare(`
-    INSERT OR REPLACE INTO bridges (name, port, provider, enabled, target_url, api_key)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO bridges (name, port, provider, enabled, target_url, api_key, supports_stream_usage)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const b of bridgesToInsert) {
@@ -114,7 +128,7 @@ function listBridges(dbPath = null) {
   const conn = getDbConnection(dbPath);
   try {
     autoMigrateJsonIfNeeded(conn);
-    const rows = conn.prepare("SELECT name, port, provider, enabled, target_url, api_key FROM bridges").all();
+    const rows = conn.prepare("SELECT name, port, provider, enabled, target_url, api_key, supports_stream_usage FROM bridges").all();
     const result = [];
     for (const r of rows) {
       const item = {
@@ -128,6 +142,9 @@ function listBridges(dbPath = null) {
       }
       if (r.api_key) {
         item.apiKey = decryptApiKey(r.api_key);
+      }
+      if (r.supports_stream_usage !== null && r.supports_stream_usage !== undefined) {
+        item.supportsStreamUsage = Boolean(r.supports_stream_usage);
       }
       result.push(item);
     }
@@ -164,11 +181,19 @@ function upsertBridge(bridgeDict, dbPath = null) {
     }
     const rawKey = bridgeDict.apiKey || bridgeDict.api_key || null;
     const apiKey = encryptApiKey(rawKey);
+    const streamUsage = _parseStreamUsage(
+      bridgeDict.supportsStreamUsage !== undefined ? bridgeDict.supportsStreamUsage : bridgeDict.supports_stream_usage
+    );
+    // A partial upsert (nothing said about stream usage) must not silently
+    // reset an operator's override: absence means "leave it as stored".
+    const storedStreamUsage = streamUsage === null
+      ? (conn.prepare("SELECT supports_stream_usage AS v FROM bridges WHERE name = ?").get(name) || {}).v ?? null
+      : (streamUsage ? 1 : 0);
 
     conn.prepare(`
-      INSERT OR REPLACE INTO bridges (name, port, provider, enabled, target_url, api_key)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(name, port, provider, enabled, targetUrl, apiKey);
+      INSERT OR REPLACE INTO bridges (name, port, provider, enabled, target_url, api_key, supports_stream_usage)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(name, port, provider, enabled, targetUrl, apiKey, storedStreamUsage);
   } finally {
     conn.close();
   }
@@ -254,6 +279,25 @@ function setEnabled(name, enabledBool, dbPath = null) {
   }
 }
 
+/**
+ * Set a saved bridge's `stream_options.include_usage` override.
+ * `null`/`'auto'` clears it, handing the decision back to the provider allowlist.
+ */
+function setStreamUsage(name, value, dbPath = null) {
+  const parsed = _parseStreamUsage(value);
+  const stored = parsed === null ? null : (parsed ? 1 : 0);
+  const conn = getDbConnection(dbPath);
+  try {
+    const info = conn.prepare("UPDATE bridges SET supports_stream_usage = ? WHERE name = ?").run(stored, name);
+    if (!info.changes) {
+      throw new Error(`Bridge "${name}" not found`);
+    }
+    return stored;
+  } finally {
+    conn.close();
+  }
+}
+
 function _isCallerMcpSubprocess() {
   if (process.env.KONOHA_DAEMON === 'true') return false;
   try {
@@ -315,6 +359,8 @@ module.exports = {
   delete_bridge: deleteBridge,
   setEnabled,
   set_enabled: setEnabled,
+  setStreamUsage,
+  set_stream_usage: setStreamUsage,
   autoMigrateJsonIfNeeded,
   auto_migrate_json_if_needed: autoMigrateJsonIfNeeded,
   getDbConnection,

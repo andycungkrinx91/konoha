@@ -332,6 +332,8 @@ function _prepareSpawnSpec(options) {
         aborted: true,
         agent: normalizedAgent,
         client: capability.client,
+        // Cancelled before launch: no child ever existed.
+        spawn_state: 'directive_only',
         error_code: 'SPAWN_ABORTED',
         error: 'Subagent spawn cancelled before launch.'
       }
@@ -454,6 +456,9 @@ function _buildFailureExitResult({
   return {
     ok: false,
     status: kind.status,
+    // Fixed vocabulary: directive_only | completed | failed. A timeout or abort
+    // is a failure, not a state of its own.
+    spawn_state: 'failed',
     ...(kind.flagKey ? { [kind.flagKey]: true } : {}),
     agent: normalizedAgent,
     client,
@@ -566,6 +571,7 @@ function _executeSpawnSpec(spec, options, childEnv, startedAt) {
         client: capability.client,
         child_pid: childPid || null,
         elapsed_ms: Date.now() - startedAt,
+        spawn_state: 'failed',
         error_code: err.code === 'ENOENT' ? 'HARNESS_BINARY_NOT_FOUND' : 'SPAWN_PROCESS_ERROR',
         error: err.message
       });
@@ -609,6 +615,7 @@ function _executeSpawnSpec(spec, options, childEnv, startedAt) {
         ...parsed,
         ok: true,
         status: parsed.status || 'completed',
+        spawn_state: 'completed',
         agent: normalizedAgent,
         client: capability.client,
         child_pid: parsed.child_pid || childPid,

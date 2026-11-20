@@ -40,6 +40,7 @@ const { entryRouter, executeRouter, reviewRouter, remediateRouter } = require('.
 const { globalCircuitRegistry } = require('../src/circuit_breaker');
 const { countTiktoken, getLastEstimatorUsed } = require('../src/token_sampler');
 const { loadWorkflowStatus, saveWorkflowStatus } = require('../src/mcp/workflow_common');
+const { setSliceExecutor, clearSliceExecutor } = require('../src/mcp/langgraph/slice_executor_registry');
 
 function createTestSandbox(name) {
   const dir = path.join(os.tmpdir(), `konoha_test_${name}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
@@ -215,6 +216,15 @@ async function runScenarioSuite() {
     });
 
     try {
+      // Without an executor a slice stops at spawn_pending, which ends the graph
+      // after one turn and makes the progress assertion vacuous. Standing in for
+      // the client keeps the halts coming, which is what this scenario measures.
+      setSliceExecutor(threadId, async (task) => ({
+        task_id: task.id,
+        status: 'completed',
+        summary: `Implemented ${task.id}`,
+        child_execution_verified: true
+      }));
       let turn = 1;
       let currentState = null;
       const visitedNodes = [];
@@ -256,6 +266,7 @@ async function runScenarioSuite() {
       assert.ok(visitedNodes.includes('node_todo'), 'Must include node_todo');
       console.log(`✓ S5: Repeated halts make forward progress and terminate cleanly (${turn} turns, never wedged)`);
     } finally {
+      clearSliceExecutor(threadId);
       cleanupSandbox(taskDir);
     }
   }
@@ -398,6 +409,7 @@ async function runScenarioSuite() {
       assert.strictEqual(res.circuitOpen, true);
       // Verify unseeded 0-cycle persistent remediation defect loop trips breaker cleanly without throw
       const taskDirRem = createTestSandbox('s8_rem');
+      const remThreadId = `thread-s8-rem-${Date.now()}`;
       aislopGateController.mode = 'failing';
       try {
         fs.writeFileSync(path.join(taskDirRem, 'status.json'), JSON.stringify({
@@ -408,7 +420,14 @@ async function runScenarioSuite() {
           ai_slop_findings: 2,
         }), 'utf8');
 
-        const remThreadId = `thread-s8-rem-${Date.now()}`;
+        // The cap is reached through review, so the execute step must report as
+        // done; a spawn_pending stop would end the graph before remediation runs.
+        setSliceExecutor(remThreadId, async (task) => ({
+          task_id: task.id,
+          status: 'completed',
+          summary: `Attempted ${task.id}`,
+          child_execution_verified: true
+        }));
         const remRes = await graph.invoke({
           prompt: 'Implement full feature with persistent remediation defects from cycle 0',
           intent: 'full_sdlc',
@@ -422,6 +441,7 @@ async function runScenarioSuite() {
         assert.strictEqual(remRes.remediationCount, 7, 'Must record 7 remediation cycles');
         assert.ok(remRes.error.includes('Circuit breaker tripped'), 'Must report circuit breaker error');
       } finally {
+        clearSliceExecutor(remThreadId);
         aislopGateController.mode = 'clean';
         cleanupSandbox(taskDirRem);
       }

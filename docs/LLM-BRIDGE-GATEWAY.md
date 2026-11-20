@@ -71,7 +71,28 @@ flowchart TB
 | **OpenAI Compatible** | `compatible` | `<bridge_name>-<model>` | Ollama, vLLM, LM Studio, etc. |
 | **Antigravity Sidecar** | `antigravity` | `<bridge_name>-<model>` | Local `agy` CLI / Antigravity IDE (requires live session) |
 
-> **Note:** Supported providers are OpenAI API Key, OpenAI Compatible, and Antigravity Sidecar. The `openai-oauth` (device code flow) provider was removed in v2.0.0.
+> **Note:** Supported providers are [OI] API Key, [OI] Compatible, and Antigravity Sidecar. The `openai-oauth` (device code flow) provider was removed in v2.0.0.
+
+### Stream usage reporting
+
+Anthropic `message_start`/`message_delta` carry integer token counts, so the
+gateway asks the upstream for them: `stream_options: {include_usage: true}` is
+added to a streamed `/v1/chat/completions` request. That field belongs to the
+[OI] Chat Completions contract, and a server that validates unknown parameters
+rejects the whole request over it, so it is sent **only** to a provider on the
+allowlist — `openai`, `openai-compatible`, `9router` by default. Any other
+provider (including `antigravity-extension`) never receives it, and a caller's
+`stream_options` is dropped before forwarding rather than passed through.
+
+| Control | Where | Effect |
+|---|---|---|
+| `bridge_stream_usage_providers` | `~/.konoha/config.json` (env `KONOHA_BRIDGE_STREAM_USAGE_PROVIDERS`) | Comma-separated allowlist; replaces the default set |
+| `supportsStreamUsage` | bridge row | Per-bridge boolean override, wins in both directions |
+
+When the upstream reports no usage, the Anthropic response fails with an
+Anthropic `error` event (stream) or error body (non-stream) instead of emitting
+`usage: {}` or a fabricated zero. A provider-measured `0` is passed through —
+"unknown" and "measured zero" stay distinguishable.
 
 ## API Endpoints
 

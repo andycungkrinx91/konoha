@@ -283,71 +283,138 @@ function copyRuntimeFiles(copyTree, sourceRoot = REPO_ROOT) {
   return cliDest;
 }
 
-function readBuildVersion(dir) {
-  const meta = path.join(dir, 'build-meta.json');
-  if (!fileExists(meta)) return null;
+// A build is only usable if its own metadata says what it is. `handler.js` proves the
+// tree was built, not which source produced it, and the destination package.json is
+// copied from the source manifest — neither is provenance.
+function readBuildMeta(dir) {
+  const metaPath = path.join(dir, 'build-meta.json');
+  if (!fileExists(metaPath)) return { ok: false, reason: 'missing build-meta.json' };
+  let raw;
   try {
-    return JSON.parse(fs.readFileSync(meta, 'utf8')).version || null;
-  } catch {
-    return null;
+    raw = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+  } catch (err) {
+    return { ok: false, reason: `unreadable build-meta.json (${err.message})` };
   }
+  const version = raw && typeof raw.version === 'string' ? raw.version.trim() : '';
+  if (!version) return { ok: false, reason: 'build-meta.json has no string version' };
+  return { ok: true, version, builtAt: typeof raw.builtAt === 'string' ? raw.builtAt : null };
 }
 
-function resolveWebBuildSource(sourceRoot = REPO_ROOT, currentVersion = null) {
-  const candidates = [
+function readBuildVersion(dir) {
+  const meta = readBuildMeta(dir);
+  return meta.ok ? meta.version : null;
+}
+
+function defaultWebBuildCandidates(sourceRoot) {
+  return [
     path.join(sourceRoot, 'apps', 'web', 'build'),
     path.resolve(__dirname, '..', '..', 'apps', 'web', 'build'),
     path.join(process.cwd(), 'apps', 'web', 'build'),
     path.join(process.cwd(), 'build')
   ];
-  const found = [];
+}
+
+function resolveWebBuildSource(sourceRoot = REPO_ROOT, currentVersion = null, candidates = defaultWebBuildCandidates(sourceRoot)) {
+  const rejected = [];
   for (const cand of candidates) {
-    if (!fileExists(path.join(cand, 'handler.js'))) continue;
-    const declared = readBuildVersion(cand);
-    if (declared && currentVersion && declared !== currentVersion) {
-      warn(`Skipping stale Web UI build ${declared} at ${cand} (installing ${currentVersion})`);
+    if (!fileExists(path.join(cand, 'handler.js'))) {
+      rejected.push(`${cand}: no handler.js`);
       continue;
     }
-    found.push(cand);
+    const meta = readBuildMeta(cand);
+    if (!meta.ok) {
+      warn(`Skipping unverified Web UI build at ${cand}: ${meta.reason}`);
+      rejected.push(`${cand}: ${meta.reason}`);
+      continue;
+    }
+    if (currentVersion && meta.version !== currentVersion) {
+      warn(`Skipping stale Web UI build ${meta.version} at ${cand} (installing ${currentVersion})`);
+      rejected.push(`${cand}: stale ${meta.version}`);
+      continue;
+    }
+    if (rejected.length > 0) {
+      warn(`Web UI build accepted: ${cand} (v${meta.version}), ${rejected.length} candidate(s) rejected`);
+    }
+    return cand;
   }
-  // Every candidate was stale. Returning the default path here would copy the
-  // very artifact we just rejected, so signal "no usable source" and let the
-  // caller fall back to an on-demand build.
-  return found[0] || null;
+  // Every candidate was unverified or stale. Returning a default path here would copy
+  // the very artifact we just rejected, so signal "no usable source" and let the caller
+  // fall back to an on-demand build.
+  warn(`No verified Web UI build found among ${candidates.length} candidate(s): ${rejected.join('; ')}`);
+  return null;
 }
 
 function _syncWebBuildOutput(builtOutput, webBuildDest, destWebPkg, currentVersion) {
-  try {
-    fs.rmSync(webBuildDest, { recursive: true, force: true, maxRetries: 3 });
-  } catch (rmErr) {
-    if (process.platform === 'win32') {
-      warn(`Web UI destination cleanup note (${rmErr.message}); proceeding with in-place synchronization.`);
-    }
+  const srcMeta = readBuildMeta(builtOutput);
+  if (!srcMeta.ok) {
+    return { ok: false, reason: `source ${builtOutput} has no usable provenance: ${srcMeta.reason}` };
   }
-  ensureDir(webBuildDest);
-  try {
-    fs.cpSync(builtOutput, webBuildDest, { recursive: true, force: true });
-  } catch (cpErr) {
-    warn(`Web UI assets sync note: ${cpErr.message}`);
+  if (currentVersion && srcMeta.version !== currentVersion) {
+    return { ok: false, reason: `source declares v${srcMeta.version}, expected v${currentVersion}` };
   }
-  fs.writeFileSync(destWebPkg, JSON.stringify({ name: 'konoha-web', version: currentVersion, type: 'module', private: true }, null, 2) + '\n');
-  fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
 
-  // Report the version the artifact tree actually declares, not the one we hoped
-  // for: a source build without build-meta.json has unknown provenance, and a
-  // mismatched stamp must never be printed as the installed version.
-  const installedVersion = readBuildVersion(webBuildDest);
-  if (!installedVersion) {
-    warn(`ERROR: Web UI provenance unknown at ${webBuildDest} (no build-meta.json); reported version ${currentVersion} is unverified.`);
-  } else if (installedVersion !== currentVersion) {
-    warn(`ERROR: Web UI version mismatch at ${webBuildDest}: expected ${currentVersion}, found ${installedVersion}.`);
+  const sameDir = path.resolve(builtOutput) === path.resolve(webBuildDest);
+  if (!sameDir) {
+    try {
+      fs.rmSync(webBuildDest, { recursive: true, force: true, maxRetries: 3 });
+    } catch (rmErr) {
+      if (process.platform === 'win32') {
+        warn(`Web UI destination cleanup note (${rmErr.message}); proceeding with in-place synchronization.`);
+      }
+    }
+    ensureDir(webBuildDest);
+    try {
+      fs.cpSync(builtOutput, webBuildDest, { recursive: true, force: true });
+    } catch (cpErr) {
+      warn(`Web UI assets sync note: ${cpErr.message}`);
+    }
+    fs.writeFileSync(
+      destWebPkg,
+      JSON.stringify({ name: 'konoha-web', version: srcMeta.version, type: 'module', private: true }, null, 2) + '\n'
+    );
+    fs.writeFileSync(path.join(webBuildDest, 'package.json'), '{\n  "type": "module"\n}\n');
   }
-  info(`Pre-built Web UI installed to ${webBuildDest} (v${installedVersion || currentVersion})`);
+
+  // The copy is only trusted once the destination's own metadata agrees with the
+  // source's. A failed verification removes the unverified tree: absence is a state
+  // the server reports, a garbage build is one it serves.
+  const destMeta = readBuildMeta(webBuildDest);
+  if (!destMeta.ok || destMeta.version !== srcMeta.version) {
+    const reason = destMeta.ok
+      ? `destination declares v${destMeta.version}, source v${srcMeta.version}`
+      : destMeta.reason;
+    if (!sameDir) {
+      try {
+        fs.rmSync(webBuildDest, { recursive: true, force: true, maxRetries: 3 });
+      } catch { /* best-effort removal of an unverified tree */ }
+    }
+    warn(`ERROR: Web UI provenance verification failed at ${webBuildDest}: ${reason}; the unverified build was removed`);
+    return { ok: false, reason };
+  }
+
+  info(`Pre-built Web UI installed to ${webBuildDest} (v${destMeta.version} verified)`);
+  return { ok: true, version: destMeta.version };
+}
+
+function shouldBuildWebUiOnDemand(webBuildDest, currentVersion) {
+  if (!fileExists(path.join(webBuildDest, 'handler.js'))) return { needed: true, reason: 'no-handler' };
+  const meta = readBuildMeta(webBuildDest);
+  if (!meta.ok) {
+    const slug = meta.reason.startsWith('missing ')
+      ? 'missing'
+      : meta.reason.startsWith('unreadable ') ? 'invalid' : 'no-version';
+    return { needed: true, reason: `provenance-${slug}` };
+  }
+  if (currentVersion && meta.version !== currentVersion) return { needed: true, reason: 'stale' };
+  return { needed: false, reason: 'verified' };
 }
 
 function buildWebUiOnDemand(webBuildDest, destWebPkg, currentVersion) {
   const sourceDir = deployUtils.resolveWebUiDir({ preferSources: true });
-  if (!sourceDir || !fileExists(path.join(sourceDir, 'src', 'routes'))) return;
+  if (!sourceDir || !fileExists(path.join(sourceDir, 'src', 'routes'))) {
+    warn('No Web UI source found; cannot build on demand');
+    return false;
+  }
   try {
     const { execSync } = require('child_process');
     info(`Building Web UI v${currentVersion} during runtime initialization...`);
@@ -357,11 +424,17 @@ function buildWebUiOnDemand(webBuildDest, destWebPkg, currentVersion) {
       execSync('npm run build', { cwd: sourceDir, stdio: 'ignore', timeout: INSTALL_BUILD_MIGRATE_TIMEOUT_MS });
     }
     const builtOutput = path.join(sourceDir, 'build');
-    if (fileExists(path.join(builtOutput, 'handler.js')) && path.resolve(builtOutput) !== path.resolve(webBuildDest)) {
-      _syncWebBuildOutput(builtOutput, webBuildDest, destWebPkg, currentVersion);
+    const builtMeta = readBuildMeta(builtOutput);
+    if (!fileExists(path.join(builtOutput, 'handler.js')) || !builtMeta.ok || builtMeta.version !== currentVersion) {
+      const why = builtMeta.ok ? `declares v${builtMeta.version}, expected v${currentVersion}` : builtMeta.reason;
+      warn(`ERROR: on-demand Web UI build produced no verifiable metadata at ${builtOutput} (${why}); run \`pnpm run build:web\``);
+      return false;
     }
+    if (path.resolve(builtOutput) === path.resolve(webBuildDest)) return true;
+    return _syncWebBuildOutput(builtOutput, webBuildDest, destWebPkg, currentVersion).ok;
   } catch (buildErr) {
     warn(`Could not build Web UI automatically: ${buildErr.message}`);
+    return false;
   }
 }
 
@@ -377,22 +450,33 @@ function installWebUiRuntime(copyTree, sourceRoot = REPO_ROOT) {
   }
 
   const currentVersion = readPackageVersionSafe(path.join(sourceRoot, 'package.json')) || getCliVersion();
-  const webBuildSrc = resolveWebBuildSource(sourceRoot, currentVersion);
   const webBuildDest = path.join(SKILLS_DB_DIR, 'apps', 'web', 'build');
   const destWebPkg = path.join(webDestDir, 'package.json');
-  let destVersion = null;
-  try {
-    if (fileExists(destWebPkg)) destVersion = JSON.parse(fs.readFileSync(destWebPkg, 'utf8')).version;
-  } catch (_) { /* best-effort */ }
-  const isUiOutdated = !destVersion || destVersion !== currentVersion;
+  const destState = shouldBuildWebUiOnDemand(webBuildDest, currentVersion);
+  const webBuildSrc = resolveWebBuildSource(sourceRoot, currentVersion);
 
-  if (webBuildSrc && fileExists(path.join(webBuildSrc, 'handler.js'))) {
-    if (path.resolve(webBuildSrc) !== path.resolve(webBuildDest) || isUiOutdated) {
-      _syncWebBuildOutput(webBuildSrc, webBuildDest, destWebPkg, currentVersion);
+  let synced = false;
+  if (webBuildSrc) {
+    if (path.resolve(webBuildSrc) !== path.resolve(webBuildDest) || !destState.needed) {
+      const result = _syncWebBuildOutput(webBuildSrc, webBuildDest, destWebPkg, currentVersion);
+      synced = result.ok;
+      if (!result.ok) warn(`Web UI sync rejected: ${result.reason}`);
     }
-  } else if (!fileExists(path.join(webBuildDest, 'handler.js')) || isUiOutdated) {
-    if (!webBuildSrc) warn('No Web UI build matches the installed version; building on demand.');
+  }
+  if (!synced && (destState.needed || !webBuildSrc)) {
+    if (!webBuildSrc && destState.needed) warn(`No Web UI build matches the installed version (${destState.reason}); building on demand.`);
     buildWebUiOnDemand(webBuildDest, destWebPkg, currentVersion);
+  }
+
+  // The only place a version may be claimed: the metadata of the tree that will be served.
+  const finalMeta = readBuildMeta(webBuildDest);
+  if (finalMeta.ok && finalMeta.version === currentVersion && fileExists(path.join(webBuildDest, 'handler.js'))) {
+    info(`Web UI v${finalMeta.version} verified at ${webBuildDest}`);
+  } else {
+    warn(
+      `ERROR: Web UI at ${webBuildDest} is unverified (${finalMeta.ok ? `v${finalMeta.version}` : finalMeta.reason}); ` +
+      `reported version ${currentVersion} is not claimed. Run \`pnpm run build:web\` and re-run \`konoha init\`.`
+    );
   }
 }
 
@@ -598,6 +682,9 @@ module.exports = {
   installCliRuntime,
   reconcileGlobalCommand,
   resolveWebBuildSource,
+  readBuildMeta,
   readBuildVersion,
+  _syncWebBuildOutput,
+  shouldBuildWebUiOnDemand,
   installWebUiRuntime
 };

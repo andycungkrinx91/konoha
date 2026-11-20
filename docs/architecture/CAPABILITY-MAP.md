@@ -1,8 +1,8 @@
 # Konoha Architecture Capability Map
 
-**Document Version:** 2.2.23  
+**Document Version:** 2.2.24  
 **Date:** 2026-11-17  
-**Status:** Canonical Reference (v2.2.23 Branch Audit)  
+**Status:** Canonical Reference (v2.2.24 Branch Audit)  
 
 ---
 
@@ -367,8 +367,8 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
   - **Images reach `pptxgenjs` as buffers.** `addInlineImage(slide, buffer)` requires an in-memory PNG (magic-byte checked) and emits a base64 data URI, so no filesystem path or URL string can reach `addImage`'s `fs.readFileSync` / HTTPS GET branches.
   - **Releases are reproducible.** `.github/workflows/publish.yml` installs with `--frozen-lockfile`, and `xlsx-populate`, `pptxgenjs`, `cfb`, `docx`, `playwright`, and `hash-wasm` are exact pins so patched and bundled packages cannot drift between resolution and publish.
   - Native install scripts stay denied (`allowBuilds: onnxruntime-node: false`, `protobufjs: false`); `onnxruntime-node`'s postinstall fetches CUDA EP binaries from NuGet without checksum verification.
-  - Socket.dev policy configuration is a narrowing, never a widening: `envVars`, `urlStrings`, `networkAccess`, `gptSecurity`, `gptAnomaly`, and `newAuthor` stay suppressed because they describe the documented contract, while `usesEval` is no longer suppressed and `pnpm-lock.yaml` / `patches/**` are no longer ignored.
-* **Tests:** `tests/test_document_tools.js`, `tests/test_manifest_invariants.js`, `tests/test_dependency_posture.js`, `tests/test_no_dynamic_execution.js`, `tests/test_xlsx_populate_lodash_lite.js`, `tests/test_document_engine_security.js`, `tests/test_socket_security_audit.js`.
+  - Socket.dev policy configuration is a narrowing, never a widening: `envVars`, `urlStrings`, `networkAccess`, `gptSecurity`, `gptAnomaly`, and `newAuthor` stay suppressed because they describe the documented contract, while `usesEval` is no longer suppressed and `pnpm-lock.yaml` / `patches/**` are no longer ignored. The configuration governs the optional integration; the mandatory gate is a local `pnpm audit` over the root and `apps/web` workspaces.
+* **Tests:** `tests/test_document_tools.js`, `tests/test_manifest_invariants.js`, `tests/test_dependency_posture.js`, `tests/test_no_dynamic_execution.js`, `tests/test_xlsx_populate_lodash_lite.js`, `tests/test_document_engine_security.js`, `tests/test_dependency_audit.js`.
 * **Documentation:** `docs/SECURITY.md`, `docs/SecurityCompliance/security_compliance_report_2.2.23_2026-11-17.md`, `CHANGELOG.md`.
 
 ---
@@ -377,7 +377,7 @@ Konoha is a local-first MCP orchestration and intelligence platform for AI codin
 
 * **Purpose:** Production state-machine orchestrator mapping Konoha's canonical workflow into a LangGraph.js `StateGraph` model with two authoritative HITL gates, thread identity isolation, hard token budget governor, and circuit breaker loop cap.
 * **Canonical Specification:** `docs/ARCHITECTURE.md` (Section: *LangGraph.js Workflow Orchestration Engine*).
-* **Runtime Status:** **Active Production Orchestration Engine in v2.2.23** (`src/mcp/langgraph/`). Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, with custom `node:sqlite` checkpointer (`KonohaCheckpointSaver`) and backward-compatible facade preservation via `src/mcp/workflow.js`.
+* **Runtime Status:** **Active Production Orchestration Engine in v2.2.24** (`src/mcp/langgraph/`). Powered by `@langchain/langgraph@1.6.0`, `@langchain/core@1.3.2`, `@langchain/langgraph-checkpoint@1.2.2`, and `zod@4.6.7`, with custom `node:sqlite` checkpointer (`KonohaCheckpointSaver`) and backward-compatible facade preservation via `src/mcp/workflow.js`.
 * **Mapping Invariants:**
   - One-to-one node preservation for the 8 canonical phases (`route`, `explore`, `plan`, `research`, `execute`, `document`, `review`, `synthesize`) plus Gate 1 (`pending_plan_approval`) and Gate 2 (`pending_human_signoff`).
   - Thread identity and state channels partitioned per client, project hash, and session ID; zero cross-session or cross-client checkpoint leakage.

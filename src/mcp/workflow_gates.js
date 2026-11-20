@@ -1,7 +1,10 @@
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { saveWorkflowStatus, cleanupTransientScratchFiles } = require('./workflow_common');
+const { extractModifiedFiles, formatTaskSummary } = require('./workflow_completion_helpers');
 const { syncTodoAndWalkthrough } = require('./todo_walkthrough_sync');
 const { buildPickerBinding } = require('./hitl_picker');
 const { slicePreservingHeadMiddleTail } = require('../context_budget');
@@ -129,6 +132,8 @@ function buildPromptPayload({
   title,
   question,
   choices,
+  implemented,
+  modified_files: modifiedFiles,
   options
 }) {
   return {
@@ -139,6 +144,8 @@ function buildPromptPayload({
     input_mode: 'reply_with_option_label',
     choices,
     refinement_option: CUSTOM_CHOICE_LABEL,
+    ...(implemented === undefined ? {} : { implemented }),
+    ...(modifiedFiles === undefined ? {} : { modified_files: modifiedFiles }),
     options
   };
 }
@@ -182,8 +189,95 @@ function _serializeHitlPromptEnvelope(baseFields, { stage, gateName, choices, st
   });
 }
 
+/**
+ * Gate 1 is the only moment the approved plan exists as text before execution.
+ * Persist the compiled plan as the authoritative plan.md artifact next to
+ * `final_report.md` so it survives compaction and the approver can open it.
+ *
+ * Task dirs are shared with clients, so `plan.md` may be pre-created by someone
+ * else — possibly as a symlink or a hard link to a file outside the task dir.
+ * Validation-by-path alone is racy, so two rules apply: an existing artifact is
+ * only accepted after the opened descriptor proves it is the same regular,
+ * singly linked file that was inspected, and the new text is written to a fresh
+ * inode that is then renamed over `plan.md`. A rename replaces the directory
+ * entry without following it, so even a link that slipped past inspection can
+ * never carry the bytes into another file.
+ * Write failures must never block the gate itself.
+ */
+const PLAN_ARTIFACT_NAME = 'plan.md';
+
+/** True when `plan.md` is absent or a regular, singly linked file we may replace. */
+function _isReplaceableArtifact(planPath, nofollow) {
+  let before;
+  try {
+    before = fs.lstatSync(planPath);
+  } catch (err) {
+    if (err.code === 'ENOENT') return true;
+    throw err;
+  }
+  // lstat does not follow the final component, so a symlink — dangling or not —
+  // and a directory or device all fail here instead of being written through.
+  if (!before.isFile()) return false;
+  const fd = fs.openSync(planPath, fs.constants.O_WRONLY | nofollow);
+  try {
+    const opened = fs.fstatSync(fd);
+    // Opening by path can land on a different inode than lstat inspected (a
+    // swap in between), so the descriptor has to prove its identity. O_NOFOLLOW
+    // makes the open itself refuse a link where the platform supports it; the
+    // inode comparison covers platforms that do not.
+    if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) return false;
+    // A reported inode of 0 is not an identity, and without O_NOFOLLOW nothing
+    // else proves the descriptor is the inspected file.
+    if (!nofollow && (before.ino === 0 || opened.ino === 0)) return false;
+    // A hard link shares the inode, so every check above still passes while a
+    // truncate would land in a file outside the task dir. The artifact is only
+    // ever created singly linked, so a second name belongs to someone else.
+    // Refusing is the conservative choice; the rename below would be safe even
+    // where a filesystem under-reports this count.
+    return opened.nlink === 1;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/** Write `text` to a fresh inode and rename it over `planPath`. */
+function _replacePlanArtifact(planPath, text) {
+  const tmpPath = `${planPath}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  const fd = fs.openSync(tmpPath, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL, 0o644);
+  try {
+    fs.writeFileSync(fd, text, 'utf8');
+  } finally {
+    fs.closeSync(fd);
+  }
+  try {
+    fs.renameSync(tmpPath, planPath);
+  } catch (err) {
+    try { fs.unlinkSync(tmpPath); } catch (_) { /* temp file already gone */ }
+    throw err;
+  }
+}
+
+function writePlanArtifact(resolvedTaskDir, planText) {
+  const text = String(planText === undefined || planText === null ? '' : planText);
+  if (!resolvedTaskDir || !text.trim()) return null;
+  const nofollow = fs.constants.O_NOFOLLOW || 0;
+  try {
+    fs.mkdirSync(resolvedTaskDir, { recursive: true });
+    // Canonicalize after creation so a directory symlink resolves to the real
+    // task dir and the artifact can never be placed relative to a link.
+    const taskDir = fs.realpathSync(resolvedTaskDir);
+    const planPath = path.join(taskDir, PLAN_ARTIFACT_NAME);
+    if (!_isReplaceableArtifact(planPath, nofollow)) return null;
+    _replacePlanArtifact(planPath, text);
+    return planPath;
+  } catch (_) {
+    return null;
+  }
+}
+
 function buildGate1Prompt(status, resolvedTaskDir, rootTaskId, planContent, options = {}) {
   const planText = planContent || status.plan || '';
+  const planPath = writePlanArtifact(resolvedTaskDir, planText);
   const choices = [...GATE1_CHOICES, CUSTOM_CHOICE_LABEL];
   const promptPayload = buildPromptPayload({
     gate: 'gate_1',
@@ -214,14 +308,15 @@ function buildGate1Prompt(status, resolvedTaskDir, rootTaskId, planContent, opti
     ]
   });
 
-  const message = 'Action plan compiled. Execution paused awaiting human plan approval (Gate 1).\n\n' +
-    'Reply with the option label (or its number):\n' +
+  const message = 'Action plan compiled. Execution paused awaiting human plan approval (Gate 1).\n' +
+    (planPath ? `\nFull plan written to ${planPath}\n\n${String(planText).trim()}\n` : '\n' + String(planText).trim() + '\n') +
+    '\nReply with the option label (or its number):\n' +
     renderChoiceList(choices) +
     '\n\nChoosing "' + CUSTOM_CHOICE_LABEL + '" lets you type any instruction, e.g.: ' +
     CUSTOM_CHOICE_LABEL + ': use Postgres instead of SQLite';
 
   return _serializeHitlPromptEnvelope(
-    { status: 'pending_plan_approval', phase: 'plan_approval', plan: planText, tasks: status.tasks || [] },
+    { status: 'pending_plan_approval', phase: 'plan_approval', plan: planText, plan_path: planPath, tasks: status.tasks || [] },
     { stage: 'gate1', gateName: 'Gate 1 (Plan Approval)', choices, status, resolvedTaskDir, taskId: rootTaskId, message, promptPayload, client: options.client }
   );
 }
@@ -230,6 +325,16 @@ function buildGate2Prompt(status, resolvedTaskDir, rootId, options = {}) {
   const confidenceVal = options.confidence !== undefined ? options.confidence : 100;
   const reportPath = options.report;
   const finalReport = reportPath || status?.report || '';
+  // Gate 2 asks a human to accept shipped work. Enumerate what actually landed
+  // so the approval is about the delivery, not only the confidence number.
+  const tasks = Array.isArray(status && status.tasks) ? status.tasks : [];
+  const doneTasks = tasks.filter(t => {
+    const s = String((t && t.status) || '').toLowerCase();
+    return s === 'completed' || s === 'done';
+  });
+  const implemented = formatTaskSummary(doneTasks) || 'No completed tasks recorded.';
+  const modifiedFiles = extractModifiedFiles(doneTasks);
+  const fileList = modifiedFiles.length > 0 ? modifiedFiles.map(f => `- ${f}`).join('\n') : '- none reported';
   const choices = [...GATE2_CHOICES, CUSTOM_CHOICE_LABEL];
   const promptPayload = buildPromptPayload({
     gate: 'gate_2',
@@ -237,6 +342,8 @@ function buildGate2Prompt(status, resolvedTaskDir, rootId, options = {}) {
     title: 'Gate 2: Delivery Sign-Off Required',
     question: `Kage review completed (${confidenceVal}% Confidence). Delivery paused awaiting human sign-off (Gate 2). How would you like to proceed?`,
     choices,
+    implemented,
+    modified_files: modifiedFiles,
     options: [
       {
         id: '1',
@@ -261,13 +368,15 @@ function buildGate2Prompt(status, resolvedTaskDir, rootId, options = {}) {
   });
 
   const message = `Kage review completed (${confidenceVal}% Confidence). Delivery paused awaiting human sign-off (Gate 2).\n\n` +
+    `Implemented:\n${implemented}\n\n` +
+    `Modified files:\n${fileList}\n\n` +
     'Reply with the option label (or its number):\n' +
     renderChoiceList(choices) +
     '\n\nChoosing "' + CUSTOM_CHOICE_LABEL + '" lets you type the exact fix you want, e.g.: ' +
     CUSTOM_CHOICE_LABEL + ': add integration tests for the upload path';
 
   return _serializeHitlPromptEnvelope(
-    { status: 'pending_human_signoff', phase: 'delivery_signoff', confidence: confidenceVal, report: finalReport },
+    { status: 'pending_human_signoff', phase: 'delivery_signoff', confidence: confidenceVal, report: finalReport, implemented, modified_files: modifiedFiles },
     { stage: 'gate2', gateName: 'Gate 2 (Delivery Sign-Off)', choices, status, resolvedTaskDir, taskId: rootId, message, promptPayload, client: options.client }
   );
 }
@@ -493,5 +602,9 @@ module.exports = {
   parseGateChoice,
   applyGate1Choice,
   applyGate2Choice,
-  compactPostApprovalContext
+  compactPostApprovalContext,
+  // Internals, exported so the platform-specific branches can be exercised on a
+  // host that has O_NOFOLLOW (Windows coverage without a Windows runner).
+  _isReplaceableArtifact,
+  _replacePlanArtifact
 };

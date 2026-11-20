@@ -12,13 +12,45 @@ const {
   pipeWithModelRewrite
 } = require('./gateway_router');
 const { dedupeToolDefinitions, capToolOutputs } = require('./tool_payload');
-const { extractCachedTokens } = require('./cache_capability');
+const { normalizeUsage } = require('../token_usage');
+const { recordProviderUsage, PROVIDER_USAGE_SOURCES } = require('../provider_usage_logger');
 const { validateRequestBudget, LIMITS } = require('./request_budget');
+const { supportsStreamUsage } = require('./stream_usage');
+
+// Anthropic's wire schema requires integer usage counts: `input_tokens` and
+// `output_tokens` on a message, and `output_tokens` on a `message_delta`.
+// When the provider reported neither there is no schema-valid usage to emit,
+// and fabricating zeros would misreport billing. Fail instead.
+const USAGE_UNAVAILABLE_MESSAGE =
+  'Upstream reported no token usage; refusing to emit a schema-invalid Anthropic response';
+
+/**
+ * Persist what the upstream provider actually reported. Best-effort: the
+ * response has already been written, so a telemetry failure must not surface.
+ */
+function recordUpstreamUsage(usage, meta) {
+  try {
+    recordProviderUsage({ source: PROVIDER_USAGE_SOURCES.GATEWAY, usage, ...meta });
+  } catch (_) { /* telemetry must never break a response */ }
+}
 
 function extractAnthropicSystemText(content) {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) return content.map((b) => (b.type === 'text' ? b.text : '')).join('');
   return '';
+}
+
+/**
+ * Resolve the active client id; best-effort lazy load so require-time
+ * failures (missing db) do not abort the bridge.
+ */
+function resolveClient() {
+  try {
+    const { detectActiveClient } = require('../tools_savings_logger');
+    return detectActiveClient() || 'unattributed';
+  } catch (_) {
+    return 'unattributed';
+  }
 }
 
 function convertContentBlock(block, state) {
@@ -119,10 +151,14 @@ function writeAnthropicToolCallBlocks(res, toolCalls, hasText) {
 }
 
 function streamEmptyAnthropicMessage(res, model, msgId, openAiResp) {
-  const startUsage = buildAnthropicUsage(openAiResp);
-  const startMessage = { id: `msg_${msgId}`, type: 'message', role: 'assistant', model: model || 'unknown', content: [], stop_reason: null, usage: startUsage };
+  const usage = completeAnthropicUsage(openAiResp);
+  if (!usage) {
+    sendAnthropicErrorResponse(res, 502, 'api_error', USAGE_UNAVAILABLE_MESSAGE, true);
+    return;
+  }
+  const startMessage = { id: `msg_${msgId}`, type: 'message', role: 'assistant', model: model || 'unknown', content: [], stop_reason: null, usage };
   res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: startMessage })}\n\n`);
-  res.write(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop', delta: { stop_reason: 'stop' }, usage: { output_tokens: buildAnthropicUsage(openAiResp).output_tokens } })}\n\n`);
+  res.write(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop', delta: { stop_reason: 'stop' } })}\n\n`);
   res.end();
 }
 
@@ -139,8 +175,12 @@ function streamOpenAIResponseToAnthropic(openAiResp, options) {
   const toolCalls = msg.tool_calls || [];
   const textContent = (msg.content || '').toString();
 
-  const mainUsage = buildAnthropicUsage(openAiResp);
-  const mainMessage = { id: `msg_${msgId}`, type: 'message', role: 'assistant', model: model || 'unknown', content: [], stop_reason: null, usage: mainUsage };
+  const usage = completeAnthropicUsage(openAiResp);
+  if (!usage) {
+    sendAnthropicErrorResponse(res, 502, 'api_error', USAGE_UNAVAILABLE_MESSAGE, true);
+    return;
+  }
+  const mainMessage = { id: `msg_${msgId}`, type: 'message', role: 'assistant', model: model || 'unknown', content: [], stop_reason: null, usage };
   res.write(`event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: mainMessage })}\n\n`);
 
   if (textContent) {
@@ -152,7 +192,7 @@ function streamOpenAIResponseToAnthropic(openAiResp, options) {
   writeAnthropicToolCallBlocks(res, toolCalls, Boolean(textContent));
 
   const stopReason = choice.finish_reason || 'stop';
-  res.write(`event: message_delta\ndata: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: stopReason === 'tool_calls' ? 'tool_use' : 'end_turn', stop_sequence: null }, usage: { output_tokens: 0 } })}\n\n`);
+  res.write(`event: message_delta\ndata: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: stopReason === 'tool_calls' ? 'tool_use' : 'end_turn', stop_sequence: null }, usage })}\n\n`);
   res.write('event: message_stop\ndata: {}\n\n');
   res.end();
 }
@@ -175,6 +215,12 @@ function nonStreamOpenAIResponseToAnthropic(openAiResp, options) {
     contentBlocks.push({ type: 'text', text: textContent });
   }
 
+  const usage = completeAnthropicUsage(openAiResp);
+  if (!usage) {
+    sendAnthropicErrorResponse(res, 502, 'api_error', USAGE_UNAVAILABLE_MESSAGE, false);
+    return;
+  }
+
   sendJson(res, 200, {
     id: `msg_${msgId}`,
     type: 'message',
@@ -183,7 +229,7 @@ function nonStreamOpenAIResponseToAnthropic(openAiResp, options) {
     content: contentBlocks,
     stop_reason: toolCalls.length > 0 ? 'tool_use' : 'end_turn',
     stop_sequence: null,
-    usage: buildAnthropicUsage(openAiResp)
+    usage
   });
 }
 
@@ -196,23 +242,59 @@ function openAIResponseToAnthropic(openAiResp, options) {
 }
 
 /**
- * Translate upstream OpenAI-shaped usage into an Anthropic usage object.
- * Token counts are passed through unchanged; cached_tokens is added only when
- * the upstream actually reported it, so consumers can tell "no cache" apart
- * from "provider gave no breakdown".
+ * Translate upstream [OI]-shaped usage into an Anthropic usage object.
+ *
+ * Counts come only from what the provider reported: an unreported count stays
+ * null, which is how a consumer tells "provider gave no breakdown" apart from
+ * "provider measured zero". `normalizeUsage` also accepts Anthropic-native
+ * field spellings, so an already-translated upstream is not re-estimated.
  */
 function buildAnthropicUsage(openAiResp) {
-  const usage = openAiResp && openAiResp.usage ? openAiResp.usage : null;
+  const measured = normalizeUsage(openAiResp && openAiResp.usage);
   const result = {
-    input_tokens: usage && Number.isFinite(usage.prompt_tokens) ? usage.prompt_tokens : null,
-    output_tokens: usage && Number.isFinite(usage.completion_tokens) ? usage.completion_tokens : null
+    input_tokens: measured.available ? measured.input_tokens : null,
+    output_tokens: measured.available ? measured.output_tokens : null
   };
-  const cached = extractCachedTokens(usage);
-  if (cached !== null) result.cache_read_input_tokens = cached;
+  if (measured.cache_read_input_tokens !== null) result.cache_read_input_tokens = measured.cache_read_input_tokens;
   return result;
 }
 
-function buildOpenAiPayloadFromAnthropic(body, targetModel) {
+/**
+ * Anthropic's wire `usage` declares integer counts. When a provider reported
+ * nothing, the honest options are (a) omit the field or (b) emit a fabricated
+ * 0. We omit: a client that null-coalesces is correct, a client that trusts a
+ * fake zero is not. A genuine provider zero (measured, `0`) still passes
+ * through, so "unknown" and "measured zero" stay distinguishable on the wire.
+ */
+function anthropicUsageWire(usage) {
+  const out = {};
+  for (const [key, value] of Object.entries(usage || {})) {
+    // Anthropic token counts are integers; a fractional or unsafe value is not
+    // a measurement we can publish.
+    if (Number.isSafeInteger(value) && value >= 0) out[key] = value;
+  }
+  return out;
+}
+
+/**
+ * Build the wire usage only when it satisfies the Anthropic schema. A message
+ * and a `message_start` both require integer `input_tokens` and `output_tokens`,
+ * and a `message_delta` requires `output_tokens`; the SDK accumulator reads
+ * `usage.output_tokens` unconditionally. A provider that reported neither count
+ * leaves no schema-valid usage, so this returns null and the caller fails the
+ * request instead of emitting `{}` or a fabricated zero.
+ */
+function completeAnthropicUsage(openAiResp) {
+  const wire = anthropicUsageWire(buildAnthropicUsage(openAiResp));
+  if (typeof wire.input_tokens !== 'number' || typeof wire.output_tokens !== 'number') return null;
+  return wire;
+}
+
+/**
+ * Whether this bridge may be sent `stream_options.include_usage`. The decision
+ * lives in `./stream_usage`: an unrecognised provider is never sent the field.
+ */
+function buildOpenAiPayloadFromAnthropic(body, targetModel, bridgeConfig) {
   const isStream = body.stream === true;
   const openAiPayload = {
     model: targetModel,
@@ -232,10 +314,36 @@ function buildOpenAiPayloadFromAnthropic(body, targetModel) {
   if (body.compactContext === true) {
     openAiPayload.compactContext = true;
   }
+  // The [OI] Chat Completions streaming contract gates the final usage-bearing
+  // chunk behind this field, and `coalesceOpenAiStreamToAnthropic` reads
+  // `chunk.usage`; without it every streamed response's token columns stay null.
+  if (isStream && supportsStreamUsage(bridgeConfig)) openAiPayload.stream_options = { include_usage: true };
   for (const k of Object.keys(openAiPayload)) {
     if (openAiPayload[k] === undefined || openAiPayload[k] === null) delete openAiPayload[k];
   }
   return openAiPayload;
+}
+
+/**
+ * Fail a translated Anthropic request. Streams get an `error` SSE event, which
+ * the SDK surfaces verbatim; it precedes `message_start`, so the accumulator
+ * never sees an out-of-order or schema-invalid event.
+ */
+function sendAnthropicErrorResponse(res, statusCode, errType, message, isStream) {
+  const body = { type: 'error', error: { type: errType, message } };
+  if (isStream) {
+    if (!res.headersSent) res.writeHead(statusCode, { 'Content-Type': 'text/event-stream' });
+    if (!res.writableEnded) {
+      res.write(`event: error\ndata: ${JSON.stringify(body)}\n\n`);
+      res.end();
+    }
+    return;
+  }
+  if (res.headersSent) {
+    if (!res.writableEnded) res.end();
+    return;
+  }
+  sendJson(res, statusCode, body);
 }
 
 function sendAnthropicUpstreamError(raw, statusCode, isStream, res) {
@@ -273,7 +381,7 @@ function accumulateToolCallDeltas(delta, toolCalls) {
   }
 }
 
-function coalesceOpenAiStreamToAnthropic(buffer, targetModel, msgId, res) {
+function coalesceOpenAiStreamToAnthropic(buffer, targetModel, msgId, res, usageMeta) {
   const lines = buffer.split('\n').filter((l) => l.startsWith('data:'));
   let content = '';
   const toolCalls = [];
@@ -302,17 +410,18 @@ function coalesceOpenAiStreamToAnthropic(buffer, targetModel, msgId, res) {
     }]
   };
   if (streamUsage) openAiResp.usage = streamUsage;
+  recordUpstreamUsage(streamUsage, { ...usageMeta, model: targetModel, stream: true });
   openAIResponseToAnthropic(openAiResp, { model: targetModel, msgId, isStream: true, res });
 }
 
-function pipeAnthropicStreamResponse(forwardRes, targetModel, res, resetStreamTimeout) {
+function pipeAnthropicStreamResponse(forwardRes, targetModel, res, resetStreamTimeout, usageMeta) {
   let buffer = '';
   const msgId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   forwardRes.on('data', (chunk) => {
     resetStreamTimeout();
     buffer += chunk.toString('utf8');
   });
-  forwardRes.on('end', () => coalesceOpenAiStreamToAnthropic(buffer, targetModel, msgId, res));
+  forwardRes.on('end', () => coalesceOpenAiStreamToAnthropic(buffer, targetModel, msgId, res, usageMeta));
   forwardRes.on('error', (err) => {
     if (!res.headersSent) {
       sendJson(res, 502, { type: 'error', error: { type: 'api_error', message: `Upstream stream error: ${err.message}` } });
@@ -320,10 +429,11 @@ function pipeAnthropicStreamResponse(forwardRes, targetModel, res, resetStreamTi
   });
 }
 
-function handleAnthropicNonStreamData(raw, targetModel, res) {
+function handleAnthropicNonStreamData(raw, targetModel, res, usageMeta) {
   try {
     const parsed = JSON.parse(raw);
     const msgId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    recordUpstreamUsage(parsed && parsed.usage, { ...usageMeta, model: targetModel, stream: false });
     openAIResponseToAnthropic(parsed, { model: targetModel, msgId, isStream: false, res });
   } catch (err) {
     if (!res.headersSent) {
@@ -332,10 +442,10 @@ function handleAnthropicNonStreamData(raw, targetModel, res) {
   }
 }
 
-function pipeAnthropicNonStreamResponse(forwardRes, targetModel, res) {
+function pipeAnthropicNonStreamResponse(forwardRes, targetModel, res, usageMeta) {
   let raw = '';
   forwardRes.on('data', (c) => { raw += c.toString('utf8'); });
-  forwardRes.on('end', () => handleAnthropicNonStreamData(raw, targetModel, res));
+  forwardRes.on('end', () => handleAnthropicNonStreamData(raw, targetModel, res, usageMeta));
   forwardRes.on('error', (err) => {
     if (!res.headersSent) {
       sendJson(res, 502, { type: 'error', error: { type: 'api_error', message: `Upstream error: ${err.message}` } });
@@ -344,16 +454,16 @@ function pipeAnthropicNonStreamResponse(forwardRes, targetModel, res) {
 }
 
 function handleAnthropicResponse(forwardRes, options) {
-  const { isStream, targetModel, res, resetStreamTimeout } = options;
+  const { isStream, targetModel, res, resetStreamTimeout, usageMeta } = options;
   if (forwardRes.statusCode >= 400) {
     handleAnthropicUpstreamError(forwardRes, isStream, res);
     return;
   }
   if (isStream) {
-    pipeAnthropicStreamResponse(forwardRes, targetModel, res, resetStreamTimeout);
+    pipeAnthropicStreamResponse(forwardRes, targetModel, res, resetStreamTimeout, usageMeta);
     return;
   }
-  pipeAnthropicNonStreamResponse(forwardRes, targetModel, res);
+  pipeAnthropicNonStreamResponse(forwardRes, targetModel, res, usageMeta);
 }
 
 function setupStreamEvents(forwardReq, res, options) {
@@ -429,7 +539,7 @@ async function handleAnthropicMessages(activeBridges, req, res) {
     }
     const effectiveBody = budget.payload || body;
     const isStream = effectiveBody.stream === true;
-    const openAiPayload = buildOpenAiPayloadFromAnthropic(effectiveBody, targetModel);
+    const openAiPayload = buildOpenAiPayloadFromAnthropic(effectiveBody, targetModel, active.bridgeConfig);
     const rewrittenBody = JSON.stringify(openAiPayload);
 
     const headers = sanitizeForwardHeaders(req.headers);
@@ -454,7 +564,17 @@ async function handleAnthropicMessages(activeBridges, req, res) {
       agent: httpAgent,
       timeout: STREAM_TIMEOUT_MS
     }, (forwardRes) => {
-      handleAnthropicResponse(forwardRes, { isStream, targetModel, res, resetStreamTimeout });
+      handleAnthropicResponse(forwardRes, {
+        isStream,
+        targetModel,
+        res,
+        resetStreamTimeout,
+        usageMeta: {
+          provider: (active.bridgeConfig && active.bridgeConfig.provider) || null,
+          bridgeName,
+          client: resolveClient()
+        }
+      });
     });
 
     setupStreamEvents(forwardReq, res, { bridgeName, getLastActivity: () => lastActivityTime });
@@ -543,6 +663,12 @@ module.exports = {
   extractAnthropicSystemText,
   anthropicToolsToOpenAi,
   buildOpenAiPayloadFromAnthropic,
+  buildAnthropicUsage,
+  anthropicUsageWire,
+  completeAnthropicUsage,
+  supportsStreamUsage,
+  sendAnthropicErrorResponse,
+  USAGE_UNAVAILABLE_MESSAGE,
   openAIResponseToAnthropic,
   handleAnthropicMessages,
   handleGeminiRequest

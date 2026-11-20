@@ -92,6 +92,8 @@ Usage:
   konoha bridge delete <bridge name>     Delete a bridge configuration
   konoha bridge enable <bridge name>     Enable a bridge configuration
   konoha bridge disable <bridge name>    Disable a bridge configuration
+  konoha bridge stream-usage <name> [auto|always|never]
+                                         Allow this upstream to receive stream_options.include_usage
 
 Examples:
   konoha bridge start                     (Launch standalone bridge proxy on port ${GATEWAY_PORT})
@@ -145,6 +147,10 @@ async function cmdBridge(args) {
       break;
     case 'create':
       await cmdBridgeCreate(subArgs[0]);
+      break;
+    case 'stream-usage':
+    case 'set-stream-usage':
+      await cmdBridgeStreamUsage(subArgs[0], subArgs[1]);
       break;
     default:
       error(`Unknown bridge subcommand: ${subcommand}`);
@@ -265,19 +271,21 @@ async function cmdBridgeList() {
       providerLabel,
       b.enabled ? 'Enabled' : 'Disabled',
       active ? 'Running' : 'Stopped',
+      b.supportsStreamUsage === undefined ? 'Auto' : (b.supportsStreamUsage ? 'Always' : 'Never'),
       b.targetUrl || '-'
     ]);
   }
 
-  const headers = ['Name', 'Port', 'Provider', 'Configured Status', 'Runtime Status', 'Target URL'];
-  const widths = computeTableWidths(headers, rows, { minWidths: [15, 6, 12, 10, 10, 20] });
-  drawTable(headers, widths, ['left', 'left', 'left', 'left', 'left', 'left'], rows, [], RASENGAN_THEME, {
+  const headers = ['Name', 'Port', 'Provider', 'Configured Status', 'Runtime Status', 'Stream Usage', 'Target URL'];
+  const widths = computeTableWidths(headers, rows, { minWidths: [15, 6, 12, 10, 10, 8, 20] });
+  drawTable(headers, widths, ['left', 'left', 'left', 'left', 'left', 'left', 'left'], rows, [], RASENGAN_THEME, {
     columnFormatters: [
       (cell) => applyGradient(cell.trimEnd(), RASENGAN_THEME, 0.9) + cell.slice(cell.trimEnd().length),
       (cell) => cell,
       (cell) => cell,
       (cell) => cell.includes('Enabled') ? `${C.green}${cell}${C.reset}` : `${C.dim}${cell}${C.reset}`,
       (cell) => cell.includes('Running') ? `${C.green}${cell}${C.reset}` : `${C.red}${cell}${C.reset}`,
+      (cell) => cell,
       (cell) => cell
     ]
   });
@@ -550,6 +558,15 @@ async function cmdBridgeCreate(name) {
   const apiKey = await askQuestion('  API Key (required for most APIs): ');
   if (!apiKey?.trim()) { error('API Key is required.'); process.exit(1); }
 
+  // Some OpenAI-compatible servers validate unknown parameters and reject the
+  // whole request over stream_options, so the capability is explicit per bridge.
+  const usageAnswer = await askQuestion('  Send stream usage (stream_options.include_usage)? [auto/always/never, default auto]: ');
+  const streamUsage = parseStreamUsageAnswer(usageAnswer);
+  if (streamUsage === undefined) {
+    error('Invalid answer. Use auto, always, or never.');
+    process.exit(1);
+  }
+
   const newBridge = {
     name: bridgeName,
     port,
@@ -558,6 +575,7 @@ async function cmdBridgeCreate(name) {
     apiKey: apiKey.trim(),
     enabled: true
   };
+  if (streamUsage !== null) newBridge.supportsStreamUsage = streamUsage;
 
   if (!saveBridgeSqlite('upsert', newBridge)) {
     error(`Failed to create bridge "${bridgeName}".`);
@@ -565,7 +583,46 @@ async function cmdBridgeCreate(name) {
   }
   log('');
   success(`Bridge "${bridgeName}" created!`);
-  log(`  Provider : OpenAI Compatible\n`);
+  log(`  Provider : OpenAI Compatible\n  Stream usage: ${streamUsage === null ? 'auto (provider allowlist)' : (streamUsage ? 'always' : 'never')}\n`);
+}
+
+/** `null` = auto, `true`/`false` = explicit override, `undefined` = unparseable. */
+function parseStreamUsageAnswer(answer) {
+  const token = String(answer === undefined || answer === null ? '' : answer).trim().toLowerCase();
+  if (token === '' || token === 'auto' || token === '1') return null;
+  if (['always', 'on', 'true', 'yes', '2'].includes(token)) return true;
+  if (['never', 'off', 'false', 'no', '3'].includes(token)) return false;
+  return undefined;
+}
+
+async function cmdBridgeStreamUsage(name, mode) {
+  if (!name) {
+    error('Please specify a bridge name.');
+    log(`Usage: ${C.cyan}konoha bridge stream-usage <name> [auto|always|never]${C.reset}`);
+    process.exit(1);
+  }
+  let answer = mode;
+  if (answer === undefined) {
+    const bridges = loadBridges();
+    const bridge = bridges.find(b => b.name === name);
+    if (!bridge) { error(`Bridge "${name}" not found.`); process.exit(1); }
+    const current = bridge.supportsStreamUsage === undefined ? 'auto' : (bridge.supportsStreamUsage ? 'always' : 'never');
+    answer = await askQuestion(`  Send stream usage (stream_options.include_usage)? [auto/always/never, current: ${current}]: `);
+  }
+  const streamUsage = parseStreamUsageAnswer(answer);
+  if (streamUsage === undefined) {
+    error(`Unknown stream usage mode "${answer}". Use auto, always, or never.`);
+    process.exit(1);
+  }
+  let stored;
+  try {
+    stored = require('../../src/db_bridges').setStreamUsage(name, streamUsage);
+  } catch (err) {
+    error(err.message || 'Failed to update stream usage capability.');
+    process.exit(1);
+  }
+  const label = stored === null ? 'auto (provider allowlist)' : (stored ? 'always' : 'never');
+  success(`Stream usage for "${name}" set to ${label}.`);
 }
 
 
@@ -584,6 +641,7 @@ module.exports = {
   cmdBridgeEnable,
   cmdBridgeDisable,
   cmdBridgeCreate,
+  cmdBridgeStreamUsage,
   loadBridges,
   saveBridgeSqlite,
   checkPortActive,

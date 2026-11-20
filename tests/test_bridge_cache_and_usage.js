@@ -121,6 +121,79 @@ test('bridge no longer hardcodes zero usage', () => {
   assert.ok(src.includes('buildAnthropicUsage'), 'usage must derive from the upstream response');
 });
 
+test('translated usage carries provider counts and fails when counts are missing', () => {
+  const { openAIResponseToAnthropic } = require('../src/bridge/gateway_adapters');
+  const call = (upstream) => {
+    let body = null;
+    const res = { writeHead() {}, end(chunk) { body = JSON.parse(chunk); } };
+    openAIResponseToAnthropic(upstream, { model: 'm', msgId: 'x', res });
+    return body;
+  };
+  const upstreamWith = (usage) => ({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], ...(usage ? { usage } : {}) });
+
+  const reported = call(upstreamWith({ prompt_tokens: 1200, completion_tokens: 40, cached_tokens: 800 }));
+  assert.strictEqual(reported.usage.input_tokens, 1200);
+  assert.strictEqual(reported.usage.output_tokens, 40);
+  assert.strictEqual(reported.usage.cache_read_input_tokens, 800);
+
+  const measuredZero = call(upstreamWith({ prompt_tokens: 0, completion_tokens: 0 }));
+  assert.strictEqual(measuredZero.usage.input_tokens, 0, 'provider-measured zero must survive');
+  assert.strictEqual(measuredZero.usage.output_tokens, 0, 'provider-measured zero must survive');
+
+  // An incomplete or absent pair cannot satisfy the required schema fields, so
+  // the response is an Anthropic error rather than a `{}` usage object.
+  for (const [label, upstream] of [
+    ['absent', upstreamWith(null)],
+    ['partial', upstreamWith({ prompt_tokens: 15 })],
+    ['malformed', upstreamWith({ prompt_tokens: '12', completion_tokens: '4' })],
+    ['negative', upstreamWith({ prompt_tokens: NaN, completion_tokens: -5 })]
+  ]) {
+    const failed = call(upstream);
+    assert.strictEqual(failed.type, 'error', `${label}: must fail instead of emitting usage`);
+    assert.strictEqual(failed.usage, undefined, `${label}: no usage object on an error body`);
+  }
+});
+
+test('stream usage carries provider counts in message_delta and omits when unreported', () => {
+  const { openAIResponseToAnthropic } = require('../src/bridge/gateway_adapters');
+
+  const capture = (upstream) => {
+    const events = [];
+    const res = {
+      headersSent: false,
+      writeHead() { this.headersSent = true; },
+      write(chunk) { events.push(String(chunk)); },
+      end() {}
+    };
+    openAIResponseToAnthropic(upstream, { model: 'm', msgId: 'x', res, isStream: true });
+    return events.join('');
+  };
+
+  const parseEvents = (wire) => wire.split('\n\n').filter(Boolean).map((block) => {
+    const lines = block.split('\n');
+    const event = lines.find((l) => l.startsWith('event: '))?.slice(7);
+    const data = JSON.parse(lines.find((l) => l.startsWith('data: ')).slice(6));
+    return { event, data };
+  });
+
+  const reportedWire = capture({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 12, completion_tokens: 7 } });
+  const reported = parseEvents(reportedWire);
+  const start = reported.find((e) => e.event === 'message_start');
+  const delta = reported.find((e) => e.event === 'message_delta');
+  assert.strictEqual(start.data.message.usage.input_tokens, 12);
+  assert.strictEqual(start.data.message.usage.output_tokens, 7);
+  assert.strictEqual(delta.data.usage.input_tokens, 12);
+  assert.strictEqual(delta.data.usage.output_tokens, 7, 'message_delta must carry provider output count, not fabricated 0');
+
+  const absentWire = capture({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] });
+  const absent = parseEvents(absentWire);
+  assert.strictEqual(absent.length, 1, 'only an error event is emitted');
+  assert.strictEqual(absent[0].event, 'error');
+  assert.strictEqual(absent[0].data.type, 'error');
+  assert.strictEqual(absent.find((e) => e.event === 'message_start'), undefined, 'no message_start before usage is known');
+  assert.strictEqual(absent.find((e) => e.event === 'message_delta'), undefined, 'no schema-invalid message_delta');
+});
+
 console.log('prefix stability');
 
 test('tool order from the caller is preserved (no behaviour perturbation)', () => {

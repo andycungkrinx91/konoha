@@ -1043,7 +1043,8 @@
             ],
             "description": "Compute device preference; falls back to CPU when no GPU is available."
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     {
@@ -1288,6 +1289,9 @@
             "type": "string"
           },
           "dispatch_id": {
+            "type": "string"
+          },
+          "task_id": {
             "type": "string"
           },
           "validation": {

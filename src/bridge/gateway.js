@@ -90,6 +90,8 @@ function routeIncomingRequest(req, res, activeBridges) {
   }
   if (req.method === 'POST' && p === '/v1/messages/count_tokens') {
     readBody(req).catch(() => {});
+    // Liveness reply, not a measurement: no tokenizer exists here, and this 0
+    // is never persisted as provider usage.
     sendJson(res, 200, { input_tokens: 0 });
     return;
   }

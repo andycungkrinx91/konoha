@@ -179,10 +179,19 @@ function _resolveCorpusBaseline(conn, tool, query, returnedBytes) {
   }
 }
 
-function log(tool, query, returnedBytes, client = null, _baselineBytes = null) {
-  if (!client) {
-    client = detectActiveClient();
-  }
+/**
+ * Log a tool call.
+ * @param {string} tool
+ * @param {string} query
+ * @param {number} returnedBytes
+ * @param {string|{client?:string|null, usage?:object|null}|null} [opts]
+ *        A client id (legacy positional form) or `{ client, usage }`. `usage`
+ *        is only ever a provider payload; it is never derived from bytes.
+ */
+function log(tool, query, returnedBytes, opts = null) {
+  const fromOptions = opts && typeof opts === 'object' && !Array.isArray(opts);
+  const client = (fromOptions ? opts.client : opts) || detectActiveClient();
+  const usage = fromOptions ? (opts.usage ?? null) : null;
   const conn = getDb();
   try {
     const baseline = _calculateBaseline(conn, tool, query, returnedBytes);
@@ -190,10 +199,15 @@ function log(tool, query, returnedBytes, client = null, _baselineBytes = null) {
     const bytesSaved = Math.max(baseline - retBytes, 0);
     const tokensSaved = Math.floor(bytesSaved / 4);
 
-    conn.prepare(`
+    // Usage columns are written only from a provider payload. Absent that they
+    // stay NULL: `input_tokens IS NULL` is how a reader tells an unreported
+    // count from a measured zero.
+    const measured = require('./token_usage').normalizeUsage(usage);
+    const info = conn.prepare(`
       INSERT INTO tool_calls
-      (tool, query, returned_bytes, total_library_bytes, bytes_saved, tokens_saved, client)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      (tool, query, returned_bytes, total_library_bytes, bytes_saved, tokens_saved, client,
+       input_tokens, output_tokens, cached_tokens)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       String(tool || '').slice(0, 200),
       String(query || '').slice(0, 2000),
@@ -201,8 +215,12 @@ function log(tool, query, returnedBytes, client = null, _baselineBytes = null) {
       baseline,
       bytesSaved,
       tokensSaved,
-      String(client || 'unattributed').slice(0, 100)
+      String(client || 'unattributed').slice(0, 100),
+      measured.available ? measured.input_tokens : null,
+      measured.available ? measured.output_tokens : null,
+      measured.available ? measured.cache_read_input_tokens : null
     );
+    return info;
   } catch (_) {
     // Fail-open: telemetry logging must never crash the tool runtime
   }

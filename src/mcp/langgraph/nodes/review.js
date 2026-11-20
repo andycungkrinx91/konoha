@@ -157,6 +157,14 @@ function _delegationGuard(state, status, taskDir) {
   status.hitl_gate = null;
   if (taskDir) saveWorkflowStatus(taskDir, status);
 
+  const pendingSpawns = pendingTasks
+    .filter((t) => t.status === 'spawn_pending' && t.spawn_directive)
+    .map((t) => ({
+      task_id: t.id,
+      agent: t.agent || null,
+      spawn_state: t.spawn_state || 'directive_only',
+      spawn_directive: t.spawn_directive
+    }));
   const payload = {
     status,
     phase: 'execute',
@@ -164,11 +172,15 @@ function _delegationGuard(state, status, taskDir) {
     hitlStage: null,
     delegationPending: true,
     pending_task_ids: pendingTasks.map((t) => t.id),
+    // A slice the MCP runner only prepared a directive for has to be spawned by
+    // the client. Without handing the directive back here the run bounced
+    // dispatch -> review with no way to see what was waiting on it.
+    spawn_pending: pendingSpawns.length > 0 ? pendingSpawns : undefined,
     error: null,
   };
   return finalizeNodeResult(state, payload, 'node_dispatch', {
     resumeNode: 'node_dispatch',
-    source: { delegationPending: true, pending: payload.pending_task_ids },
+    source: { delegationPending: true, pending: payload.pending_task_ids, spawnPending: pendingSpawns.length },
   });
 }
 

@@ -208,47 +208,58 @@ function cleanObsoleteAgentDirs(_home = null) {
 function deployGlobalClientConfigs(options) {
   const { pythonCmd, serverPath, agents, projectRoot, deployProject, home } = options;
   const effectiveHome = home || process.env.HOME || process.env.USERPROFILE || os.homedir();
+  // One client failing must not stop the others, but it must not disappear
+  // either: swallowing every error made a half-deployed setup look complete.
+  const failures = [];
+  const run = (client, fn) => {
+    try { fn(); } catch (err) { failures.push({ client, error: err.message }); }
+  };
 
-  try {
-    mcpClientsManager.ensureClaudeCodeSetup({
-      pythonCmd, serverPath, silent: true,
-      ruleContent: generateClaudeCodeMd(agents), agents, projectRoot, deployProject, home: effectiveHome
-    });
-  } catch (_) { /* intentional best-effort fallback */ }
+  run('claudecode', () => mcpClientsManager.ensureClaudeCodeSetup({
+    pythonCmd, serverPath, silent: true,
+    ruleContent: generateClaudeCodeMd(agents), agents, projectRoot, deployProject, home: effectiveHome
+  }));
 
-  try {
-    const opencodeManager = require('./opencode_manager');
-    opencodeManager.ensureOpenCodeSetup({
-      pythonCmd, serverPath, agents, projectRoot, deployProject, silent: true, home: effectiveHome
-    });
-  } catch (_) { /* intentional best-effort fallback */ }
+  run('opencode', () => require('./opencode_manager').ensureOpenCodeSetup({
+    pythonCmd, serverPath, agents, projectRoot, deployProject, silent: true, home: effectiveHome
+  }));
 
-  try {
-    const codexManager = require('./codex_manager');
-    codexManager.ensureCodexSetup({
-      pythonCmd, serverPath, agents, projectRoot, deployProject, silent: true, home: effectiveHome
-    });
-  } catch (_) { /* intentional best-effort fallback */ }
+  run('codex', () => require('./codex_manager').ensureCodexSetup({
+    pythonCmd, serverPath, agents, projectRoot, deployProject, silent: true, home: effectiveHome
+  }));
 
-  try {
-    mcpClientsManager.ensureCommandCodeSetup({
-      pythonCmd, serverPath, agents, projectRoot, deployProject, silent: true, home: effectiveHome
-    });
-  } catch (_) { /* intentional best-effort fallback */ }
+  run('commandcode', () => mcpClientsManager.ensureCommandCodeSetup({
+    pythonCmd, serverPath, agents, projectRoot, deployProject, silent: true, home: effectiveHome
+  }));
 
-  try {
-    const piManager = require("./pi_manager");
+  run('pi', () => {
+    const piManager = require('./pi_manager');
     if (options.force || piManager.isPiInstalled()) {
       piManager.ensurePiSetup({ pythonCmd, serverPath, silent: true, home: effectiveHome, force: options.force, skipDetection: options.force });
     }
-  } catch (_) { /* intentional best-effort fallback */ }
+  });
 
-  try {
-    const ompManager = require("./omp_manager");
+  run('omp', () => {
+    const ompManager = require('./omp_manager');
     if (options.force || ompManager.isOmpInstalled()) {
       ompManager.ensureOmpSetup({ pythonCmd, serverPath, silent: true, home: effectiveHome, force: options.force });
     }
-  } catch (_) { /* intentional best-effort fallback */ }
+  });
+
+  let commands = null;
+  run('commands', () => {
+    commands = require('./client_commands').deployKonohaCommands({
+      home: effectiveHome,
+      projectRoot: deployProject ? projectRoot : null,
+      force: options.force
+    });
+  });
+
+  if (failures.length > 0) {
+    const detail = failures.map((f) => `${f.client}: ${f.error}`).join('; ');
+    process.stderr.write(`[konoha deploy] ${failures.length} client deployment(s) incomplete: ${detail}\n`);
+  }
+  return { failures, commands };
 }
 
 function regenerateAndDeploy(silentOrOptions = false) {
@@ -325,7 +336,7 @@ function regenerateAndDeploy(silentOrOptions = false) {
   } catch (_) { /* intentional fallback */ }
 
   cleanObsoleteAgentDirs(effectiveHome);
-  deployGlobalClientConfigs({ pythonCmd, serverPath, agents, projectRoot, deployProject, home: effectiveHome, force });
+  const deployment = deployGlobalClientConfigs({ pythonCmd, serverPath, agents, projectRoot, deployProject, home: effectiveHome, force });
 
   try {
     deployUtils.syncSoulAcrossClients({ home: effectiveHome, silent });
@@ -343,6 +354,7 @@ function regenerateAndDeploy(silentOrOptions = false) {
     } catch { /* intentional fallback */ }
   }
 
+  return { ok: deployment.failures.length === 0, failures: deployment.failures, commands: deployment.commands };
 }
 
 function deployProjectWorkspace(_projectRoot, _options = {}) {
@@ -360,6 +372,7 @@ module.exports = {
   stripLegacyKonohaPreamble,
   isProtectedUserPath,
   cleanObsoleteAgentDirs,
+  deployGlobalClientConfigs,
   regenerateAndDeploy,
   deployProjectWorkspace
 };

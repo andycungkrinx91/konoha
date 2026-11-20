@@ -218,7 +218,7 @@ function detectAllClientFlags(args) {
   const appendProject = Boolean(args.includes('--project'));
 
   return {
-    explicitSelection: Array.isArray(requestedClients) && requestedClients.length > 0,
+    explicitSelection: requestedClients !== null,
     requestedClients,
     deployProject,
     appendProject,
@@ -291,9 +291,8 @@ async function migrateExistingInstallation(options = {}) {
   }
 }
 
-async function promptInitializationConsent(args) {
-  const hasExplicitClient = Boolean(parseRequestedClients(args));
-  const isNonInteractive = hasExplicitClient || args.includes('--yes') || args.includes('-y') || process.env.CI === 'true';
+async function promptInitializationConsent(args, explicitSelection) {
+  const isNonInteractive = explicitSelection || args.includes('--yes') || args.includes('-y') || process.env.CI === 'true';
   if (isNonInteractive) return true;
   return await confirmPrompt('Initialize Konoha runtime and SQLite database (~/.konoha/)?', true);
 }
@@ -303,6 +302,18 @@ async function cmdInit(args, options = {}) {
     cmdInitHelp();
     return;
   }
+  // Validate an explicit client selection before anything has a side effect —
+  // before the `--force` cache purge, before the UI stop, before any write — so
+  // `--client=` or `--client=unknown` can never cause work before it fails.
+  let explicitSelection = false;
+  try {
+    explicitSelection = parseRequestedClients(args) !== null;
+  } catch (err) {
+    error(err.message);
+    process.exitCode = 1;
+    return;
+  }
+
   if (args.includes('--force')) {
     purgePackageCaches({ silent: true });
     try {
@@ -316,7 +327,7 @@ async function cmdInit(args, options = {}) {
   log(`${C.dim}MCP Tools Orchestrator for Antigravity, Cursor, Claude Code, OpenCode, Command Code, and Codex${C.reset}`);
   log(`${C.dim}Reduces token usage by 83-98% via on-demand skill search${C.reset}\n`);
 
-  const doInit = await promptInitializationConsent(args);
+  const doInit = await promptInitializationConsent(args, explicitSelection);
   if (!doInit) {
     warn('Initialization aborted.');
     return;

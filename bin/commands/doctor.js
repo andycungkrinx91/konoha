@@ -24,6 +24,7 @@ const { checkAndRepairClientConfigs } = require('./doctor_clients');
 const {
   checkDatabaseAndMigrations,
   checkGeminiAndAgentsConfig,
+  checkClientCommandsAndConflicts,
   checkPromptHookConfig,
   checkGovernanceAndServices,
   checkVpsPreflight
@@ -138,6 +139,7 @@ async function cmdDoctor(args = []) {
   await checkDatabaseAndMigrations(context);
   if (args.includes('--vps')) await checkVpsPreflight(context);
   checkGeminiAndAgentsConfig(context);
+  checkClientCommandsAndConflicts(context);
   await checkPromptHookConfig(context, globalSpinner);
 
   const clientRepairOptions = {

@@ -279,6 +279,7 @@ async function main() {
       autoReport: true
     });
     assert.strictEqual(geninRes.ok, true, `genin spawn failed: ${geninRes.error}`);
+    assert.strictEqual(geninRes.spawn_state, 'completed', 'a child that exited 0 must report spawn_state=completed');
     assert.ok(geninRes.child_pid && geninRes.child_pid !== process.pid, 'Must run in distinct OS child PID');
     assert.strictEqual(fs.realpathSync(geninRes.effective_cwd), fs.realpathSync(WORKTREE_GENIN));
     assert.strictEqual(geninRes.read_only_enforced, true);
@@ -304,6 +305,7 @@ async function main() {
     const piRes = await spawnSubagent({ agent: 'anbu', client: 'pi', piSubagentSupported: false, task: 'Should fail' });
     assert.strictEqual(piRes.ok, false);
     assert.strictEqual(piRes.error_code, 'UNSUPPORTED_NATIVE_SPAWN');
+    assert.strictEqual(piRes.spawn_state, 'directive_only', 'nothing was started, so it is not a failed run');
   });
 
   await check('4. Real executable harness binary execution, non-zero exit & ENOENT across 8 clients', async () => {
@@ -366,6 +368,7 @@ async function main() {
       assert.strictEqual(failRes.ok, false);
       assert.strictEqual(failRes.error_code, 'SPAWN_NONZERO_EXIT');
       assert.strictEqual(failRes.exit_code, 7);
+      assert.strictEqual(failRes.spawn_state, 'failed');
 
       const missingRes = await spawnSubagent({
         agent: 'anbu',
@@ -376,6 +379,7 @@ async function main() {
       });
       assert.strictEqual(missingRes.ok, false);
       assert.strictEqual(missingRes.error_code, 'HARNESS_BINARY_NOT_FOUND');
+      assert.strictEqual(missingRes.spawn_state, 'failed');
   });
 
   // Cancellation timing is a POSIX proof: on Windows the tree kill goes through
@@ -409,6 +413,7 @@ async function main() {
       assert.strictEqual(timeoutRes.ok, false);
       assert.strictEqual(timeoutRes.timed_out, true);
       assert.strictEqual(timeoutRes.error_code, 'SPAWN_TIMEOUT');
+      assert.strictEqual(timeoutRes.spawn_state, 'failed');
       assert.strictEqual(getActiveChildCount(), 0);
       const timedPid = Number(fs.readFileSync(timeoutMarker, 'utf8').trim());
       assert.strictEqual(await waitForPidExit(timedPid), true, `Timed-out child PID ${timedPid} must be dead`);
@@ -435,6 +440,7 @@ async function main() {
       assert.strictEqual(abortRes.ok, false);
       assert.strictEqual(abortRes.aborted, true);
       assert.strictEqual(abortRes.error_code, 'SPAWN_ABORTED');
+      assert.strictEqual(abortRes.spawn_state, 'failed');
       assert.strictEqual(getActiveChildCount(), 0);
       assert.strictEqual(await waitForPidExit(abortedPid), true, `Aborted child PID ${abortedPid} must be dead`);
     });
@@ -487,6 +493,16 @@ async function main() {
       assert.strictEqual(cliJson.status, 'parallel_completed');
       assert.strictEqual(cliJson.results.length, 2);
       assert.ok(cliJson.results.every((r) => r.auto_reported === true));
+      assert.ok(cliJson.results.every((r) => r.spawn_state === 'completed'),
+        'run-agent must surface the child spawn state it actually reached');
+
+      const cliFail = spawnSync(process.execPath, [
+        CLI_PATH, 'run-agent', '--agent', 'anbu', '--client', 'claude', '--task', 'CLI failure proof',
+        '--project-path', PROJECT_ROOT, '--task-dir', taskDir, '--execute',
+        '--harness-bin', makeMockHarness('cli_fail', `process.stderr.write('no\\n'); process.exit(4);`)
+      ], { encoding: 'utf8', env: process.env });
+      assert.strictEqual(cliFail.status, 1);
+      assert.strictEqual(JSON.parse(cliFail.stdout.trim()).spawn_state, 'failed', 'a failed CLI spawn must not report completion');
     });
   }
 

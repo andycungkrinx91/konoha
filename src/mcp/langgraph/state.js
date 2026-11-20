@@ -100,6 +100,11 @@ const KonohaWorkflowState = Annotation.Root({
   hitlRefinement: Annotation({ default: () => null }),
   autoSignoff: Annotation({ default: () => false }),
 
+  // Declared as channels or LangGraph drops them: the execute node ends the turn
+  // here when a slice only has a spawn directive, and the router reads the flag.
+  spawnPending: Annotation({ default: () => false }),
+  spawn_pending: Annotation({ default: () => null }),
+
   result: Annotation({ default: () => null }),
   error: Annotation({ default: () => null }),
 });

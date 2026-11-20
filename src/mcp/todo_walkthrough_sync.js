@@ -47,6 +47,10 @@ function normalizeTodoItems(tasks = [], status = {}) {
     if (rawStatus === 'completed' || rawStatus === 'done') mappedStatus = 'completed';
     else if (rawStatus === 'in_progress' || rawStatus === 'running') mappedStatus = 'in_progress';
     else if (['unverified', 'failed', 'rejected', 'blocked'].includes(rawStatus)) mappedStatus = rawStatus;
+    // `spawn_pending` is a real state, not a typo: the slice has a directive the
+    // client must run and is only completed by `report_from_agent`. Mapping it to
+    // `pending` here erased the marker on every sync and hid the waiting spawn.
+    else if (rawStatus === 'spawn_pending') mappedStatus = 'spawn_pending';
     const text = base.task || base.content || base.description || `Step ${idx + 1}`;
     return {
       ...base,
@@ -196,6 +200,9 @@ function applyAgentReportToTodos(workflowStatus, cleanAgent, dispatchId, finalSt
 
   if (finalStatus === 'completed' || finalStatus === 'unverified') {
     task.status = finalStatus;
+    // A report without passing validation evidence cannot have produced a
+    // finished child: `completed` requires the evidence gate to have passed.
+    task.spawn_state = finalStatus === 'completed' ? 'completed' : 'directive_only';
     task.result = updateData.summary || '';
     task.validation = updateData.validation || [];
     task.verified = updateData.verified;

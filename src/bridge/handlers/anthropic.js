@@ -7,6 +7,33 @@ const { extractAllImages } = require('../images');
 const { callRawInference } = require('../sidecar/raw');
 const { sanitizeRequest } = require('../sanitize');
 
+/**
+ * Anthropic wire usage for an inference result, or null when the provider did
+ * not report both counts. Lazy require keeps this module loadable on its own.
+ * The schema requires integer `input_tokens` and `output_tokens`, so an
+ * incomplete pair cannot be emitted as `{}` and must never become a zero.
+ */
+function usageWire(raw) {
+  const { buildAnthropicUsage, anthropicUsageWire } = require('../gateway_adapters');
+  const wire = anthropicUsageWire(buildAnthropicUsage(raw));
+  if (typeof wire.input_tokens !== 'number' || typeof wire.output_tokens !== 'number') return null;
+  return wire;
+}
+
+/** Persist provider-reported counts from this path; best-effort only. */
+function recordUsage(ctx, raw, stream) {
+  try {
+    const { recordProviderUsage, PROVIDER_USAGE_SOURCES } = require('../../provider_usage_logger');
+    recordProviderUsage({
+      source: PROVIDER_USAGE_SOURCES.GATEWAY,
+      usage: raw && raw.usage,
+      provider: (ctx.bridgeConfig && ctx.bridgeConfig.provider) || null,
+      model: ctx.requestedModel || null,
+      stream
+    });
+  } catch (_) { /* telemetry must never break a response */ }
+}
+
 // Map numeric model enum values → GetModelResponse string enum (same as chat.js)
 const VALUE_TO_MODEL_ENUM = {
   1018: 'MODEL_PLACEHOLDER_M18', // Flash
@@ -129,7 +156,7 @@ function extractAnthropicText(content) {
 
 // Anthropic SSE response builders
 
-function buildAnthropicMessage(id, model) {
+function buildAnthropicMessage(id, model, usage) {
   return {
     id: `msg_${id}`,
     type: 'message',
@@ -138,15 +165,52 @@ function buildAnthropicMessage(id, model) {
     content: [],
     stop_reason: null,
     stop_sequence: null,
-    usage: { input_tokens: 0, output_tokens: 0 },
+    usage,
   };
+}
+
+/** Open the SSE response without committing to a `message_start` yet. */
+function ensureAnthropicStreamHeaders(res) {
+  if (res.headersSent) return;
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.writeHead(200);
+}
+
+/**
+ * Fail the request in Anthropic's error shape. Before any response is written
+ * the stream still gets an `error` event, which the SDK yields verbatim; it
+ * must precede `message_start` because the accumulator rejects out-of-order
+ * events.
+ */
+function sendUsageUnavailable(res, isStream) {
+  const { USAGE_UNAVAILABLE_MESSAGE } = require('../gateway_adapters');
+  const body = { type: 'error', error: { type: 'api_error', message: USAGE_UNAVAILABLE_MESSAGE } };
+  if (isStream) {
+    ensureAnthropicStreamHeaders(res);
+    writeAnthropicEvent(res, 'error', body);
+    res.end();
+    return;
+  }
+  sendJson(res, 502, body);
 }
 
 function writeAnthropicEvent(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
-function streamRawAnthropicResponse(res, raw, responseText) {
+function streamRawAnthropicResponse(res, raw, responseText, msgId, model) {
+  const wireUsage = usageWire(raw);
+  if (!wireUsage) {
+    sendUsageUnavailable(res, true);
+    return;
+  }
+  ensureAnthropicStreamHeaders(res);
+  writeAnthropicEvent(res, 'message_start', {
+    type: 'message_start',
+    message: buildAnthropicMessage(msgId, model, wireUsage),
+  });
   if (raw.toolCalls && raw.toolCalls.length > 0) {
     for (let i = 0; i < raw.toolCalls.length; i++) {
       const tc = raw.toolCalls[i];
@@ -165,7 +229,7 @@ function streamRawAnthropicResponse(res, raw, responseText) {
     writeAnthropicEvent(res, 'message_delta', {
       type: 'message_delta',
       delta: { stop_reason: 'tool_use', stop_sequence: null },
-      usage: { output_tokens: 0 },
+      usage: wireUsage,
     });
   } else {
     writeAnthropicEvent(res, 'content_block_start', {
@@ -184,7 +248,7 @@ function streamRawAnthropicResponse(res, raw, responseText) {
     writeAnthropicEvent(res, 'message_delta', {
       type: 'message_delta',
       delta: { stop_reason: 'end_turn', stop_sequence: null },
-      usage: { output_tokens: 0 },
+      usage: wireUsage,
     });
   }
   writeAnthropicEvent(res, 'message_stop', { type: 'message_stop' });
@@ -201,6 +265,11 @@ function sendNonStreamAnthropicResponse(res, raw, responseText, msgId, modelKey)
     }
   }
   if (responseText) content.push({ type: 'text', text: responseText });
+  const wireUsage = usageWire(raw);
+  if (!wireUsage) {
+    sendUsageUnavailable(res, false);
+    return;
+  }
   sendJson(res, 200, {
     id: `msg_${msgId}`,
     type: 'message',
@@ -209,7 +278,7 @@ function sendNonStreamAnthropicResponse(res, raw, responseText, msgId, modelKey)
     content,
     stop_reason: raw.toolCalls ? 'tool_use' : 'end_turn',
     stop_sequence: null,
-    usage: { input_tokens: 0, output_tokens: 0 },
+    usage: wireUsage,
   });
 }
 
@@ -308,14 +377,7 @@ async function handleAnthropicMessages(ctx, req, res) {
 
   const initiateStream = () => {
     if (isStream && !headersSentForStream) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.writeHead(200);
-      writeAnthropicEvent(res, 'message_start', {
-        type: 'message_start',
-        message: buildAnthropicMessage(msgId, resolved.key),
-      });
+      ensureAnthropicStreamHeaders(res);
       headersSentForStream = true;
     }
   };
@@ -344,10 +406,11 @@ async function handleAnthropicMessages(ctx, req, res) {
     }
     const responseText = raw.content || '';
     log(ctx, `✅ [Anthropic] Raw inference succeeded (${responseText.length} chars)`);
+    recordUsage(ctx, raw, isStream);
 
     if (isStream) {
       initiateStream();
-      streamRawAnthropicResponse(res, raw, responseText);
+      streamRawAnthropicResponse(res, raw, responseText, msgId, resolved.key);
     } else {
       sendNonStreamAnthropicResponse(res, raw, responseText, msgId, resolved.key);
     }
@@ -362,8 +425,9 @@ async function handleAnthropicMessages(ctx, req, res) {
 }
 
 // POST /v1/messages/count_tokens  (mock)
-// Claude CLI and Cherry Studio send this before every conversation.
-// Return a plausible mock so they don't abort.
+// Claude CLI and Cherry Studio send this before every conversation and only
+// check that it answers; no tokenizer exists here. The 0 is a liveness reply,
+// not a provider measurement, and is never persisted as usage.
 
 async function handleCountTokens(ctx, req, res) {
   // Consume the body so the socket stays clean
@@ -379,15 +443,16 @@ async function handleCountTokens(ctx, req, res) {
 // Anthropic format adapter for OpenAI provider
 // Converts Anthropic → OpenAI → callRawInference → Anthropic response
 
-function streamAnthropicToOpenAi(res, responseText, msgId, model) {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.writeHead(200);
+function streamAnthropicToOpenAi(res, responseText, msgId, model, usage) {
+  if (!usage) {
+    sendUsageUnavailable(res, true);
+    return;
+  }
+  ensureAnthropicStreamHeaders(res);
 
   writeAnthropicEvent(res, 'message_start', {
     type: 'message_start',
-    message: buildAnthropicMessage(msgId, model),
+    message: buildAnthropicMessage(msgId, model, usage),
   });
   writeAnthropicEvent(res, 'content_block_start', {
     type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' },
@@ -398,7 +463,7 @@ function streamAnthropicToOpenAi(res, responseText, msgId, model) {
   writeAnthropicEvent(res, 'content_block_stop', { type: 'content_block_stop', index: 0 });
   writeAnthropicEvent(res, 'message_delta', {
     type: 'message_delta', delta: { stop_reason: responseText ? 'end_turn' : 'tool_use', stop_sequence: null },
-    usage: { output_tokens: 0 },
+    usage,
   });
   writeAnthropicEvent(res, 'message_stop', { type: 'message_stop' });
   res.end();
@@ -420,13 +485,17 @@ async function handleAnthropicToOpenAi(ctx, req, res, ...rest) {
     if (!raw || (!raw.content && !raw.toolCalls)) throw new Error('Empty response');
 
     const responseText = raw.content || '';
+    recordUsage(ctx, raw, isStream);
     if (isStream) {
-      streamAnthropicToOpenAi(res, responseText, msgId, ctx.requestedModel);
+      streamAnthropicToOpenAi(res, responseText, msgId, ctx.requestedModel, usageWire(raw));
     } else {
       sendNonStreamAnthropicResponse(res, raw, responseText, msgId, ctx.requestedModel);
     }
   } catch (err) {
-    sendJson(res, 500, { type: 'error', error: { type: 'api_error', message: err.message } });
+    // A stream may already have written headers and pings, so a JSON body here
+    // would be a second, invalid response on the same connection.
+    const { sendAnthropicErrorResponse } = require('../gateway_adapters');
+    sendAnthropicErrorResponse(res, 500, 'api_error', err.message, isStream);
   }
 }
 

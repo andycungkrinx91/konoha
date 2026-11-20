@@ -82,6 +82,7 @@ overrides:
 patchedDependencies:
   "cfb@1.2.2": "patches/cfb@1.2.2.patch"
   "docx@9.14.0": "patches/docx@9.14.0.patch"
+  gpt-tokenizer@4.1.0: patches/gpt-tokenizer@4.1.0.patch
   "jszip@3.10.2": "patches/jszip@3.10.2.patch"
   picomatch@4.0.7: patches/picomatch@4.0.7.patch
   "playwright-core@1.64.1": "patches/playwright-core@1.64.1.patch"

@@ -15,6 +15,13 @@
  * parked gate with no `hitl_gate`/`picker`/`choices` to answer. A gate envelope
  * is now the only proof of a parked gate, and a budget pause resumes instead of
  * being handed back to the caller.
+ *
+ * Third defect pinned here: an answered Gate 1 was reported as `routed`, which
+ * told the caller a subagent had been dispatched when nothing had run. The
+ * honest envelope is `spawn_pending` plus a directive, and the workflow only
+ * advances once `report_from_agent` records the slice. The report evidence below
+ * is synthetic on purpose — this suite pins the envelope → report → resume
+ * transition; real child execution is pinned by test_subagent_spawning_p0.js.
  */
 
 const assert = require('node:assert/strict');
@@ -47,15 +54,19 @@ const server = require(path.join(REPO, 'src', 'file_tools_mcp.js'));
 
 let nextId = 1;
 
-async function sannin(args) {
+async function callTool(name, args) {
   const res = await server.handleToolCall(nextId++, {
-    name: 'sannin',
+    name,
     arguments: JSON.stringify(args),
   });
   const text = res.result.content[0].text;
   const parsed = JSON.parse(text);
-  assert.ok(!parsed.error, `sannin failed: ${text.slice(0, 400)}`);
+  assert.ok(!parsed.error, `${name} failed: ${text.slice(0, 400)}`);
   return parsed;
+}
+
+async function sannin(args) {
+  return callTool('sannin', args);
 }
 
 async function run() {
@@ -74,8 +85,41 @@ async function run() {
   assert.ok(gate1.langgraph_checkpoint && gate1.langgraph_checkpoint.graph_phase === 'plan');
   assert.ok(gate1.task_dir, 'task_dir is required to answer the gate');
 
-  const gate2 = await sannin({ prompt, task_dir: gate1.task_dir, choice: '1' });
-  assert.equal(gate2.status, 'awaiting_human', 'an answered Gate 1 must park on Gate 2, not pause on the token budget');
+  // The MCP transport cannot spawn a child: the graph ends the turn with a spawn
+  // directive and the caller runs it. Reporting the result back is what resumes the
+  // workflow, so this is the sequence a real client performs. The report evidence
+  // here is synthetic on purpose — this suite pins the envelope → report → resume
+  // transition, and real child execution is pinned by test_subagent_spawning_p0.js.
+  const SYNTHETIC_EVIDENCE = 'transport fixture, no command executed: synthetic exit 0 marker';
+  async function spawnAndReport(awaiting, taskDir, label) {
+    assert.equal(awaiting.status, 'spawn_pending', `${label} must hand the caller a spawn directive, not claim a parked gate`);
+    assert.equal(awaiting.next_action, 'spawn_and_report');
+    assert.equal(awaiting.resume_node, 'node_execute');
+    assert.ok(!awaiting.hitlStage, `${label} must not report a gate that was never reached`);
+    assert.ok(awaiting.instructions === undefined, `${label} must not claim a spawned child`);
+    const pending = awaiting.spawn_pending;
+    assert.ok(Array.isArray(pending) && pending.length > 0, `${label} must name the slices to spawn`);
+    for (const slice of pending) {
+      assert.ok(slice.task_id, `${label} slice must carry its task id`);
+      assert.ok(typeof slice.spawn_directive === 'string' && slice.spawn_directive.length > 0, `${label} slice must carry the directive to run`);
+      const report = await callTool('report_from_agent', {
+        task_dir: taskDir,
+        agent_name: slice.agent || 'kage',
+        task_id: slice.task_id,
+        summary: 'Transport fixture: delegated slice recorded with tests; nothing was spawned or run.',
+        validation: [SYNTHETIC_EVIDENCE]
+      });
+      assert.equal(report.task_status, 'completed', `a report with validation evidence must complete ${slice.task_id}`);
+      assert.equal(report.verified, true, `a report with validation evidence must verify ${slice.task_id}`);
+    }
+    return pending;
+  }
+
+  const gate2Pending = await sannin({ prompt, task_dir: gate1.task_dir, choice: '1' });
+  await spawnAndReport(gate2Pending, gate1.task_dir, 'an answered Gate 1');
+
+  const gate2 = await sannin({ prompt, task_dir: gate1.task_dir });
+  assert.equal(gate2.status, 'awaiting_human', 'a reported slice must advance to Gate 2, not pause on the token budget');
   assert.equal(gate2.hitlStage, 'gate2');
   assert.ok(gate2.hitl_gate, 'Gate 2 payload must name the gate');
   assert.ok(gate2.picker && gate2.picker.transport, 'Gate 2 must carry a picker binding');
@@ -91,11 +135,31 @@ async function run() {
   assert.ok(done.akatsuki_gate, 'the sign-off response must carry the Akatsuki verdict');
   assert.ok(done.report, 'the sign-off response must carry the report');
 
+  // A report without validation evidence must never verify. This is the other half
+  // of the spawn contract: the caller may report, but only evidence completes a slice.
+  const noEvidenceG1 = await sannin({ prompt: 'Build evidence-free report guard with tests', project_path: workspace, session_id: 'transport-no-evidence' });
+  assert.equal(noEvidenceG1.hitlStage, 'gate1');
+  const noEvidencePending = await sannin({ prompt: 'Build evidence-free report guard with tests', task_dir: noEvidenceG1.task_dir, choice: '1' });
+  assert.equal(noEvidencePending.status, 'spawn_pending');
+  const noEvidenceSlice = noEvidencePending.spawn_pending[0];
+  const bareReport = await callTool('report_from_agent', {
+    task_dir: noEvidenceG1.task_dir,
+    agent_name: noEvidenceSlice.agent || 'kage',
+    task_id: noEvidenceSlice.task_id,
+    summary: 'Transport fixture: evidence-free report guard recorded without tests.'
+  });
+  assert.equal(bareReport.verified, false, 'a report with no validation evidence must not verify');
+  assert.equal(bareReport.task_status, 'unverified', 'a report with no validation evidence must be recorded unverified');
+  const afterBare = await sannin({ prompt: 'Build evidence-free report guard with tests', task_dir: noEvidenceG1.task_dir });
+  assert.notEqual(afterBare.status, 'completed', 'an unverified report must not complete the workflow');
+
   // Security: auto_signoff: true over MCP sannin must NEVER bypass Gate 2 when hitl_mode is enabled
   const lockedG1 = await sannin({ prompt: 'Build locked HITL delivery module with tests', project_path: workspace, session_id: 'transport-hitl-lock', auto_signoff: true });
   assert.equal(lockedG1.status, 'awaiting_human');
   assert.equal(lockedG1.hitlStage, 'gate1');
-  const lockedG2 = await sannin({ prompt: 'Build locked HITL delivery module with tests', task_dir: lockedG1.task_dir, choice: '1', auto_signoff: true });
+  const lockedPending = await sannin({ prompt: 'Build locked HITL delivery module with tests', task_dir: lockedG1.task_dir, choice: '1', auto_signoff: true });
+  await spawnAndReport(lockedPending, lockedG1.task_dir, 'an answered locked Gate 1');
+  const lockedG2 = await sannin({ prompt: 'Build locked HITL delivery module with tests', task_dir: lockedG1.task_dir, auto_signoff: true });
   assert.equal(lockedG2.status, 'awaiting_human', 'Gate 2 must remain enforced when hitl_mode is enabled even if auto_signoff=true');
   assert.equal(lockedG2.hitlStage, 'gate2');
 
@@ -144,6 +208,7 @@ async function run() {
   // Security (M3): a single-turn direct_subagent call supplying hitlChoice='1' when hitl_mode='enabled'
   // must park at Gate 2 instead of signing off without Gate 2 ever having been entered.
   const { runKonohaGraph } = require(path.join(REPO, 'src', 'mcp', 'langgraph'));
+  const { setSliceExecutor, clearSliceExecutor } = require(path.join(REPO, 'src', 'mcp', 'langgraph', 'slice_executor_registry'));
   const m3TaskDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-m3-direct-gate2-'));
   try {
     fs.writeFileSync(path.join(m3TaskDir, 'status.json'), JSON.stringify({
@@ -154,13 +219,25 @@ async function run() {
       ai_slop_findings: 0,
       akatsuki_gate: { decision: 'passed', passed: true }
     }, null, 2), 'utf8');
+    const m3ThreadId = `m3-direct-${Date.now()}`;
+    // The stale hitlChoice is the thing under test, not spawning: a graph that
+    // stopped at spawn_pending would never reach the Gate 2 decision at all. This
+    // executor stands in for the client that runs the slice; the call count below
+    // proves it actually ran instead of being silently ignored.
+    let m3Executions = 0;
+    setSliceExecutor(m3ThreadId, async (task) => {
+      m3Executions += 1;
+      return { task_id: task.id, status: 'completed', summary: `Checked ${task.id}`, child_execution_verified: true };
+    });
     const m3Res = await runKonohaGraph({
       prompt: '/anbu Check auth flow',
       projectPath: workspace,
       taskDir: m3TaskDir,
       hitlChoice: '1',
-      threadId: `m3-direct-${Date.now()}`
+      threadId: m3ThreadId
     });
+    clearSliceExecutor(m3ThreadId);
+    assert.ok(m3Executions > 0, 'the stand-in executor must have run the slice for Gate 2 to be reachable');
     assert.equal(m3Res.hitlPending, true, 'Turn-1 direct_subagent with stale hitlChoice must still park on Gate 2 when HITL is enabled');
     assert.equal(m3Res.hitlStage, 'gate2');
     assert.ok(!m3Res.status || !m3Res.status.human_signed_off, 'human_signed_off must remain false before Gate 2 was presented');

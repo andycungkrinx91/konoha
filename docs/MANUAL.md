@@ -1,25 +1,25 @@
 # Konoha — Operator's Manual
 
-**Version of record: 2.2.23**
+**Version of record: 2.2.24**
 
 | Field | Value |
 |---|---|
-| Manual version | 2.2.23 |
-| Code reference | `package.json` version `2.2.23` on `security/fix-socket-alerts`, tagged `v2.2.23` when the release is cut |
-| Distribution status | **2.2.23 unreleased** — npm `konoha-mcp` latest is `2.2.22`; `2.2.23` is not published |
+| Manual version | 2.2.24 |
+| Code reference | `package.json` version `2.2.24` on `fix/socket-score`, tagged `v2.2.24` when the release is cut |
+| Distribution status | **2.2.24 unreleased** — npm `konoha-mcp` latest is `2.2.22`; `2.2.24` is not published |
 | Verified on | Linux x86_64, Node.js 24.22.2, non-root user, isolated `HOME`; Windows via dockur/QEMU VM and the `windows-latest` CI leg |
 | Audience | developers installing and operating Konoha on their own machine |
 
 The command transcripts in this manual were collected against a clean 2.2.20 installation, which is the same operator
-surface; 2.2.23 adds the supply-chain hardening recorded in `CHANGELOG.md` (no dynamic-execution sink in the packed
-tarball, no `lodash`). Its suite run on this host through `tests/run_all.js` reports 313 passed / 8 failed; all eight failures
+surface; 2.2.23 added the supply-chain hardening recorded in `CHANGELOG.md` (no dynamic-execution sink in the packed
+tarball, no `lodash`), and 2.2.24 adds provider-reported usage measurement alongside the existing byte-derived estimates. Its suite run on this host through `tests/run_all.js` reports 313 passed / 8 failed; all eight failures
 reproduce unmodified at the branch base, where they assert `ready` while this environment can only report
 `unsupported_native_spawn`, so they are environmental and not regressions. The transcripts below were not re-run for the
 bump. Whenever a statement rests on source
 inspection rather than live execution, or when a platform constraint prevented exercising a path directly, the text names
 the exact file, line, and substitute evidence.
 
-Because 2.2.23 is not on the registry, the install path in this manual is *from source*, not `npm install -g`.
+Because 2.2.24 is not on the registry, the install path in this manual is *from source*, not `npm install -g`.
 Section 2.6 gives the exact commands.
 
 ## Surfaces and their legend
@@ -82,7 +82,7 @@ the "83–98%" figure in the CLI banner actually covers.
 
 ### 1.2 The two MCP servers
 
-`konoha` init writes two stdio MCP servers into each harness config. Code search runs in-process rather than as a separate server: `konoha` indexes repositories into its SQLite `code_*` tables (added in schema v6/v7; current DB schema is v8) using 10 Tree-sitter WASM grammars across 9 AST languages (JS, TS/TSX, Python, Go, Rust, C, C++, Bash/Shell, SQL) with lexical fallback for 7 additional languages (PHP, Ruby, Kotlin, Swift, Dart, Elixir, Zig) plus 4 structured document/config formats (Markdown, JSON, YAML, TOML; excluding Java, C#, and Lua), combined with FTS5, Granite 97M / MiniLM L-6 semantic retrieval, and complementary stdio JSON-RPC LSP enrichment. The 8 native code tools (`code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove`, `code_related`) and async `@genin` / `@sannin` dispatch paths surface provenance (`parser`, `heuristic`, `lsp`, `unresolved`), extraction confidence, content hashes, and root snapshot consistency.
+`konoha` init writes two stdio MCP servers into each harness config. Code search runs in-process rather than as a separate server: `konoha` indexes repositories into its SQLite `code_*` tables (added in schema v6/v7; current DB schema is v9) using 10 Tree-sitter WASM grammars across 9 AST languages (JS, TS/TSX, Python, Go, Rust, C, C++, Bash/Shell, SQL) with lexical fallback for 7 additional languages (PHP, Ruby, Kotlin, Swift, Dart, Elixir, Zig) plus 4 structured document/config formats (Markdown, JSON, YAML, TOML; excluding Java, C#, and Lua), combined with FTS5, Granite 97M / MiniLM L-6 semantic retrieval, and complementary stdio JSON-RPC LSP enrichment. The 8 native code tools (`code_index`, `code_search`, `code_symbol`, `code_context`, `code_impact`, `code_status`, `code_remove`, `code_related`) and async `@genin` / `@sannin` dispatch paths surface provenance (`parser`, `heuristic`, `lsp`, `unresolved`), extraction confidence, content hashes, and root snapshot consistency.
 
 | Server | Launched as | Role |
 |---|---|---|
@@ -138,9 +138,9 @@ All state stays on your machine. Outbound network traffic occurs only when you e
 
 ### 1.5 What this manual does not cover
 
-- The Web UI `/3d` route. It exists in the router but is excluded from the documented route set for 2.2.23.
+- The Web UI `/3d` route. It exists in the router but is excluded from the documented route set for 2.2.24.
 - 3D asset generation (Yamanaka) beyond its CLI surface.
-- Anything released after 2.2.23.
+- Anything released after 2.2.24.
 - Fixes for defects found during verification. Chapter 13 records the defects; the manual documents behaviour as it
   is, not as it should be.
 
@@ -153,13 +153,13 @@ All state stays on your machine. Outbound network traffic occurs only when you e
 | Node.js | **>= 24.0.0** (hard `engines` gate) | everything | `node -v` |
 | npm | any version bundled with Node 24 | installing the package, launching the `aislop` server via `npx` | `npm -v` |
 | `uv` / `uvx` | current | optional; the `aislop` server prefers `uvx` when present | `uvx --version` |
-| git | any | installing 2.2.23 from source | `git --version` |
+| git | any | installing 2.2.24 from source | `git --version` |
 | disk | ~600 MB free | 386 MB installed package + 193 MB `~/.konoha` after `init` | `df -h ~` |
 
 Measured on a clean 2.2.22 install: unpacked package **386 MB**, `~/.konoha` after `init` **193 MB** (16.3 MB of that
 is the SQLite database), packed tarball **114.3 MB**.
 
-Node 23 or older fails the engine gate at install time. There is no shim for older runtimes in 2.2.23.
+Node 23 or older fails the engine gate at install time. There is no shim for older runtimes in 2.2.24.
 
 ### 2.2 The install rule
 
@@ -175,7 +175,7 @@ npm install -g konoha-mcp@<version>
 konoha init
 ```
 
-For 2.2.23 specifically neither form works from the registry: `konoha-mcp@2.2.23` is not published — only `2.2.22` is.
+For 2.2.24 specifically neither form works from the registry: `konoha-mcp@2.2.24` is not published — only `2.2.22` is.
 Use section 2.6.
 
 ### 2.3 Linux (non-root)
@@ -201,7 +201,7 @@ install with `sudo`. This manual's verification install used an isolated `HOME` 
 is the same mechanism without touching an existing npm setup:
 
 ```bash
-HOME=/tmp/knh/home npm i -g --prefix /tmp/knh/prefix konoha-mcp-2.2.23.tgz
+HOME=/tmp/knh/home npm i -g --prefix /tmp/knh/prefix konoha-mcp-2.2.24.tgz
 # added 39 packages in 12s
 # /tmp/knh/prefix/bin/konoha -> ../lib/node_modules/konoha-mcp/bin/cli.js
 ```
@@ -227,7 +227,7 @@ npm install -g konoha-mcp@<version>
 konoha version
 ```
 
-Verification scope, stated plainly: **this manual's 2.2.23 evidence comes from Linux x86_64 on a host, plus Windows
+Verification scope, stated plainly: **this manual's 2.2.24 evidence comes from Linux x86_64 on a host, plus Windows
 inside the dockur/QEMU VM and the `windows-latest` CI leg.** The Windows commands above were executed there, not on
 physical Windows hardware and not on Docker Desktop for Windows, so confirm with `konoha status` after installing and
 report anything that differs.
@@ -236,21 +236,21 @@ What does back those platforms is the CI matrix, not this manual alone: `.github
 install, lint, sharded suite (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 4 shards), and fresh-install smoke step on `ubuntu-latest`, `windows-latest`, and `macos-latest` for every push and pull
 request, on manual dispatch, and nightly at 02:00 UTC. Locally, all three environments have a verification path: Linux (`pnpm test:sandbox` / `pnpm ci:act`), Windows (`docker/windows-vm/oem/run-ci.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` for the clean-room container gate on Apple silicon, plus native replay on a Mac or the symlinked-`HOME` proxy on Linux; see `docs/CI.md`).
 
-### 2.6 Installing 2.2.23 from source
+### 2.6 Installing 2.2.24 from source
 
-The published registry stops at 2.2.22, so 2.2.23 must be built and installed locally. From a clone:
+The published registry stops at 2.2.22, so 2.2.24 must be built and installed locally. From a clone:
 
 ```bash
 git clone <repo> konoha && cd konoha
-git checkout security/fix-socket-alerts   # the tree this manual describes
-pnpm pack                             # produces konoha-mcp-2.2.23.tgz, ~35 MB measured
-npm install -g ./konoha-mcp-2.2.23.tgz
-konoha version                        # Current Version: 2.2.23
+git checkout fix/socket-score   # the tree this manual describes
+pnpm pack                             # produces konoha-mcp-2.2.24.tgz, ~35 MB measured
+npm install -g ./konoha-mcp-2.2.24.tgz
+konoha version                        # Current Version: 2.2.24
 ```
 
 `pnpm pack` uses the package's own `files` list (27 entries) and bundles `cfb`, `pptxgenjs`, and `xlsx-populate` (so the patched `cfb` ships inside the tarball rather than falling back to an unpatched top-level copy), which is why the tarball is large and why an offline `npm install -g` of the tarball works without a further fetch (`npm pack` fails on a pnpm-installed workspace once `bundleDependencies` is set).
 
-`konoha upgrade` cannot help you here: it resolves from the registry, finds no 2.2.23, and aborts without touching the
+`konoha upgrade` cannot help you here: it resolves from the registry, finds no 2.2.24, and aborts without touching the
 existing install (12.1 documents the exact output).
 
 ### 2.7 Verify the install
@@ -265,7 +265,7 @@ konoha test          # exercises the MCP tool surface end to end
 `All tests passed`.
 
 One caveat about `konoha version`: it also performs a registry freshness check, and on an unpublished build the
-message "You are already running the latest version" is misleading — 2.2.23 is newer than the registry, not equal to
+message "You are already running the latest version" is misleading — 2.2.24 is newer than the registry, not equal to
 it. Do not use it as proof of freshness (13.1).
 
 ## 3. First run
@@ -318,11 +318,11 @@ konoha init --yes
 Measured on a clean install: **166.82 s** end to end. What it produced:
 
 - ten skill roots, seventeen skills each, plus `~/.agents/agents.yaml`
-- `~/.konoha/konoha.db`, 16.3 MB, measured in that 2.2.20 install (`CURRENT_SCHEMA_VERSION = 9` on the current v2.2.23 tree adds `memory_audit_events` and `memory_relations` for `45` base tables: `33` declared + `12` FTS5 shadow tables, including native code intelligence)
+- `~/.konoha/konoha.db`, 16.3 MB, measured in that 2.2.20 install (`CURRENT_SCHEMA_VERSION = 9` on the current v2.2.24 tree adds `memory_audit_events`, `memory_relations`, and `provider_usage` for `46` base tables: `34` declared + `12` FTS5 shadow tables, including native code intelligence)
 - harness configs for Antigravity, Cursor and OMP among others, each written with a SHA-256-verified backup of the
   previous file
 - the prebuilt Web UI extracted to `~/.konoha/apps/web`
-- a Web UI listener started at `http://127.0.0.1:1404/` (in that 2.2.20 run; in 2.2.23, `konoha ui start` is strictly manual per Section 5.6)
+- a Web UI listener started at `http://127.0.0.1:1404/` (in that 2.2.20 run; in 2.2.24, `konoha ui start` is strictly manual per Section 5.6)
 
 If you want a narrow install that touches only one harness:
 
@@ -973,13 +973,41 @@ konoha init --client=codex
 
 Selecting a single client updates only that target harness. Passing `--client=all` refreshes every detected harness, `CI=true` forces non-interactive execution without `--yes`, and every modified file is backed up under `~/.konoha/backups/configs/<client>/global/<timestamp>-<sha>-<file>.bak` (older `.back` siblings in `$HOME` come from earlier installers). Remove those older `.back` files once the updated configuration is verified.
 
-### 9.5 Project-level versus global
+### 9.5 Slash commands (`/konoha` and the agent shorthands)
+
+Init also writes a `/konoha` prompt file into every client whose prompt directory it can confirm. The file is a
+template the client expands with your argument, not a server route:
+
+| Client | Prompt file |
+|---|---|
+| [CC] | `~/.claude/commands/konoha.md` |
+| Cursor | `~/.cursor/commands/konoha.md` |
+| OpenCode | `~/.config/opencode/command/konoha.md` (project: `.opencode/command/`) |
+| Command Code | `~/.commandcode/commands/konoha.md` |
+| Codex and OMP | `~/.codex/prompts/konoha.md` (one file serves both) |
+
+A client whose config root is absent is skipped and named in `konoha doctor` under *Slash Command Coverage*;
+nothing is created for it. Pi and Antigravity are reported as unsupported there — Pi loads commands only through
+its extension packaging, and Antigravity has no prompt directory. A `konoha.md` you wrote yourself is never
+overwritten; the deployer leaves it alone and says so. Ownership is the `generated_by: konoha` line in the file's
+frontmatter, not the body text, so editing the body does not turn your own copy into a user-owned file, and quoting
+the template in a file of your own does not make it Konoha's.
+
+`--project` also writes the command into the repository, using the project form of the same directory for each
+client: `.claude/commands/`, `.cursor/commands/`, `.opencode/command/`, `.commandcode/commands/`, and
+`.codex/prompts/` under the repository root. The project copy is gated on the same signal as the global one — the
+client's own config root must exist — so a repository never receives a command file for a client you do not run.
+`--client=<name>` narrows both scopes. Init reports the two scopes separately, as `claudecode` and
+`claudecode (project)`. Pi and Antigravity have no prompt directory Konoha can write to, so selecting only one of
+them installs no command and says why.
+
+### 9.6 Project-level versus global
 
 `--project` writes rules into the current repository instead of the home directory, which is how you make one
 repository use a different rule set. `--no-project` suppresses it. Never run the project form inside a repository you
 do not want modified — including this one, which is why this manual's own verification ran out-of-tree.
 
-### 9.6 The MCP servers
+### 9.7 The MCP servers
 
 `konoha status` reports two registrations per client — `konoha` and `aislop`. [CC]'s `~/.claude.json`
 carries both, and Antigravity receives 58 tool schemas (56 canonical + 2 deprecated aliases) under `~/.gemini/antigravity-cli/mcp/konoha/`.
@@ -1116,7 +1144,7 @@ flowchart LR
 
 ### 10.5 Data layer
 
-`node:sqlite` from Node 24, no native module to compile. WAL mode, 45 base tables (33 declared + 12 FTS5 shadow tables, excluding extension-owned `_sqliteai_vector` when loaded) in a fresh v8 install, and three storage
+`node:sqlite` from Node 24, no native module to compile. WAL mode, 46 base tables (34 declared + 12 FTS5 shadow tables, excluding extension-owned `_sqliteai_vector` when loaded) in a fresh v9 install, and three storage
 patterns you will meet:
 
 - **Relational tables** — persistent state (`skills`, `skill_chunks`, `agents`, `soul_archetypes`, `projects`, `persona_memories`, `sdlc_tasks`, `tool_calls`, `telegram_config`)
@@ -1346,6 +1374,38 @@ FROM tool_calls GROUP BY tool ORDER BY 3 DESC;
 `SUM(bytes_saved)` is dominated by one tool type, or by rows where `returned_bytes` was tiny against a large baseline,
 you are looking at the sizing effect described in 12.1 rather than a retrieval strategy that worked.
 
+### 12.7 The constant tax, measured
+
+Savings are half the ledger. The other half is what Konoha puts into every request whether you use it or not.
+`node scripts/measure_context_budget.js` prints that, and `--check` fails if a budget regresses:
+
+| Term | Size | When it is paid |
+|---|---|---|
+| MCP tool manifest (56 tools) | 28,742 B / ~7,564 tok | once per session, in the client's tool list |
+| Client contract head | 1,014 B / ~267 tok | every turn (worst of eight clients) |
+| Subagent contract | 2,242 B / ~590 tok | once per delegated child |
+| `konoha` skill entry | 7,329 B / ~1,929 tok | only when loaded |
+
+Those token columns are **estimates** at 3.8 bytes/token — the script labels every derived number `(est)` and prints
+the method in its header, so a byte count is never mistaken for a provider reading. When the database holds a
+provider-reported usage row it is printed separately under `MEASURED — provider-reported usage`; when it does not,
+the script says so instead of promoting an estimate.
+
+The main-agent floor is ~7,831 tokens before any conversation, or ~9,760 with the skill loaded; each delegated child
+adds its own ~590. Everything else is on demand: the twelve `konoha/*` references, the skill library, and file reads.
+
+Two properties matter more than the numbers:
+
+- **The head is byte-stable.** `tests/test_prefix_determinism.js` hashes each client contract twice and rejects
+  dates, clock times, uuids, pids and request ids. A volatile byte in the prefix defeats provider prompt caching for
+  the whole conversation, which costs far more than the prefix itself.
+- **The entry fits its own digest.** Skills are served through an 8,000-byte cap. A 40 KB `SKILL.md` was silently cut
+  to 8 KB, so a load returned a fifth of the rules with no indication that anything was missing. The entry is now
+  7,329 B and names its references, so one load is complete.
+
+Run it before and after any change to prompts, contracts, or the manifest. Growth that cannot be justified against a
+measured saving is the regression this chapter exists to catch.
+
 ## 13. Diagnostics and health
 
 Three commands answer three different questions. Use them in this order.
@@ -1407,19 +1467,19 @@ Two behaviours to know before relying on it:
 `GET /api/v1/health` is public — the only data surface reachable before login.
 
 ```
-{"status":"healthy","version":"2.2.23","uptime":7703,"node":"v24.22.2","platform":"linux"}
+{"status":"healthy","version":"2.2.24","uptime":7703,"node":"v24.22.2","platform":"linux"}
 ```
 
 Authenticated callers get the same object plus skill and agent counts. Content served while the UI is still at the
 password gate therefore tells you the version and nothing else.
 
-One observation, not a defect you can trigger normally: the handler falls back to the packaged version (`2.2.23`) when
-the server version is unset. A correctly deployed 2.2.23 server reports `2.2.23`.
+One observation, not a defect you can trigger normally: the handler falls back to the packaged version (`2.2.24`) when
+the server version is unset. A correctly deployed 2.2.24 server reports `2.2.24`.
 
 ### 13.4 A diagnostic sequence that answers most questions
 
 ```bash
-konoha version              # 2.2.23 — trusts the local tree, not the registry
+konoha version              # 2.2.24 — trusts the local tree, not the registry
 konoha status               # per-client registration and skill counts
 konoha test                 # protocol + file tools + suites
 konoha doctor               # config and file repairs
@@ -1617,7 +1677,7 @@ session, and reproducing them here would mean reproducing your data. That is a d
 
 ### 15.7 Scope
 
-This is an operator's description of the mechanisms in 2.2.23, not a security audit. The audit artefact for the release
+This is an operator's description of the mechanisms in 2.2.24, not a security audit. The audit artefact for the release
 lives in `docs/SecurityCompliance/`, and the interesting findings there concern dependencies rather than this design.
 
 ## 16. Appendix
@@ -1627,7 +1687,7 @@ lives in `docs/SecurityCompliance/`, and the interesting findings there concern 
 | Path | Contents |
 |---|---|
 | `~/.konoha/` | runtime: scripts, `server.js`, `migrate.js`, `migrations/`, `apps/web/`, `assets/`, `patches/` |
-| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 45 base tables (33 declared) in schema v9 |
+| `~/.konoha/konoha.db` (+ `-wal`, `-shm`) | SQLite database, 46 base tables (34 declared) in schema v9 |
 | `~/.konoha/config.json` | overrides for 16.2 |
 | `~/.konoha/web_auth.json` | password hash, mode `0600` |
 | `~/.konoha/.vault_key` | AES key for stored secrets, mode `0600` |
@@ -1727,9 +1787,9 @@ Observed in 2.2.22, carried into 2.2.23 and recorded rather than fixed. None blo
 
 ### 16.6 Version provenance
 
-This manual describes **2.2.23**, one patch ahead of the newest npm release (`2.2.22`) and the newest GitHub
+This manual describes **2.2.24**, two patches ahead of the newest npm release (`2.2.22`) and the newest GitHub
 release (`v2.2.21`) at the time of writing. The per-command evidence was produced on Linux against a fresh global install under a
-scratch prefix, on the 2.2.20 tree; 2.2.23's own evidence is the full suite and the CI matrix (`docs/CI.md`).
+scratch prefix, on the 2.2.20 tree; 2.2.24's own evidence is the full suite and the CI matrix (`docs/CI.md`).
 
 Known limitations, stated rather than papered over:
 

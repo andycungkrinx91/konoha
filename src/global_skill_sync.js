@@ -378,7 +378,9 @@ function syncAllGlobalClientSkills(options = {}) {
     clientsSynced: []
   };
 
-  const requestedClients = Array.isArray(options.clients) && options.clients.length > 0 && !options.clients.includes('all')
+  // `undefined`/`null` = every target; an explicit array means exactly those
+  // clients (plus the shared `global` dir). An empty array is a valid "none".
+  const requestedClients = Array.isArray(options.clients) && !options.clients.includes('all')
     ? new Set(['global', ...options.clients])
     : null;
 

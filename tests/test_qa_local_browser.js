@@ -192,6 +192,26 @@ async function run() {
     assert.strictEqual(pwRes.responsive_viewports.length, 3);
     assert.strictEqual(pwRes.reduced_motion_verified, true);
     console.log(`  ✓ host browser monitor + real Playwright rendering passed (webgl=${pwRes.canvas_3d.webglSupported})`);
+
+    // A detached spawn reports a missing opener as an 'error' event, not a throw. Unhandled,
+    // it killed the process (no `xdg-open` in a slim container). Assert a reported failure.
+    if (process.platform !== 'win32') {
+      const probe = execFileSync(process.execPath, [
+        '-e',
+        "const { openSystemBrowser } = require('./src/workflow/jonin-builder/live_browser_monitor');" +
+        "openSystemBrowser('http://127.0.0.1:1/', { headless: false, autoOpen: true })" +
+        '.then((r) => console.log(JSON.stringify(r)));'
+      ], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        timeout: 60000,
+        env: { ...process.env, PATH: os.tmpdir(), CI: '', KONOHA_HEADLESS_TEST: '' }
+      });
+      const launch = JSON.parse(probe.trim().split('\n').pop());
+      assert.strictEqual(launch.opened, false, 'a missing system browser must not report opened');
+      assert.ok(launch.error, `a missing system browser must report its error: ${probe}`);
+      console.log('  ✓ missing system browser is reported, not an unhandled spawn error');
+    }
   } finally {
     if (testPageSrv) await new Promise((r) => testPageSrv.close(r));
     if (srv && srv.server) await new Promise((r) => srv.server.close(r));

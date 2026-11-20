@@ -558,9 +558,9 @@
           </div>
         </div>
         <div class="rounded-2xl border p-4" style="border-color: var(--color-border);">
-          <p class="text-xs font-black mb-1" style="color: var(--color-text);">Socket Supply Chain Security Gate</p>
+          <p class="text-xs font-black mb-1" style="color: var(--color-text);">Supply Chain Dependency Audit</p>
           <p class="text-xs leading-relaxed" style="color: var(--color-text-muted);">
-            Integrated Socket CLI scanning (<code class="text-xs font-mono">socket ci</code>) enforces zero High or Medium severity supply chain vulnerabilities before delivery.
+            A local <code class="text-xs font-mono">pnpm audit --json</code> gate over the root and <code class="text-xs font-mono">apps/web</code> workspaces blocks delivery on any unapproved advisory, with no account or token. Socket.dev scanning is opt-in via <code class="text-xs font-mono">pnpm audit:socket</code>.
           </p>
         </div>
       </section>

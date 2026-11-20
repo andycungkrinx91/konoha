@@ -694,5 +694,6 @@ async function runMcpAgentAsync(agentName, task = null, context = null, constrai
 module.exports = {
   getMainModel, applyFileEdits, autoloadSkillsFromPrompt, buildSubagentMcpBlock,
   buildResearchFetchRule, truncateAtBoundary, cleanRedundantPersonaText,
-  _loadBaseProjectContext, _prepareAgentRun, _finalizeAgentRun, runMcpAgent, runMcpAgentAsync
+  _loadBaseProjectContext, _prepareAgentRun, _finalizeAgentRun, runMcpAgent, runMcpAgentAsync,
+  PROMPT_CEILING_BYTES, SYSTEM_PROMPT_FLOOR_BYTES, MIN_SKILL_PREVIEW_BYTES
 };

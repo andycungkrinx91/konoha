@@ -13,6 +13,7 @@ const {
 const { extractText, extractAllImages } = require('../images');
 const { sanitizeRequest } = require('../sanitize');
 const { forwardWithRetry } = require('../request_retry');
+const { supportsStreamUsage } = require('../stream_usage');
 
 // POST /v1/chat/completions
 
@@ -60,7 +61,7 @@ async function handleOpenAiDirect(ctx, req, res, messages, ...rest) {
   } catch { /* intentional best-effort fallback: failure here must never crash the runtime */ }
 
   if (isStream) {
-    return streamOpenAiDirect(ctx, req, res, messages, completionId, tools, images);
+    return streamOpenAiDirect(ctx, req, res, messages, completionId, tools, images, payload.stream_options);
   }
 
   try {
@@ -153,8 +154,21 @@ async function _handleStreamFetchResponse(response, res) {
   await _pipeReaderToResponse(response.body.getReader(), res);
 }
 
+/**
+ * The upstream body for a streamed request. `stream_options` is forwarded only
+ * to a provider whose contract defines it: a server that validates unknown
+ * parameters rejects the whole request over the field, so an unsupported
+ * upstream must never see it.
+ */
+function buildStreamRequestBody(ctx, messages, tools, streamOptions) {
+  const reqBody = { model: ctx.requestedModel, messages, stream: true };
+  if (tools) reqBody.tools = tools;
+  if (streamOptions && supportsStreamUsage(ctx.bridgeConfig)) reqBody.stream_options = streamOptions;
+  return reqBody;
+}
+
 function streamOpenAiDirect(ctx, req, res, messages, ...rest) {
-  const [_completionId, tools, _] = rest;
+  const [_completionId, tools, _, streamOptions] = rest;
   setupStreamResponse(res);
 
   const bridgeConfig = ctx.bridgeConfig || {};
@@ -173,8 +187,7 @@ function streamOpenAiDirect(ctx, req, res, messages, ...rest) {
   const headers = { 'Content-Type': 'application/json' };
   if (bridgeConfig.apiKey) headers['Authorization'] = `Bearer ${bridgeConfig.apiKey}`;
 
-  const reqBody = { model: ctx.requestedModel, messages, stream: true };
-  if (tools) reqBody.tools = tools;
+  const reqBody = buildStreamRequestBody(ctx, messages, tools, streamOptions);
 
   let abortController = new AbortController();
   res.on('close', () => {
@@ -215,4 +228,4 @@ async function forwardJsonBody(response) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-module.exports = { handleChatCompletions, handleOpenAiDirect };
+module.exports = { handleChatCompletions, handleOpenAiDirect, buildStreamRequestBody };

@@ -85,14 +85,10 @@ try {
   const cursorManagerSrc = fs.readFileSync(path.join(repoDir, 'src', 'cursor_manager.js'), 'utf8');
   assert.ok(cursorManagerSrc.includes('generateCursorRule'), 'cursor_manager.js must export generateCursorRule');
 
-  const skillFile = fs.existsSync(path.join(repoDir, '.agents', 'skills', 'konoha', 'SKILL.md'))
-    ? path.join(repoDir, '.agents', 'skills', 'konoha', 'SKILL.md')
-    : path.join(os.homedir(), '.agents', 'skills', 'konoha', 'SKILL.md');
-  const skillSrc = fs.readFileSync(skillFile, 'utf8');
-  assert.ok(skillSrc.includes('Token Savings Flow Logic Preservation Invariant'), 'konoha SKILL.md must define Rule 56');
-
-  const templateSkillSrc = fs.readFileSync(path.join(repoDir, 'src', 'templates', 'skills', 'konoha', 'SKILL.md'), 'utf8');
-  assert.ok(templateSkillSrc.includes('Token Savings Flow Logic Preservation Invariant'), 'src/templates konoha SKILL.md must define Rule 56');
+  // The token-savings invariant is maintainer guidance: it lives in the repo-only
+  // maintenance skill, not in the runtime skill a client session pays for.
+  const maintenanceSrc = fs.readFileSync(path.join(repoDir, '.agents', 'dev-skills', 'konoha-maintenance', 'references', 'invariants.md'), 'utf8');
+  assert.ok(maintenanceSrc.includes('Token Savings Flow Logic Preservation Invariant'), 'konoha-maintenance invariants must define the token savings invariant');
 
   // Verify CLI fresh install, reinstall & upgrade guarantees
   const cliSrc = fs.readFileSync(path.join(repoDir, 'bin', 'cli.js'), 'utf8') +

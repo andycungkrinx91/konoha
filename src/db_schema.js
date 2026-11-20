@@ -16,12 +16,13 @@ const {
   _mergeLegacyAgyClientRows
 } = require('./db_schema_repairs');
 
-const CURRENT_SCHEMA_VERSION = 9;
+const CURRENT_SCHEMA_VERSION = 10;
 const _ensuredSchemaInodes = new Map();
 const REQUIRED_FAST_SCHEMA_TABLES = [
   'skills', 'skills_fts', 'persona_memories', 'persona_memories_fts',
   'memory_audit_events', 'memory_relations',
   'projects', 'active_sessions', 'tool_calls', 'agents',
+  'provider_usage',
   'bridges', 'sdlc_tasks', 'code_edges', 'assets', 'generation_jobs'
 ];
 
@@ -92,6 +93,10 @@ function _hasAllRequiredTables(conn) {
   if (!REQUIRED_FAST_SCHEMA_TABLES.every((t) => existing.has(t))) return false;
   if (existing.has('code_chunks') && !hasCanonicalCodeChunksLayout(conn)) return false;
   if (existing.has('persona_memories') && !hasCanonicalMemoryBrainLayout(conn)) return false;
+  if (existing.has('bridges')) {
+    const bridgeCols = new Set(conn.prepare('PRAGMA table_info(bridges)').all().map((c) => c.name));
+    if (!bridgeCols.has('supports_stream_usage')) return false;
+  }
   return _hasRequiredAgentSchema(conn);
 }
 
@@ -409,7 +414,8 @@ function _applyCoreColumnAndIndexMigrations(conn, ftsSupported) {
     "ALTER TABLE projects ADD COLUMN agent_input_token_quota INTEGER DEFAULT 100000;",
     "ALTER TABLE tool_calls ADD COLUMN cached_tokens INTEGER;",
     "ALTER TABLE tool_calls ADD COLUMN input_tokens INTEGER;",
-    "ALTER TABLE tool_calls ADD COLUMN output_tokens INTEGER;"
+    "ALTER TABLE tool_calls ADD COLUMN output_tokens INTEGER;",
+    "ALTER TABLE bridges ADD COLUMN supports_stream_usage INTEGER;"
   ];
   for (const sql of colSqls) _tryExecSql(conn, sql);
   _ensureAgentsColumns(conn);
@@ -421,6 +427,8 @@ function _applyCoreColumnAndIndexMigrations(conn, ftsSupported) {
     CREATE INDEX IF NOT EXISTS idx_tool_calls_agent ON tool_calls(agent);
     CREATE INDEX IF NOT EXISTS idx_tool_calls_client ON tool_calls(client);
     CREATE INDEX IF NOT EXISTS idx_tool_calls_timestamp ON tool_calls(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_provider_usage_timestamp ON provider_usage(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_provider_usage_source ON provider_usage(source);
     CREATE INDEX IF NOT EXISTS idx_projects_path ON projects(project_path);
     CREATE INDEX IF NOT EXISTS idx_mem_agent ON persona_memories(agent_name);
     CREATE INDEX IF NOT EXISTS idx_mem_type ON persona_memories(memory_type);
@@ -583,6 +591,7 @@ function validateCanonicalSchema(conn) {
     // Assert presence of mandatory canonical tables
     const requiredTables = [
       'skills', 'skill_chunks', 'tool_calls', 'active_sessions',
+      'provider_usage',
       'agents', 'bridges', 'projects', 'sdlc_tasks', 'persona_memories',
       'memory_audit_events', 'memory_relations',
       'telegram_config', 'webhooks', 'prompt_queue', 'telegram_session_targets',

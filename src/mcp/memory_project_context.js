@@ -316,7 +316,10 @@ function _reportFromAgent(delivery, rest, useModelJudge) {
   // `cleanAgent`, not `opts.agentName`: the dispatch guard below compares against
   // the normalized name, so `mcp_kage` and `Anbu` were rejected as mismatches.
   const { error: wfError, workflowStatus } = _updateWorkflowStatus(safeTaskDir || opts.taskDir, opts.dispatchId, cleanAgent, finalStatus, {
-    summary: reportSummary, validation: opts.validation, verified, filesCreated: opts.filesCreated, filesModified: opts.filesModified
+    summary: reportSummary, validation: opts.validation, verified, filesCreated: opts.filesCreated, filesModified: opts.filesModified,
+    // A report may name the slice it belongs to; without it a parallel workflow
+    // attributes every child's result to whichever task happens to be open.
+    taskId: opts.taskId
   });
   if (wfError) return JSON.stringify({ status: 'error', message: wfError });
 

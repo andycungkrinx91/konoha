@@ -1,0 +1,15 @@
+diff --git a/src/scraper/README.md b/src/scraper/README.md
+deleted file mode 100644
+index cd9594ccf987634b358aed651d6124f23bad158e..0000000000000000000000000000000000000000
+diff --git a/src/scraper/modelScrape.browser.js b/src/scraper/modelScrape.browser.js
+deleted file mode 100644
+index cfd7ff875f242a1cffaa3a7bb252c13fb1fec2df..0000000000000000000000000000000000000000
+diff --git a/src/scraper/modelScrape.browser.test.js b/src/scraper/modelScrape.browser.test.js
+deleted file mode 100644
+index 7819ced89dd9f55b68bddb39ef8c73f8644457fa..0000000000000000000000000000000000000000
+diff --git a/src/scraper/modelScrape.node.test.ts b/src/scraper/modelScrape.node.test.ts
+deleted file mode 100644
+index 641575d4617f31f149d0943c80648faa0baa359e..0000000000000000000000000000000000000000
+diff --git a/src/scraper/modelScrape.node.ts b/src/scraper/modelScrape.node.ts
+deleted file mode 100644
+index a4c3549d4e8ae710ffac351111f7a4270272cdd6..0000000000000000000000000000000000000000

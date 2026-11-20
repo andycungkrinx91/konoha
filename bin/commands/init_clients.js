@@ -21,16 +21,53 @@ function normalizeClientToken(token) {
   return clean;
 }
 
+const KNOWN_CLIENTS = Object.freeze([
+  'claude', 'cursor', 'opencode', 'commandcode', 'codex', 'omp', 'pi', 'antigravity', 'all'
+]);
+
+const CLIENT_VALUE_REQUIRED = `--client requires a value: one of ${KNOWN_CLIENTS.join(', ')}`;
+
+// An explicit `--client` is validated, never repaired. The previous parser
+// filtered empty tokens out of the list, so `--client=` produced `[]`, which
+// `explicitSelection` then read as "no flag" and widened to every client.
+function parseClientList(raw) {
+  const value = String(raw == null ? '' : raw).trim();
+  if (!value) throw new Error(CLIENT_VALUE_REQUIRED);
+  const rawTokens = value.toLowerCase().split(',');
+  // An empty member (`cursor,,codex` or a trailing comma) is a malformed explicit
+  // list. Filtering it away would quietly repair a selection the user mistyped.
+  const emptyAt = rawTokens.findIndex((t) => !t.trim());
+  if (emptyAt !== -1) {
+    throw new Error(`--client has an empty entry at position ${emptyAt + 1}: "${value}"; list clients as cursor,codex`);
+  }
+  const tokens = rawTokens.map(normalizeClientToken);
+  for (const token of tokens) {
+    if (!KNOWN_CLIENTS.includes(token)) {
+      throw new Error(`unknown client "${token}"; expected one of ${KNOWN_CLIENTS.join(', ')}`);
+    }
+  }
+  // `all` is a whole selection, never a member of one: `cursor,all` must fail
+  // rather than silently widening the explicit list the user asked for.
+  if (tokens.includes('all') && tokens.length > 1) {
+    throw new Error(`"--client=all" cannot be combined with other clients: "${value}"; use all alone or name each client`);
+  }
+  return tokens;
+}
+
+/**
+ * @returns {string[]|null} null when no `--client`/`--clients` flag is present.
+ * @throws when the flag is present but its value is missing, empty, or unknown,
+ * so an explicit selection is never silently widened to every client.
+ */
 function parseRequestedClients(args) {
   const clientFlag = args.find(a => a.startsWith('--client=') || a.startsWith('--clients='));
-  if (clientFlag) {
-    const val = clientFlag.split('=')[1].toLowerCase();
-    return val === 'all' ? ['all'] : val.split(',').map(normalizeClientToken).filter(Boolean);
-  }
-  const clientIdx = args.indexOf('--client');
-  if (clientIdx !== -1 && args[clientIdx + 1]) {
-    const val = args[clientIdx + 1].toLowerCase();
-    return val === 'all' ? ['all'] : val.split(',').map(normalizeClientToken).filter(Boolean);
+  if (clientFlag) return parseClientList(clientFlag.split('=').slice(1).join('='));
+  for (const flag of ['--client', '--clients']) {
+    const idx = args.indexOf(flag);
+    if (idx === -1) continue;
+    const next = args[idx + 1];
+    if (next === undefined || next.startsWith('-')) throw new Error(CLIENT_VALUE_REQUIRED);
+    return parseClientList(next);
   }
   return null;
 }
@@ -166,6 +203,54 @@ function configureOmp(context) {
   else spinner.warn(`OMP setup skipped: ${ompSetup.reason || 'unknown error'}`);
 }
 
+// Every client init can select, including the two that have no command file of
+// their own. Keeping them here means `--client=pi` produces the list `['pi']`,
+// which selects no target and reports pi as unsupported — rather than an empty
+// list that would read as "no filter" and write every target.
+const COMMAND_CLIENT_FLAGS = Object.freeze([
+  ['allowClaudeCode', 'claudecode'],
+  ['allowCursor', 'cursor'],
+  ['allowOpenCode', 'opencode'],
+  ['allowCommandCode', 'commandcode'],
+  ['allowCodex', 'codex'],
+  ['allowOmp', 'omp'],
+  ['allowPi', 'pi'],
+  ['allowAntigravity', 'antigravity']
+]);
+
+function configureCommands(context) {
+  const { deployKonohaCommands } = require('../../src/client_commands');
+  header('⌘ Installing the /konoha slash command');
+  const spinner = startSpinner('Writing the prompt file into each configured client...');
+  // `--client=<x>` narrows the command layer the same way it narrows the
+  // per-client setup above; otherwise init would write files for clients the
+  // user did not ask for.
+  const clients = COMMAND_CLIENT_FLAGS
+    .filter(([flag]) => context[flag])
+    .map(([, client]) => client);
+  // An explicit `--client=pi` selects no command-capable client, so the empty
+  // list must stay empty. Only an absent `--client` means "every target".
+  let result;
+  try {
+    result = deployKonohaCommands({
+      home: context.home,
+      clients: context.explicitSelection ? clients : null,
+      projectRoot: context.deployProject ? context.currentCwd : null
+    });
+  } catch (err) {
+    // A command file is an extra; it must never abort the install. Reported,
+    // not swallowed.
+    spinner.warn(`/konoha was not installed: ${err.message}`);
+    return;
+  }
+  const names = result.deployed
+    .map((d) => (d.scope === 'project' ? `${d.client} (project)` : d.client))
+    .join(', ');
+  if (result.deployed.length > 0) spinner.success(`/konoha installed for: ${names}`);
+  else spinner.warn('No client received /konoha — none of the selected clients has a prompt directory Konoha can write to.');
+  for (const skip of result.skipped) info(`  ${skip.client}: ${skip.reason}`);
+}
+
 function setupClientIntegrations(options) {
   const { onProgress } = options;
   if (onProgress) onProgress(4, 'MCP Clients', 'Configuring requested AI coding clients');
@@ -177,9 +262,11 @@ function setupClientIntegrations(options) {
   configureCodex(options);
   configurePi(options);
   configureOmp(options);
+  configureCommands(options);
 }
 
 module.exports = {
+  KNOWN_CLIENTS,
   parseRequestedClients,
   setupClientIntegrations
 };

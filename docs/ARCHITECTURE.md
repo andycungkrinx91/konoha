@@ -167,7 +167,7 @@ All database interactions across the entire Konoha codebase are consolidated und
    - `PRAGMA foreign_keys=ON;`
    - `PRAGMA busy_timeout=5000;` (5-second retry timeout to eliminate database locks)
    - `PRAGMA synchronous=NORMAL;`
-3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 9` (version 2.2.23), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`, `memory_audit_events`, `memory_relations`, `code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`, `code_chunks_fts`, `code_edges`). Features dynamic FTS5 capability detection via `hasFts5Support`, idempotent self-healing `ensureCodeChunksFts` repair during `setupSchema` even when `user_version >= 8`, and automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite lacks FTS5.
+3. **Unified Schema DDL (`setupSchema`) & Linear Migration Engine**: Linear migration runner tracking SQLite `PRAGMA user_version = 9` (version 2.2.24), ensuring atomic transactions, composite indices (`idx_sdlc_tasks_status_updated`, `idx_persona_memories_agent_proj`), and automated `PRAGMA integrity_check` verification. Canonical initialization containing every table and trigger across all subsystems (`skills`, `skills_fts` + sync triggers, `skill_chunks`, `tool_calls`, `active_sessions`, `agents`, `bridges`, `projects`, `sdlc_tasks`, `persona_memories`, `persona_memories_fts`, `memory_audit_events`, `memory_relations`, `code_index_roots`, `code_files`, `code_symbols`, `code_refs`, `code_chunks`, `code_chunks_fts`, `code_edges`). Features dynamic FTS5 capability detection via `hasFts5Support`, idempotent self-healing `ensureCodeChunksFts` repair during `setupSchema` even when `user_version >= 8`, and automatic fallback to relational tables and SQL `LIKE` filtering on platforms where SQLite lacks FTS5.
 4. **Operational Maintenance & Recovery Routines**:
    - **Online Backup (`konoha data backup [path]`)**: Performs zero-downtime, non-blocking snapshots using SQLite `VACUUM INTO`. Default target is `~/.konoha/backups/konoha_backup_<timestamp>.db`.
    - **FTS5 Self-Healing Index Rebuild (`konoha data rebuild-fts`)**: Rebuilds all full-text search indexes (`skills_fts`, `persona_memories_fts`) from canonical tables via `rebuildAllFts()`.
@@ -1008,6 +1008,36 @@ Keyword routing is deterministic and free, and right most of the time. It is als
 - **Steer dedupe:** `enqueueAdvisorSteer` suppresses a steer whose `(agent, violation types, directive)` signature repeats within `ADVISOR_STEER_COOLDOWN_MS` (90 s), returning the existing record. A suppressed duplicate does not re-mark the supervisor as steering.
 
 The sync `sannin` path (`runSannin`) stays heuristic-only; judgment is reached through `runSanninAsync` → `prepareAsync`, which is what `executeTool` calls.
+
+### 3. Spawn Verification, Command Deployment, and the Cached Prefix
+
+Three separate mechanisms exist because "the agent did it" is not evidence that anything ran.
+
+| Concern | Mechanism | Failure it prevents |
+|---|---|---|
+| Did a child agent actually run? | `child_execution_verified` on every branch result; `spawn_pending` is the only state an unverified branch may hold | An MCP runner that built a prompt and returned `completed` without spawning |
+| Does `/konoha` exist in a client? | `src/client_commands.js` writes a prompt file only into a config root it can confirm | A command file in a directory the client never reads |
+| Is the prompt head stable? | `tests/test_prefix_determinism.js` hashes every client contract twice | A timestamp in the contract turning every cached read into a full-price read |
+
+**Spawn verification.** `src/mcp/memory_subagent_async.js` composes a prompt and returns a `spawn_directive`; it never
+starts a process. The execute node (`src/mcp/langgraph/nodes/execute.js`) therefore marks such a branch
+`status: 'spawn_pending'`, `child_execution_verified: false`, `validation: []`, and carries the directive forward.
+`completePendingTasks` completes a task only on `child_execution_verified === true`, which the real resume path
+(`report_from_agent` → `_updateWorkflowStatus` → `applyAgentReportToTodos`) supplies. A caller-supplied
+`sliceExecutor` is trusted code: a result that omits the field is honoured as `completed`, and only an explicit
+`false` blocks. `parallel_execution_proof` requires every branch to be verified. Because LangGraph rebuilds
+`config.configurable` for its own runtime keys and the checkpointer cannot serialise a function, the executor reaches
+the node through `src/mcp/langgraph/slice_executor_registry.js`, keyed by thread id and restored on exit.
+
+**Command deployment.** The prompt-file contract for each client was read from its installed bundle, not assumed:
+`~/.claude/commands/`, `~/.cursor/commands/`, `~/.config/opencode/command/`, `~/.commandcode/commands/`, and
+`~/.codex/prompts/` (which serves both Codex and OMP). Pi and Antigravity are declared unsupported and reported, never
+guessed. A file without Konoha's marker is user-owned and skipped.
+
+**Prefix determinism.** The contract block sits at the head of every request, so providers can cache it only while it
+is byte-identical. `src/agent_contract.js` builds it from constants and the client label; nothing volatile is
+interpolated. The test hashes two builds per client, asserts marker framing, rejects dates, clock times, uuids, pids,
+and per-request ids, and checks that a re-deploy over an existing block reproduces the same bytes.
 
 ### 📚 Official LangGraph.js Documentation Citations
 

@@ -169,9 +169,9 @@ node --version  # Must be >= 24.0.0
 
 - **Cause**: pnpm 12 no longer reads the `package.json#pnpm` block, and the `package.json#overrides` copy that duplicated the YAML was dead config (pnpm reads `pnpm-workspace.yaml#overrides`). Both were removed in 2.2.19.
 - **Current state**: `pnpm-workspace.yaml` carries `overrides` and **no `audit:` key at all** — no ignore list, no suppressions. CVE-2026-93753 is not suppressed (pnpm 12 has no CVE-level suppression), `GHSA-gcqx-w48m-w2h4` (`deepmerge`) was withdrawn upstream on 2026-11-16 and resolves to 4.1.2 anyway, and `GHSA-fc5q-39xc-vjpf` is fixed in the tree by a patch rather than waived.
-- **`GHSA-fc5q-39xc-vjpf` is patched, not ignored**: a repeated extglob whose body holds a bare wildcard compiled to nested unbounded quantifiers (`+(*a)` became `(?:[^/]*?a)+`) and backtracked exponentially on a short crafted string — 779 ms at 26 characters. `patches/picomatch@4.0.7.patch` makes `analyzeRepeatedExtglob` treat such a body as risky, so the extglob is emitted as literal text, and `tests/test_picomatch_redos_patch.js` pins both the timings and the unchanged semantics of 20 realistic globs. Upstream has published nothing past 4.0.7, so `pnpm audit` keeps reporting the advisory: it keys on the resolved version string and cannot see a patched build. `tests/test_socket_security_audit.js` therefore asserts the audit's advisory set is *exactly* `["GHSA-fc5q-39xc-vjpf"]` for the root and `apps/web`. That is stricter than an ignore list, which would also have swallowed the next picomatch advisory silently — a second advisory fails this gate. Fix the next one; do not append it to `PINNED_AUDIT_ADVISORIES`. The pin clears when 4.0.8 ships. Vendoring the package or overriding it to a git URL was rejected: `pnpm audit` does not evaluate `file:` dependencies at all, so a vendored copy at the vulnerable 4.0.7 still audits clean, which hides the package from the gate instead of fixing it.
+- **`GHSA-fc5q-39xc-vjpf` is patched, not ignored**: a repeated extglob whose body holds a bare wildcard compiled to nested unbounded quantifiers (`+(*a)` became `(?:[^/]*?a)+`) and backtracked exponentially on a short crafted string — 779 ms at 26 characters. `patches/picomatch@4.0.7.patch` makes `analyzeRepeatedExtglob` treat such a body as risky, so the extglob is emitted as literal text, and `tests/test_picomatch_redos_patch.js` pins both the timings and the unchanged semantics of 20 realistic globs. Upstream published nothing past 4.0.7 and **withdrew the advisory on 2026-11-18**, so `pnpm audit --json` now reports no advisories at all while the resolved version string stays 4.0.7. The patch stays as defence in depth, and `tests/test_dependency_audit.js` gates on *unapproved* advisories instead of pinning an exact set. Vendoring the package or overriding it to a git URL was rejected: `pnpm audit` does not evaluate `file:` dependencies at all, so a vendored copy at the vulnerable 4.0.7 still audits clean, which hides the package from the gate instead of fixing it.
 - **2.2.20 exception**: `package.json#overrides` is back for exactly one entry, `image-size: ">=2.0.3"`. npm ignores a dependency's own `overrides`, so the shipped copy is what carries the CVE-2025-71330 / CVE-2025-71329 patch to npm consumers; pnpm still reads its own `>=2.0.4` floor from the YAML. Do not remove it, and do not re-add `package.json#pnpm` or any other override.
-- **Fix**: if you see the warning, you are on an old checkout. Pull 2.2.19+, run `pnpm install --frozen-lockfile`, and verify with `pnpm config get audit` → `undefined` (no `audit` key) plus `pnpm audit --json` → exactly one advisory, `GHSA-fc5q-39xc-vjpf`. The same advisory is the single static-scan finding `aislop scan` keeps reporting; see `docs/SECURITY.md` §9.1 for why that is accepted rather than suppressed.
+- **Fix**: if you see the warning, you are on an old checkout. Pull 2.2.19+, run `pnpm install --frozen-lockfile`, and verify with `pnpm config get audit` → `undefined` (no `audit` key) plus `pnpm audit --json` → no advisories. That clean result is a withdrawn advisory, not a removed patch: `GHSA-fc5q-39xc-vjpf` was withdrawn upstream on 2026-11-18, and `patches/picomatch@4.0.7.patch` stays as defence in depth. See `docs/SECURITY.md` §9.1.
 
 ---
 
@@ -445,6 +445,61 @@ Unregistered names (`orchestrator`, `null`, tests) appear under **Direct Tool Ca
 
 ---
 
+### 🧷 `[konoha deploy] N client deployment(s) incomplete: …`
+
+Init and `konoha doctor` now name every client whose configuration failed to write instead of swallowing the error.
+The line goes to stderr and repeats the client plus the underlying message:
+
+```
+[konoha deploy] 1 client deployment(s) incomplete: codex: EACCES: permission denied, open '/home/<you>/.codex/config.toml'
+```
+
+Read the client name first. Each one is independent — the rest of the deploy already succeeded, so fix only that
+target and re-run `konoha init --client=<client>`. For a permission error, inspect ownership and mode before
+changing anything (`rtk ls -l <path>`), back the file up, and fix the owner or mode only if it is a file you
+created. Do not re-run the full install for a single client.
+
+---
+
+### 🧟 A subagent profile will not update, and `~/.claude/agents/` holds `.konoha-proposed` files
+
+Konoha never overwrites an agent profile it does not own. When the file on disk is missing its
+`generated_by: konoha` marker, the deployer parks its own copy beside the live one as `<name>.md.konoha-proposed`
+and leaves the existing file in place. The live file therefore keeps winning, and an old profile stays in service.
+
+`konoha doctor` reports these under **Agent Profile Conflicts**, with a three-way verdict:
+
+| Verdict | Meaning | Action |
+|---|---|---|
+| `identical` | parked copy matches the live file | none |
+| `stale` | the live file is Konoha's own and differs from the parked copy — the parked copy is leftover | none — the residue is safe to remove |
+| `foreign` | the live file was written by something else, or could not be read | decide: keep it, or delete it and re-run `konoha init` |
+
+Compare the two files before deciding: `rtk diff <name>.md <name>.md.konoha-proposed`.
+
+Konoha will not delete either file for you. Inspect with `rtk grep -n generated_by ~/.claude/agents/<name>.md`:
+a Konoha-owned profile carries the marker on line 1.
+
+---
+
+### 🚫 `/konoha` does not appear in a client's command menu
+
+`konoha doctor` prints **Slash Command (/konoha)** with the clients that have Konoha's prompt file installed, and
+**Slash Command Coverage** with the ones that do not. Doctor only reads: it reports what is on disk and never
+writes a command file, so a WARNING there is fixed by `konoha init`. A missing entry means one of three things:
+
+1. **The client's config root does not exist** — the deployer writes nothing into a directory it cannot confirm.
+   Start the client once so it creates its config directory, then re-run `konoha init`. This gate applies to the
+   `--project` copy as well, so a repository only receives a command file for a client that is configured.
+2. **The client is unsupported** — Pi and Antigravity have no prompt directory Konoha can write to. Pi loads
+   commands only through its extension packaging.
+3. **You own the file** — a `konoha.md` without Konoha's marker is left untouched and reported as user-owned.
+   Delete it or merge your content, then re-run `konoha init`.
+
+Codex and OMP share `~/.codex/prompts/konoha.md`; that single file is expected, not a missing OMP entry.
+
+---
+
 ### 🥷 Agent Still Loading SKILL.md Files Directly
 
 The agent's instructions must be updated. Check the following:
@@ -663,6 +718,46 @@ Konoha does not create `~/.cursor/skills/` mirrors or symlinks. Skills are index
   - **Symptom**: Sannin returns `status: "blocked", phase: "dor"` with message `Definition-of-Readiness (DoR) check failed in enforced mode`.
   - **Reason**: The project has `dor_mode: enforced`, and the prompt contains fewer than 5 words, unresolved placeholder tokens (`TODO`, `FIXME`, `???`), non-existent file paths without creation intent, or lacks clear domain action keywords.
   - **Fix**: Either provide more specific details in the prompt (e.g. mention the target file or feature), or switch the project to advisory mode via `konoha project set dor-mode advisory`.
+
+---
+
+### 🧾 `ERROR: Web UI provenance unknown at …/apps/web/build (no build-meta.json)` (fixed after 2.2.23)
+
+- **Symptom**: `konoha init` prints `Web UI application installed to ~/.konoha/apps/web` and then fails, or the Web UI reports a version it cannot back up:
+  ```
+  ERROR: Web UI provenance unknown at /home/user/.konoha/apps/web/build (no build-meta.json);
+  reported version 2.2.23 is unverified.
+  ```
+- **Reason**: two fail-open paths, both reading the wrong file for provenance. `resolveWebBuildSource()` accepted any candidate that had `handler.js` because the version check was written as `declared && currentVersion && declared !== currentVersion`, so a build with **no** `build-meta.json` skipped the comparison entirely and was installed. Then `installWebUiRuntime()` compared versions using the **destination** `apps/web/package.json`, which `copyTree` copies verbatim from the source manifest — it always carries the release version, so the install looked up to date and the on-demand build never fired.
+- **Fix**: a build is a source only when its own `build-meta.json` declares a string `version` that matches the release; `handler.js` proves the tree was compiled, not which source produced it, and the copied manifest proves nothing. When no candidate qualifies, `konoha init` builds the Web UI on demand with `pnpm run build:web`, which writes the metadata, and only prints `v<version>` after re-reading it at both source and destination. A rejected sync removes the unverified destination so an absent build is served instead of a mislabelled one.
+- **Verify**:
+  ```bash
+  cat ~/.konoha/apps/web/build/build-meta.json
+  ```
+  It must contain a `version` equal to `konoha --version`. If the file is missing, rebuild:
+  ```bash
+  cd <konoha-checkout>/apps/web && pnpm run build:web
+  ```
+- **Do not** hand-write `build-meta.json` — the installer trusts it, so a fabricated file defeats the check it exists to make.
+
+---
+
+### ⚠️ Optional Socket audit reports `SKIPPED` or `UNVERIFIED`
+
+- **Symptom**: `pnpm audit:socket` prints `SKIPPED: SOCKET_CLI_API_TOKEN is not set …` or `RESULT: UNVERIFIED` with a reason.
+- **Meaning**: the optional Socket.dev integration did not verify anything. It is not part of mandatory CI, which runs `pnpm audit --json` over the root and `apps/web` workspaces (`tests/test_dependency_audit.js`).
+- **Resolution**: export `SOCKET_CLI_API_TOKEN` (with `full-scans:create` and `packages:list`) and re-run, or ignore it — the local gate already covers the pnpm-resolved tree.
+
+---
+
+### 📉 Socket license score dropped from 100 to 90
+
+- **Symptom**: `npx socket package score npm konoha-mcp@2.2.23 --json` reports `data.self.score.license === 90` and the deep score reports `70`; `konoha-mcp@2.2.19` reported `100`. Overall and vulnerability scores are unaffected. The number is sometimes reported as "92" — that figure does not reproduce against the published package; the measured values are 90 shallow and 70 deep.
+- **Cause**: `@huggingface/transformers@4.3.2` (added in `2.2.22`) hard-depends on `sharp`, which pulls the platform-specific prebuilt libvips packages `@img/sharp-libvips-*@1.3.4` under `LGPL-3.0-or-later`. Socket flags them `copyleftLicense` and `nonpermissiveLicense` (severity `low`). `sharp` itself is Apache-2.0; the deep score drops further because its tree carries the LGPL binaries. `pnpm.overrides` cannot change this — every `sharp` release depends on the same libvips family.
+- **Not the cause**: bundled document engines. `bundleDependencies` is `cfb`, `pptxgenjs`, `xlsx-populate`, and their 19-package closure is permissive throughout (Apache-2.0, MIT, ISC, BlueOak-1.0.0 — see `docs/SECURITY.md` §12.6). `marked` and `playwright` score `license: 80` in isolation with no license-category alert at all, so their contribution is not a licence defect.
+- **Compliance position**: no LGPL code is redistributed. The `@img/*` packages are installed by the consumer's package manager from their own tarballs, one per platform (`optional: true` in `pnpm-lock.yaml`), and are not in `bundleDependencies`. `NOTICE` §"Copyleft in the install graph (not redistributed)" records this, alongside the `MPL-2.0` `lightningcss` build tooling. `sharp` is imported unconditionally by `@huggingface/transformers`, so `--omit=optional` is not a workaround: it removes the embedding backend.
+- **Guard**: `tests/test_dependency_posture.js` fails when a copyleft-licensed package outside `COPYLEFT_ALLOWLIST` appears in `node_modules/.pnpm`, when an allowlist entry matches nothing, or when `NOTICE` stops explaining one. The allowlist names the whole `@img/sharp-` family, because the publisher declares the licence per platform: `@img/sharp-win32-x64@0.35.5` states `Apache-2.0 AND LGPL-3.0-or-later` while `@img/sharp-linux-x64@0.35.5` states `Apache-2.0` for the same libvips payload, so a `libvips`-only entry passes on Linux and fails the Windows runner. Each family pins the exact expressions reviewed for it, so a new package arriving under an allowlisted prefix with an unreviewed licence still fails. Packages are identified by realpath, so the `@img` link pnpm creates inside `sharp`'s store entry is inspected once instead of being counted as a second package. It deliberately does not assert the Socket license number — that score is computed server-side from a mutable alert set and would make CI flaky.
+- **The only way back to 100**: drop the `@huggingface/transformers` embedding backend, which is the sole reason `sharp` is in the tree.
 
 ---
 

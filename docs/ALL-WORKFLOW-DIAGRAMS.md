@@ -627,7 +627,7 @@ flowchart TB
 
 ---
 
-## 10. Workflow 9: Socket.dev Supply Chain Security Gate & Policy Evaluation
+## 10. Workflow 9: Local Dependency Audit Gate & Optional Socket.dev Policy Evaluation
 
 ```mermaid
 ---
@@ -662,11 +662,12 @@ flowchart TD
     end
 
     Config --> PolicyEngine
-    PolicyEngine --> SocketCI["Execute Socket Scan<br/>`rtk socket ci` / `socket scan create`"]
+    PolicyEngine --> LocalAudit["Mandatory: `pnpm audit --json`<br/>Root + `apps/web` at the real workspace root<br/>(no account, no token)"]
+    PolicyEngine -.->|opt-in| SocketCI["Optional: `pnpm audit:socket`<br/>`npx --yes socket fix` + `package score`<br/>needs `SOCKET_CLI_API_TOKEN"]
 
-    SocketCI --> AuditAlerts{"Evaluate Alerts<br/>Against Threshold"}
-    AuditAlerts -- "0 High &amp; 0 Medium Alerts" --> GatePass["Supply Chain Gate PASSED<br/>• Score Target ≥ 98 / 100<br/>• Approved for Production"]
-    AuditAlerts -- "High or Medium Alert Detected" --> GateFail["BLOCK DELIVERY<br/>• Surface alert locations<br/>• Enforce dependency remediation"]
+    LocalAudit --> AuditAlerts{"Evaluate Advisories<br/>Against APPROVED_MITIGATED_ADVISORIES"}
+    AuditAlerts -- "No unapproved advisories" --> GatePass["Dependency Audit PASSED<br/>• 0 advisories (root + apps/web)<br/>• Approved for Production"]
+    AuditAlerts -- "Unapproved advisory or malformed scan" --> GateFail["BLOCK DELIVERY<br/>• Surface advisory IDs<br/>• Patch + regression test, or upgrade"]
 
     linkStyle default stroke:#334155,stroke-width:2px;
     style PolicyEngine fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#334155;

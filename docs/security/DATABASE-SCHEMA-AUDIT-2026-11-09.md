@@ -28,6 +28,8 @@ One extension-owned virtual table (`_sqliteai_vector`) and three FTS5 shadow-tab
 
 > **Revision note (schema v8, Issue #12).** Schema v8 adds `memory_audit_events` and `memory_relations` (`src/memory_brain_ddl.js`) plus additive provenance/lifecycle columns on `persona_memories`. Fresh and migrated-live object counts advance from 43 to 45 base DDL tables (33 declared tables + 12 FTS5 shadow tables, excluding runtime `_sqliteai_vector`).
 
+> **Revision note (schema v9 inventory).** `CURRENT_SCHEMA_VERSION` 9 predates this revision; the v2.2.24 telemetry work (`6387a720`) adds `provider_usage` (`src/schema_ddl.js:48`), its two indexes, and the `REQUIRED_FAST_SCHEMA_TABLES` / `validateCanonicalSchema` entries. The current fresh inventory is 46 base DDL tables (34 declared + 12 FTS5 shadow tables, excluding runtime `_sqliteai_vector`); the v7/v8 measurements above remain as the historical record for those releases. `konoha doctor` reports `schema 9` and `app 2.2.24` separately.
+
 ## 2. Full schema inventory
 
 Measured objects:
@@ -100,6 +102,7 @@ Lab store FKs: `lab_tool_invocations.run_id → lab_runs.id`, `red_skill_audit.r
 | `lg_checkpoints` | `src/db_schema.js:437` | `src/mcp/langgraph/checkpointer.js` | `src/mcp/langgraph/checkpointer.js` | Live |
 | `lg_writes` | `src/db_schema.js:448` | `src/mcp/langgraph/checkpointer.js` | `src/mcp/langgraph/checkpointer.js` | Live |
 | `tool_calls` | `src/agent_stats.js:59` | `src/db_savings.js`, `src/agent_stats.js` | `src/db_savings.js`, `bin/commands/savings.js` | Live |
+| `provider_usage` | `src/schema_ddl.js:48` | `src/provider_usage_logger.js` (via `src/bridge/gateway_adapters.js`, `src/bridge/handlers/anthropic.js`) | `scripts/measure_context_budget.js` | Live (v9) |
 | `sdlc_tasks` | `src/workflow/kage-reviewer/sdlc_manager.js:32` | `src/workflow/kage-reviewer/sdlc_manager.js`, `src/client_task_ingest.js` | Same + `src/web/controllers/activity_controller.js` | Live |
 | `webhooks` | `src/webhook_manager.js:22` | `src/webhook_manager.js` | `src/webhook_manager.js` | Live |
 | `schema_migrations` | `migrations/20261103_001_yamanaka_3d_canonical.sql` | `src/mcp/three_asset/db_3d_schema.js:203`, `profile_vocabulary_migration.js:75` | `src/mcp/three_asset/db_3d_schema.js:188` | Live |
@@ -246,6 +249,7 @@ No `SCAN` was found on `skill_chunks` in a hot path that an index should serve.
 | `lg_checkpoints` | `src/db_schema.js:437` | schema v5 | `src/mcp/langgraph/checkpointer.js` | `src/mcp/langgraph/checkpointer.js` | — | `docs/DATABASE-ERD.md` |
 | `lg_writes` | `src/db_schema.js:448` | schema v5 | `src/mcp/langgraph/checkpointer.js` | `src/mcp/langgraph/checkpointer.js` | — | `docs/DATABASE-ERD.md` |
 | `tool_calls` | `src/agent_stats.js:59` | schema v5 | `src/db_savings.js` | `bin/commands/savings.js` | — | `docs/DATABASE-ERD.md` |
+| `provider_usage` | `src/schema_ddl.js:48` | schema v9 | `src/provider_usage_logger.js` | `scripts/measure_context_budget.js` | `tests/test_provider_usage_persistence.js` | this document Section 3 |
 | `sdlc_tasks` | `src/workflow/kage-reviewer/sdlc_manager.js:32` | schema v5 | `sdlc_manager.js` | `sdlc_manager.js` | `tests/test_schema_migrations_and_lifecycle.js` | `docs/DATABASE-ERD.md` |
 | `webhooks` | `src/webhook_manager.js:22` | schema v5 | `src/webhook_manager.js` | `src/webhook_manager.js` | — | `docs/DATABASE-ERD.md` |
 | `schema_migrations` | migration SQL | `20261103_001` | `db_3d_schema.js:203` | `db_3d_schema.js:188` | `tests/test_schema_migrations_and_lifecycle.js` | `docs/DATABASE-ERD.md` |

@@ -16,6 +16,8 @@ const ROOT_DIR = process.env.KONOHA_BUMP_ROOT
   ? path.resolve(process.env.KONOHA_BUMP_ROOT)
   : path.resolve(__dirname, '..');
 
+const { discoverVersionClaims, claimDrift, rewriteStaleClaims } = require('./lib/version_claims');
+
 const SEMVER_REGEX = /^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?$/;
 
 function readJson(relPath) {
@@ -117,13 +119,33 @@ function getDocumentationFiles(version) {
     },
     {
       path: 'docs/QA-TEST-CHECKLIST.md',
-      check: (c) => c.includes(`(v${version})`),
-      bump: (oldV, newV) => replaceInFile('docs/QA-TEST-CHECKLIST.md', new RegExp(`\\(v${oldV}\\)`, 'g'), `(v${newV})`)
+      // Anchored to the matrix header and the `konoha version` row: the per-section
+      // `(vX.Y.Z)` tags below the header are historical records and must never be rewritten.
+      check: (c) => c.includes(`Authoritative verification matrix for Konoha MCP Tools Orchestrator (v${version})`)
+        && c.includes(`| Displays \`${version}\`, queries npm registry`),
+      bump: (oldV, newV) => {
+        let n = replaceInFile(
+          'docs/QA-TEST-CHECKLIST.md',
+          new RegExp(`(Authoritative verification matrix for Konoha MCP Tools Orchestrator \\(v)${oldV.replace(/\./g, '\\.')}(\\))`),
+          (_m, a, b) => `${a}${newV}${b}`
+        );
+        n += replaceInFile(
+          'docs/QA-TEST-CHECKLIST.md',
+          new RegExp(`(\\| Displays \`)${oldV.replace(/\./g, '\\.')}(\`, queries npm registry)`),
+          (_m, a, b) => `${a}${newV}${b}`
+        );
+        return n;
+      }
     },
     {
       path: 'docs/SECURITY.md',
-      check: (c) => c.includes(`(v${version})`),
-      bump: (oldV, newV) => replaceInFile('docs/SECURITY.md', new RegExp(`\\(v${oldV}\\)`, 'g'), `(v${newV})`)
+      // Anchored to the document title: section tags record the release a control landed in.
+      check: (c) => c.includes(`# Konoha MCP Security Architecture & Ingress Controls (v${version})`),
+      bump: (oldV, newV) => replaceInFile(
+        'docs/SECURITY.md',
+        new RegExp(`(^# Konoha MCP Security Architecture & Ingress Controls \\(v)${oldV.replace(/\./g, '\\.')}(\\))`, 'm'),
+        (_m, a, b) => `${a}${newV}${b}`
+      )
     },
     {
       path: 'docs/BENCHMARK.md',
@@ -137,8 +159,52 @@ function getDocumentationFiles(version) {
     },
     {
       path: 'docs/SETUP-CURSOR.md',
-      check: (c) => c.includes(`**v${version}**`),
-      bump: (oldV, newV) => replaceInFile('docs/SETUP-CURSOR.md', new RegExp(`\\*\\*v${oldV}\\*\\*`, 'g'), `**v${newV}**`)
+      // `verified at <version>` below the intro is a dated record of the last run, not a
+      // current-version claim, so only the intro marker is managed.
+      check: (c) => c.includes(`Konoha **v${version}**`),
+      bump: (oldV, newV) => replaceInFile('docs/SETUP-CURSOR.md', new RegExp(`Konoha \\*\\*v${oldV.replace(/\./g, '\\.')}\\*\\*`, 'g'), `Konoha **v${newV}**`)
+    },
+    {
+      path: 'docs/TELEGRAM_INTEGRATION_GUIDE.md',
+      check: (c) => c.includes(`**Konoha MCP Version:** v${version}`),
+      bump: (oldV, newV) => replaceInFile('docs/TELEGRAM_INTEGRATION_GUIDE.md', new RegExp(`\\*\\*Konoha MCP Version:\\*\\* v${oldV.replace(/\./g, '\\.')}`, 'g'), `**Konoha MCP Version:** v${newV}`)
+    },
+    {
+      path: 'docs/architecture/CANONICAL-CLI.md',
+      check: (c) => c.includes(`(Konoha v${version})`),
+      bump: (oldV, newV) => replaceInFile('docs/architecture/CANONICAL-CLI.md', new RegExp(`\\(Konoha v${oldV.replace(/\./g, '\\.')}\\)`, 'g'), `(Konoha v${newV})`)
+    },
+    {
+      path: 'docs/VPS-INSTALL.md',
+      check: (c) => c.includes(`akatsuki-cyber-pack-${version}.tar.zst`),
+      bump: (oldV, newV) => replaceInFile('docs/VPS-INSTALL.md', new RegExp(`akatsuki-cyber-pack-${oldV.replace(/\./g, '\\.')}\\.tar\\.zst`, 'g'), `akatsuki-cyber-pack-${newV}.tar.zst`)
+    },
+    {
+      path: 'docs/MANUAL.md',
+      check: (c) => c.includes(`**Version of record: ${version}**`),
+      bump: (oldV, newV) => replaceInFile('docs/MANUAL.md', new RegExp(`\\*\\*Version of record: ${oldV.replace(/\./g, '\\.')}\\*\\*`, 'g'), `**Version of record: ${newV}**`)
+    },
+    {
+      // tests/test_diagram_sync.js fails on any diagram caption that names a
+      // version other than package.json, so the label is managed here rather
+      // than left to rot until CI notices.
+      path: 'docs/diagrams/konoha-architecture.drawio',
+      check: (c) => c.includes(`(v${version})`),
+      bump: (oldV, newV) => replaceInFile('docs/diagrams/konoha-architecture.drawio', new RegExp(`v${oldV.replace(/\./g, '\\.')}\\b`, 'g'), `v${newV}`)
+    },
+    {
+      path: 'docs/diagrams/konoha-infrastructure-architecture.drawio',
+      check: (c) => c.includes(`(v${version})`),
+      bump: (oldV, newV) => replaceInFile('docs/diagrams/konoha-infrastructure-architecture.drawio', new RegExp(`v${oldV.replace(/\./g, '\\.')}\\b`, 'g'), `v${newV}`)
+    },
+    {
+      path: 'docs/README.md',
+      check: (c) => c.includes(`Capability to file to tool mapping for v${version}`) && c.includes(`| v${version} ingress, auth`),
+      bump: (oldV, newV) => {
+        let n = replaceInFile('docs/README.md', new RegExp(`Capability to file to tool mapping for v${oldV.replace(/\./g, '\\.')}`, 'g'), `Capability to file to tool mapping for v${newV}`);
+        n += replaceInFile('docs/README.md', new RegExp(`\\| v${oldV.replace(/\./g, '\\.')} ingress, auth`, 'g'), `| v${newV} ingress, auth`);
+        return n;
+      }
     },
     {
       path: 'docs/SETUP-CLI.md',
@@ -221,9 +287,23 @@ function runCheck() {
   if (hasErrors) {
     console.error('\nVersion consistency check FAILED.');
     process.exit(1);
-  } else {
-    console.log(`\nVersion consistency check PASSED (all ${manifest.length} files synchronized at v${currentVersion}).`);
   }
+
+  // The manifest covers the files a bump rewrites. Discovery covers every other
+  // active claim in the tree — a doc that asserts a release version without
+  // being on the manifest still has to agree with package.json.
+  const drift = claimDrift(currentVersion, { rootDir: ROOT_DIR });
+  if (drift.length > 0) {
+    console.error('\nActive version claims disagree with package.json:');
+    for (const claim of drift) {
+      console.error(`  ✗ ${claim.path}:${claim.line} [${claim.label}] claims ${claim.version}`);
+    }
+    console.error(`\n${drift.length} stale claim(s). Run \`node scripts/bump_version.js <version>\` to rewrite them.`);
+    process.exit(1);
+  }
+  console.log(`  ✓ ${discoverVersionClaims({ rootDir: ROOT_DIR }).length} discovered version claims agree with v${currentVersion}`);
+
+  console.log(`\nVersion consistency check PASSED (all ${manifest.length} files synchronized at v${currentVersion}).`);
 }
 
 function runBump(newVersion) {
@@ -264,6 +344,32 @@ function runBump(newVersion) {
     console.log(`│ ${p} │ ${s} │ ${c} │`);
   }
   console.log('└────────────────────────────────────────────────────────┴───────────┴───────┘');
+
+  // Claims outside the manifest (client mirrors, architecture intros, badges)
+  // are found by discovery rather than listed, so a bump keeps them coherent
+  // without anyone remembering to add the file.
+  const discovered = rewriteStaleClaims(oldVersion, newVersion, { rootDir: ROOT_DIR });
+  if (discovered.length > 0) {
+    console.log(`\nRewrote ${discovered.length} discovered claim file(s): ${discovered.join(', ')}`);
+  }
+  const leftover = claimDrift(newVersion, { rootDir: ROOT_DIR });
+  if (leftover.length > 0) {
+    console.error('\nClaims still disagree after the bump:');
+    for (const claim of leftover) {
+      console.error(`  ✗ ${claim.path}:${claim.line} [${claim.label}] claims ${claim.version}`);
+    }
+    process.exit(1);
+  }
+
+  // The PDF trailer ID is derived from docs/MANUAL.md, so a bumped manual
+  // without a rebuild fails tests/test_manual_book.js on every platform.
+  const { spawnSync } = require('child_process');
+  const rebuild = spawnSync(process.execPath, [path.join(ROOT_DIR, 'scripts', 'build_manual_pdf.js')], { stdio: 'inherit' });
+  if (rebuild.status !== 0) {
+    console.error(`\n✗ docs/MANUAL.pdf rebuild failed (exit ${rebuild.status}). Run: node scripts/build_manual_pdf.js`);
+    process.exit(1);
+  }
+
   console.log(`\n✨ Successfully bumped all ${manifest.length} files to v${newVersion}.`);
 }
 

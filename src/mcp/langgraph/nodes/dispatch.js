@@ -68,6 +68,8 @@ async function dispatchNode(state) {
         skills,
         turn_budget: state.tokenBudget || 8192,
         spawn_directive: spawnDirective,
+        // The MCP runner prepares a directive; it never starts the child.
+        spawn_state: 'directive_only',
         advisor_steers: steerCtx.pending.length > 0 ? steerCtx.pending : undefined,
         todo: {
           id: d.task_id,
@@ -131,6 +133,7 @@ async function dispatchNode(state) {
       prompt: taskPrompt,
       worktree: parsed.worktree_path ? { worktree_path: parsed.worktree_path, branch: parsed.branch, base_sha: parsed.base_sha } : null
     });
+    parsed.spawn_state = 'directive_only';
     if (steerCtx.pending.length > 0) parsed.advisor_steers = steerCtx.pending;
     if (status.advisor_supervisor) parsed.advisor_supervisor = status.advisor_supervisor;
     if (parsed.task_id || parsed.task) {

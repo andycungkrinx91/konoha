@@ -84,7 +84,8 @@ async function run() {
       port: 19876,
       provider: 'openai',
       enabled: true,
-      target_url: 'http://localhost:11434'
+      target_url: 'http://localhost:11434',
+      supports_stream_usage: true
     });
     assert.strictEqual(create.status, 201);
     console.log('✓ POST /api/v1/bridges (create) passed');
@@ -94,7 +95,42 @@ async function run() {
     assert.strictEqual(list.status, 200);
     const created = list.data.find(b => b.name === testBridgeName);
     assert.ok(created, 'Created bridge must appear in list');
+    assert.strictEqual(created.supportsStreamUsage, true, 'POST must persist the stream usage override');
     console.log('✓ GET /api/v1/bridges passed');
+
+    // Per-bridge stream usage override must be settable and clearable through
+    // the same API the web UI uses, and must survive an unrelated enable toggle.
+    const setUsage = await request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/v1/bridges/' + testBridgeName,
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Konoha-Web-Token': token
+      }
+    }, { supports_stream_usage: false });
+    assert.strictEqual(setUsage.status, 200);
+    const withOverride = (await request({ hostname: '127.0.0.1', port, path: '/api/v1/bridges', method: 'GET' }))
+      .data.find(b => b.name === testBridgeName);
+    assert.strictEqual(withOverride.supportsStreamUsage, false, 'override must persist and be readable');
+    console.log('✓ PATCH /api/v1/bridges/:name (stream usage override) passed');
+
+    const clearUsage = await request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/v1/bridges/' + testBridgeName,
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Konoha-Web-Token': token
+      }
+    }, { supports_stream_usage: null });
+    assert.strictEqual(clearUsage.status, 200);
+    const afterClear = (await request({ hostname: '127.0.0.1', port, path: '/api/v1/bridges', method: 'GET' }))
+      .data.find(b => b.name === testBridgeName);
+    assert.ok(!('supportsStreamUsage' in afterClear), 'clearing must hand the decision back to the provider allowlist');
+    console.log('✓ PATCH /api/v1/bridges/:name (stream usage auto) passed');
 
     // Toggle bridge
     const toggle = await request({

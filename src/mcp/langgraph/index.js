@@ -7,6 +7,7 @@ const { KonohaCheckpointSaver } = require('./checkpointer');
 const { getDb } = require('../../db');
 const { normalizeTokenBudget } = require('./token_guard');
 const { wrapGuardedNode } = require('./node_guard');
+const { setSliceExecutor, getSliceExecutor, clearSliceExecutor } = require('./slice_executor_registry');
 
 // macOS and Windows use case-insensitive filesystems, so a require('./nodes/Plan')
 // typed against a plan.js on disk resolves locally but fails on Linux CI and on
@@ -118,6 +119,7 @@ function createGraphBuilder() {
       node_budget_exceeded: 'node_budget_exceeded',
       node_dispatch: 'node_dispatch',
       node_review: 'node_review',
+      __end__: '__end__',
     })
 
     .addConditionalEdges('node_review', reviewRouter, {
@@ -272,7 +274,8 @@ async function runKonohaGraph(input, options = {}) {
 
   const turnIndex = await resolveTurnIndex(graph, config, threadId);
 
-  const { resumeNode: _stripResume, ...restInput } = input || {};
+  // eslint-disable-next-line no-unused-vars
+  const { resumeNode: _stripResume, sliceExecutor: _stripExecutor, ...restInput } = input || {};
 
   const invokeInput = {
     ...restInput,
@@ -288,8 +291,24 @@ async function runKonohaGraph(input, options = {}) {
     invokeInput.tokenBudget = explicitBudget;
   }
 
-  const rawResult = await graph.invoke(invokeInput, config);
-  return formatGraphOutput(rawResult);
+  // A caller may hand the executor either beside the input or inside it; both are
+  // accepted because the state schema cannot carry a function through the
+  // checkpointer, so it never becomes a channel either way.
+  const executor = typeof options.sliceExecutor === 'function'
+    ? options.sliceExecutor
+    : (typeof input?.sliceExecutor === 'function' ? input.sliceExecutor : null);
+  const hasExecutor = executor !== null;
+  const priorExecutor = getSliceExecutor(threadId);
+  if (hasExecutor) setSliceExecutor(threadId, executor);
+  try {
+    const rawResult = await graph.invoke(invokeInput, config);
+    return formatGraphOutput(rawResult);
+  } finally {
+    if (hasExecutor) {
+      if (priorExecutor) setSliceExecutor(threadId, priorExecutor);
+      else clearSliceExecutor(threadId);
+    }
+  }
 }
 
 module.exports = {

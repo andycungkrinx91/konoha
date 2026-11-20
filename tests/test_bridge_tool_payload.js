@@ -157,6 +157,41 @@ function run() {
     assert.strictEqual(out.tools, undefined);
   }) && ok;
 
+  // The stream coalescer reads `chunk.usage` from the upstream SSE tail, and the
+  // [OI] streaming contract only emits that chunk when this field is set.
+  // Without it every streamed response reports no tokens.
+  ok = runCase('streaming payload requests the usage chunk by default', () => {
+    const out = buildOpenAiPayloadFromAnthropic(
+      { model: 'claude-x', stream: true, messages: [{ role: 'user', content: 'hi' }] },
+      'gpt-x',
+      { provider: 'openai' }
+    );
+    assert.deepStrictEqual(out.stream_options, { include_usage: true });
+  }) && ok;
+
+  ok = runCase('a bridge can opt out of stream usage reporting', () => {
+    const out = buildOpenAiPayloadFromAnthropic(
+      { model: 'claude-x', stream: true, messages: [{ role: 'user', content: 'hi' }] },
+      'gpt-x',
+      { provider: 'openai', supportsStreamUsage: false }
+    );
+    assert.strictEqual(out.stream_options, undefined);
+  }) && ok;
+
+  ok = runCase('an unsupported provider is never sent stream_options', () => {
+    const out = buildOpenAiPayloadFromAnthropic(
+      { model: 'claude-x', stream: true, messages: [{ role: 'user', content: 'hi' }] },
+      'gpt-x',
+      { provider: 'unknown-vendor' }
+    );
+    assert.strictEqual(out.stream_options, undefined);
+  }) && ok;
+
+  ok = runCase('non-streaming payload carries no stream_options', () => {
+    const out = buildOpenAiPayloadFromAnthropic({ model: 'claude-x', messages: [{ role: 'user', content: 'hi' }] }, 'gpt-x', { provider: 'openai' });
+    assert.strictEqual(out.stream_options, undefined);
+  }) && ok;
+
   console.log(ok ? 'RESULT: PASS' : 'RESULT: FAIL');
   return ok;
 }

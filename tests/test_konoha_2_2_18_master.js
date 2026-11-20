@@ -149,7 +149,11 @@ async function testOrchestrationDirectAndParallel() {
     prompt: '/genin Map all exports in src/mcp/workflow_sannin.js',
     taskDir: directDir,
     projectPath: directDir,
-    threadId: `direct_${Date.now()}`
+    threadId: `direct_${Date.now()}`,
+    // The graph never spawns a child itself: it hands the directive to the client
+    // and ends the turn. This executor stands in for that client so the completed
+    // path is exercised; the unexecuted path is asserted separately below.
+    sliceExecutor: async (task) => ({ task_id: task.id, status: 'completed', summary: `Mapped exports for ${task.id}`, child_execution_verified: true })
   });
   const directStatus = directStep1.workflow_status || JSON.parse(fs.readFileSync(path.join(directDir, 'status.json'), 'utf8'));
   assert.strictEqual(directStep1.invocationMode, 'direct_subagent');
@@ -179,6 +183,31 @@ async function testOrchestrationDirectAndParallel() {
   );
   assert.ok(directStatus.advisor_audit_log.length >= 2, 'Advisor lifecycle telemetry must be recorded');
 
+  // Without an executor nothing ran, so the run must stop with a directive rather
+  // than reach the sign-off path.
+  const unspawnedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_unspawned_'));
+  fs.writeFileSync(path.join(unspawnedDir, 'status.json'), JSON.stringify({
+    project_path: unspawnedDir,
+    confidence: 100,
+    ai_slop_clean: true,
+    ai_slop_findings: 0
+  }, null, 2), 'utf8');
+  const unspawned = await runKonohaGraph({
+    prompt: '/genin Map all exports in src/mcp/workflow_sannin.js',
+    taskDir: unspawnedDir,
+    projectPath: unspawnedDir,
+    threadId: `unspawned_${Date.now()}`
+  });
+  assert.strictEqual(unspawned.spawnPending, true, 'an unexecuted slice must report spawnPending');
+  assert.strictEqual(unspawned.phase, 'execute', 'an unexecuted slice must stay in the execute phase');
+  const unspawnedPending = unspawned.spawn_pending || [];
+  assert.ok(unspawnedPending.length >= 1, 'the client must receive the slice it has to spawn');
+  assert.ok(
+    unspawnedPending.every((p) => typeof p.spawn_directive === 'string' && p.spawn_directive.includes('Spawn')),
+    'every pending slice must carry a spawn directive'
+  );
+  fs.rmSync(unspawnedDir, { recursive: true, force: true });
+
   const parDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_par_'));
   fs.writeFileSync(path.join(parDir, 'status.json'), JSON.stringify({
     project_path: parDir,
@@ -199,7 +228,8 @@ async function testOrchestrationDirectAndParallel() {
     prompt: '/konoha Build backend API endpoint and frontend UI component',
     taskDir: parDir,
     projectPath: parDir,
-    threadId: `par_${Date.now()}`
+    threadId: `par_${Date.now()}`,
+    sliceExecutor: async (task) => ({ task_id: task.id, status: 'completed', summary: `Delivered ${task.id}`, child_execution_verified: true })
   });
   const parStatus = parRes.workflow_status || JSON.parse(fs.readFileSync(path.join(parDir, 'status.json'), 'utf8'));
   assert.ok(parStatus.parallel_execution_proof, 'Parallel execution proof must be recorded');
@@ -489,7 +519,8 @@ async function testNineAgentEightClientSpawnAndAkatsukiBlueMode() {
       prompt: '/konoha Harden authentication session validation',
       taskDir: gateDir,
       projectPath: gateDir,
-      threadId: `blue_gate_${Date.now()}`
+      threadId: `blue_gate_${Date.now()}`,
+      sliceExecutor: async (task) => ({ task_id: task.id, status: 'completed', summary: `Hardened ${task.id}`, child_execution_verified: true })
     });
     const gateStatus = gateRes.workflow_status || JSON.parse(fs.readFileSync(path.join(gateDir, 'status.json'), 'utf8'));
     assert.strictEqual(gateStatus.phase, 'done');
