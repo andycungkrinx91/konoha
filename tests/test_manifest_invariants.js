@@ -46,6 +46,13 @@ const allowedRootDeps = [
   'marked',
   '@huggingface/transformers',
   'web-tree-sitter',
+  // Asset generators: the screenshot/GIF/WebP scripts under scripts/ render live
+  // CLI output, so they need a canvas implementation and a GIF encoder. They are
+  // listed here rather than in devDependencies because the root devDependency
+  // invariant permits only test tooling, and they are the same class of
+  // build-time artefact generator as playwright/docx/three above.
+  '@napi-rs/canvas',
+  'gifenc',
 ];
 const actualRootDeps = Object.keys(rootDeps);
 for (const dep of actualRootDeps) {
