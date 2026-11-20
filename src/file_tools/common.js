@@ -85,6 +85,27 @@ function norm(p) {
 }
 
 let _KONOHA_HOME = null;
+
+// Extra project roots an operator opted into, path.delimiter-separated in
+// KONOHA_ALLOWED_ROOTS (the same shape as KONOHA_ALLOWED_DB_ROOTS). Empty by
+// default, so the boundary only widens for a root that is named explicitly.
+function getAllowedRoots() {
+  const raw = process.env.KONOHA_ALLOWED_ROOTS;
+  if (!raw || typeof raw !== 'string') return [];
+  const roots = [];
+  for (const part of raw.split(path.delimiter)) {
+    const entry = part && part.trim();
+    if (!entry) continue;
+    let real;
+    try {
+      real = fs.realpathSync(path.resolve(entry));
+    } catch {
+      continue; // An entry that does not exist authorizes nothing.
+    }
+    roots.push(norm(stripWinPrefix(real)));
+  }
+  return roots;
+}
 function getKonohaHome() {
   const dynamicHome = process.env.HOME || process.env.USERPROFILE || os.homedir();
   const candidate = stripWinPrefix(path.resolve(path.normalize(path.join(dynamicHome, '.konoha'))));
@@ -211,6 +232,15 @@ function assertWithinAllowed(resolvedPath, baseDir = null, devRoot = null) {
   const rel = path.relative(wsNorm, normPath);
   if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
     return;
+  }
+
+  // Operator-allowlisted project roots, checked with the same containment rule
+  // as the workspace so a sibling of a named root still fails closed.
+  for (const allowed of getAllowedRoots()) {
+    const allowedRel = path.relative(allowed, normPath);
+    if (!allowedRel.startsWith('..') && !path.isAbsolute(allowedRel)) {
+      return;
+    }
   }
 
   throw new Error(`Path outside workspace: ${resolvedPath}`);
