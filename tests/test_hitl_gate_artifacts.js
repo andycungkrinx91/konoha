@@ -52,6 +52,25 @@ try {
   fs.unlinkSync(path.join(dir, 'plan.md'));
   console.log('  ✓ symlinked plan.md is refused without losing the plan from the message');
 
+  // A task dir that does not exist yet is legitimate (fresh task): create it and
+  // write inside it, never next to the process cwd.
+  const missingDir = path.join(dir, 'fresh-task');
+  const gate1Missing = JSON.parse(buildGate1Prompt({ tasks: [], plan: refined }, missingDir, 'root-1', refined));
+  assert.strictEqual(gate1Missing.plan_path, path.join(missingDir, 'plan.md'), 'a fresh task dir must receive plan.md');
+  assert.strictEqual(fs.readFileSync(gate1Missing.plan_path, 'utf8'), refined);
+  console.log('  ✓ missing task dir is created and receives plan.md');
+
+  // A dangling directory symlink must not be traversed: mkdir -p would either
+  // create the escape target or throw, so the artifact is skipped instead.
+  const danglingTarget = path.join(dir, 'dangling-target');
+  const danglingDir = path.join(dir, 'dangling-task');
+  fs.symlinkSync(danglingTarget, danglingDir);
+  const gate1Dangling = JSON.parse(buildGate1Prompt({ tasks: [], plan: refined }, danglingDir, 'root-1', refined));
+  assert.strictEqual(gate1Dangling.plan_path, null, 'a dangling task dir must skip the artifact, not report a path');
+  assert.strictEqual(fs.existsSync(danglingTarget), false, 'a dangling task dir must not create its escape target');
+  assert.ok(gate1Dangling.message.includes(refined.trim()), 'the plan body must still reach the approver');
+  console.log('  ✓ dangling task dir is not traversed to write plan.md');
+
   const tasks = [
     { id: 't1', agent: 'anbu', task: 'Build checkout API', status: 'completed', result: 'Added POST /checkout', files_modified: ['src/api/checkout.js'] },
     { id: 't2', agent: 'jonin', task: 'Build checkout form', status: 'completed', result: 'Added CheckoutForm', files_modified: ['src/ui/CheckoutForm.svelte'] },
@@ -75,7 +94,7 @@ try {
   assert.ok(gate2Empty.message.includes('No completed tasks recorded.'), 'Gate 2 message must state no completed tasks');
   console.log('  ✓ Gate 2 degrades cleanly with no completed tasks');
 
-  console.log('HITL gate artifacts: 9 passed, 0 failed.');
+  console.log('HITL gate artifacts: 7 cases passed, 0 failed.');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
