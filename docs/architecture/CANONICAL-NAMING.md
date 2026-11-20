@@ -1,6 +1,6 @@
 # Konoha Architecture Canonical Naming Specification
 
-**Document Version:** 1.2.0 (Konoha v2.2.19)  
+**Document Version:** 1.2.0 (Konoha v2.2.24)  
 **Date:** 2026-11-08  
 **Status:** Authoritative Standard  
 
