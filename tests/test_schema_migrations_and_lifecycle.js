@@ -159,7 +159,7 @@ async function run() {
       // exists where the extension loads, so it cannot be part of a fixed count.
       .filter(n => !n.startsWith('sqlite_') && n !== '_sqliteai_vector');
     freshCheck.close();
-    assert.strictEqual(freshTables.length, 46, `fresh setupSchema must produce exactly 46 base tables, got ${freshTables.length}`);
+    assert.strictEqual(freshTables.length, 52, `fresh setupSchema must produce exactly 52 base tables, got ${freshTables.length}`);
     for (const labTable of ['kali_tools', 'lab_runs', 'lab_tool_invocations', 'red_skill_audit']) {
       assert.ok(!freshTables.includes(labTable), `fresh schema must not define lab table ${labTable}`);
     }

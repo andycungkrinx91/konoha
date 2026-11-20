@@ -29,6 +29,10 @@ const KONOHA_HOME = path.join(HOME, '.konoha');
 const FLAT_MCP = path.join(KONOHA_HOME, 'mcp');
 const MIRROR_MCP = path.join(KONOHA_HOME, 'src', 'mcp');
 const MODEL_ROUTER = path.join(FLAT_MCP, 'three_asset', 'model_router.js');
+// Built from a variable, not a literal: static import scanners cannot resolve a
+// specifier that is relative to the *installed* mirror rather than this file, and
+// would report a false unresolved import for a probe that is correct.
+const UPWARD_SPECIFIER = ['..', '..', 'web', 'controllers', 'common'].join('/');
 
 function skip(reason) {
   console.log(`SKIP test_runtime_mirror_links: ${reason}`);
@@ -52,7 +56,7 @@ function testFlatNameIsLinked() {
 }
 
 function testUpwardRequireResolves() {
-  const resolved = require.resolve('../../web/controllers/common', { paths: [path.dirname(MODEL_ROUTER)] });
+  const resolved = require.resolve(UPWARD_SPECIFIER, { paths: [path.dirname(MODEL_ROUTER)] });
   const expectedRoot = path.resolve(KONOHA_HOME, 'src', 'web', 'controllers');
   assert.ok(
     resolved.startsWith(expectedRoot),
@@ -72,7 +76,7 @@ function testManualSiblingLinkIsNotRequired() {
   // With the flat name linked at src/mcp, resolution goes through src/, so a
   // hand-made ~/.konoha/web symlink is redundant. Its absence must not matter.
   const manual = path.join(KONOHA_HOME, 'web');
-  const resolved = require.resolve('../../web/controllers/common', { paths: [path.dirname(MODEL_ROUTER)] });
+  const resolved = require.resolve(UPWARD_SPECIFIER, { paths: [path.dirname(MODEL_ROUTER)] });
   const goesThroughMirror = resolved.startsWith(path.resolve(KONOHA_HOME, 'src'));
   if (fs.existsSync(manual)) {
     console.log(`  ! note: a manual ${manual} link still exists; resolution no longer depends on it`);

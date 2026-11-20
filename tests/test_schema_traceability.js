@@ -16,12 +16,15 @@ const os = require('os');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const AUDIT_DOC = path.join(REPO_ROOT, 'docs', 'security', 'DATABASE-SCHEMA-AUDIT-2026-11-09.md');
-// 34 declared tables + 12 FTS5 shadow tables. `_sqliteai_vector` and
+// 35 declared tables + 17 FTS5 shadow tables. `_sqliteai_vector` and
 // `sqlite_%` are runtime-owned and platform-dependent (`_sqliteai_vector` only
 // exists where the vector extension loads), so neither counts. Matches the
 // phase-6 assertion in tests/test_schema_migrations_and_lifecycle.js.
-const RAW_TABLE_COUNT = 46;
-const DECLARED_TABLE_COUNT = 34;
+// Schema v11 added the chunin_knowledge table and its chunin_knowledge_fts
+// virtual table, plus that table's 4 shadow tables (_config, _data, _docsize,
+// _idx): 46 -> 52 raw, 34 -> 36 declared.
+const RAW_TABLE_COUNT = 52;
+const DECLARED_TABLE_COUNT = 36;
 
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha-trace-test-'));
 process.env.HOME = tmpRoot;

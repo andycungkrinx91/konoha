@@ -110,16 +110,33 @@ async def deep_research(query: str) -> list[ResearchFinding]:
 ```
 
 #### 3. Vector Store Caching for Intermediate Results
-Caching intermediate research results in vector stores prevents redundant crawling and accelerates knowledge retrieval:
-- **Storage:** Use `pgvector` or local `FAISS` for caching crawled page embeddings.
-- **Deduplication:** Deduplicate sources via cosine similarity before processing.
-- **Invalidation:** Implement TTL-based cache invalidation for time-sensitive research (e.g., fast-moving API docs).
+Caching intermediate research results prevents redundant crawling and accelerates
+retrieval. Konoha implements this locally in `src/mcp/chunin_knowledge.js` — no
+pgvector, no FAISS, no API key:
+
+- **Storage:** the `chunin_knowledge` table (schema v11) with an FTS5 index and a
+  384-dim FLOAT32 `embedding` column registered through the bundled
+  `sqlite-vector` extension (`vector_init`, distance COSINE, normalized).
+- **Retrieval order:** **top-5** stored references for the topic (FTS5 + vector +
+  cross-encoder rerank) before any network call; then **top-3** net-new web
+  results via `web_search({ exclude_urls })`.
+- **Deduplication, three layers:** exact `content_hash`; canonical URL (tracking
+  params, trailing slash, scheme and host case normalized); and cosine `>= 0.90`
+  over **mean-centered** embeddings. Centering matters: the raw embedder rates two
+  unrelated sentences at ~0.997 cosine, so an uncentered threshold marks everything
+  as a duplicate. Measured after centering, unrelated pairs fall to -0.46..0.41 and
+  identical text stays at 1.0.
+- **Bulk write:** surviving learnings are embedded in one batched `embedBatch` call
+  (real ONNX batching, length-sorted to avoid padding waste) and inserted in a
+  single transaction with a prepared statement.
+- **Invalidation:** `last_verified_at` is per row; refresh it when a learning is
+  re-confirmed. Time-sensitive topics should re-search rather than trust the cache.
 - **Example Flow:**
-  ```python
-  # Store page chunks in vector store
-  vector_store.add_texts(chunks, metadata=[{"url": url, "timestamp": now}])
-  # Retrieve similar past findings
-  cached = vector_store.similarity_search(query, k=3, filter={"ttl_valid": True})
+  ```js
+  const { retrieveRelevant, storeLearnings } = require('./mcp/chunin_knowledge');
+  const known = await retrieveRelevant({ topic, topK: 5 });
+  const fresh = await web_search({ query: topic, exclude_urls: known.map(r => r.canonical_url) });
+  await storeLearnings({ topic, learnings: fresh });
   ```
 
 #### 4. Episodic Research Memory
