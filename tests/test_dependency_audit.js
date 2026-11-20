@@ -301,18 +301,41 @@ function verifySocketConfigInvariants() {
 
 function verifyOverrideResolution() {
   const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'));
-  assert.strictEqual(
-    pkg.overrides && pkg.overrides.globalthis,
-    'npm:@socketregistry/globalthis@1.0.7',
-    'package.json#overrides must override globalthis to @socketregistry/globalthis@1.0.7 for npm/Socket resolution'
-  );
+  const expectedOverrides = {
+    globalthis: 'npm:@socketregistry/globalthis@1.0.7',
+    isarray: 'npm:@socketregistry/isarray@1.0.8',
+    'readable-stream': '^3.6.2',
+    'safe-buffer': 'npm:@socketregistry/safe-buffer@1.0.9',
+    setimmediate: 'npm:immediate@^3.3.0'
+  };
+  for (const [name, spec] of Object.entries(expectedOverrides)) {
+    assert.strictEqual(
+      pkg.overrides && pkg.overrides[name],
+      spec,
+      `package.json#overrides must pin ${name} to ${spec} for npm/Socket resolution`
+    );
+  }
   const lockContent = fs.readFileSync(path.join(REPO_ROOT, 'pnpm-lock.yaml'), 'utf8');
-  assert.ok(lockContent.includes('@socketregistry/globalthis@1.0.7'), 'pnpm-lock.yaml must resolve @socketregistry/globalthis@1.0.7');
-  for (const legacyPkg of ['define-properties@1.2.1', 'es-define-property@1.0.1', 'globalthis@1.0.4', 'gopd@1.2.0', 'has-property-descriptors@1.0.2', 'object-keys@1.1.1']) {
+  for (const resolved of ['@socketregistry/globalthis@1.0.7', '@socketregistry/safe-buffer@1.0.9', 'readable-stream@3.6.2', 'immediate@3.3.0']) {
+    assert.ok(lockContent.includes(resolved), `pnpm-lock.yaml must resolve ${resolved}`);
+  }
+  for (const legacyPkg of [
+    'define-properties@1.2.1',
+    'es-define-property@1.0.1',
+    'globalthis@1.0.4',
+    'gopd@1.2.0',
+    'has-property-descriptors@1.0.2',
+    'isarray@1.0.0',
+    'object-keys@1.1.1',
+    'readable-stream@2.3.8',
+    'safe-buffer@5.1.2',
+    'safe-buffer@5.2.1',
+    'setimmediate@1.0.5'
+  ]) {
     const legacyPattern = new RegExp(`^\\s{2}${legacyPkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:`, 'm');
     assert.ok(!legacyPattern.test(lockContent), `pnpm-lock.yaml must not resolve ${legacyPkg}`);
   }
-  console.log('✓ override resolution: @socketregistry/globalthis@1.0.7 pinned, no legacy globalthis tree');
+  console.log('✓ override resolution: Socket registry and stream overrides pinned in package.json and lockfile');
 }
 
 function main() {

@@ -73,7 +73,11 @@
   },
   "overrides": {
     "image-size": ">=2.0.3",
-    "globalthis": "npm:@socketregistry/globalthis@1.0.7"
+    "globalthis": "npm:@socketregistry/globalthis@1.0.7",
+    "isarray": "npm:@socketregistry/isarray@1.0.8",
+    "readable-stream": "^3.6.2",
+    "safe-buffer": "npm:@socketregistry/safe-buffer@1.0.9",
+    "setimmediate": "npm:immediate@^3.3.0"
   },
   "bundleDependencies": [
     "cfb",

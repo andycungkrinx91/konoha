@@ -96,4 +96,9 @@ test("pnpm pack excludes docs/ and preserves bin/cli.js, apps/web/build, src/tem
   for (const license of ["Apache-2.0", "MIT", "ISC", "BlueOak-1.0.0"]) {
     assert.ok(notice.includes(license), `NOTICE must name the ${license} license it redistributes under`);
   }
+  assert.strictEqual(
+    /\b(LGPL-3\.0-or-later|MPL-2\.0|AGPL-3\.0)\b/.test(notice),
+    false,
+    "NOTICE ships in the published tarball and must not list non-redistributed copyleft SPDX identifiers (causes Socket/SPDX scanners to misclassify konoha-mcp itself)"
+  );
 });
