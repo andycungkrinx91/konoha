@@ -301,7 +301,7 @@ function ensureMirroredSubdirLinks(destDir) {
     if (!fileExists(target)) continue;
     const linkPath = path.join(destDir, sub);
     const relativeTarget = path.join('src', sub);
-    if (replaceWithMirrorLink(linkPath, relativeTarget)) linked.add(sub);
+    if (replaceWithMirrorLink(linkPath, relativeTarget, destDir)) linked.add(sub);
   }
   return linked;
 }
@@ -324,12 +324,44 @@ function ensureMirroredRootFileLinks(destDir) {
     if (!entry.isFile() || !entry.name.endsWith('.js')) continue;
     const linkPath = path.join(destDir, entry.name);
     const relativeTarget = path.join('src', entry.name);
-    if (replaceWithMirrorLink(linkPath, relativeTarget)) linked.add(entry.name);
+    if (replaceWithMirrorLink(linkPath, relativeTarget, destDir)) linked.add(entry.name);
   }
   return linked;
 }
 
-function replaceWithMirrorLink(linkPath, relativeTarget) {
+// Symlink creation needs elevation on Windows unless Developer Mode is on, and a
+// failed attempt must never cost the caller the copy it already had. Probe once
+// per process, and build the link beside its destination before swapping, so a
+// failure leaves the original in place.
+let symlinkSupport = null;
+
+function supportsSymlinks(destDir) {
+  if (symlinkSupport !== null) return symlinkSupport;
+  const probeDir = path.join(destDir, '.konoha-link-probe');
+  const probeLink = path.join(probeDir, 'link');
+  const probeTarget = path.join(probeDir, 'target');
+  try {
+    fs.rmSync(probeDir, { recursive: true, force: true });
+    fs.mkdirSync(probeTarget, { recursive: true });
+    fs.symlinkSync(probeTarget, probeLink, 'junction');
+    symlinkSupport = true;
+  } catch (_) {
+    symlinkSupport = false;
+  } finally {
+    try {
+      fs.rmSync(probeDir, { recursive: true, force: true });
+    } catch (_) { /* best effort */ }
+  }
+  return symlinkSupport;
+}
+
+function replaceWithMirrorLink(linkPath, relativeTarget, destDir) {
+  // Without symlink support the existing real copy is the correct install: a
+  // mirror whose relative requires resolve a level too high still loads its own
+  // files, whereas deleting it would remove the module entirely. On Windows this
+  // is also what keeps seed sentinels such as ~/.konoha/server.js present.
+  if (!supportsSymlinks(destDir)) return false;
+  const staging = `${linkPath}.konoha-link-tmp`;
   try {
     let existing = null;
     try {
@@ -339,13 +371,21 @@ function replaceWithMirrorLink(linkPath, relativeTarget) {
     }
     if (existing) {
       if (existing.isSymbolicLink() && fs.readlinkSync(linkPath) === relativeTarget) return true;
+      // A staging path from an interrupted run would block symlink creation.
+      fs.rmSync(staging, { recursive: true, force: true });
+      // 'junction' is a directory link that Windows resolves without elevation;
+      // on POSIX it behaves like a normal directory symlink.
+      fs.symlinkSync(relativeTarget, staging, 'junction');
       fs.rmSync(linkPath, { recursive: true, force: true });
+      fs.renameSync(staging, linkPath);
+      return true;
     }
-    fs.symlinkSync(relativeTarget, linkPath, 'dir');
+    fs.rmSync(staging, { recursive: true, force: true });
+    fs.symlinkSync(relativeTarget, staging, 'junction');
+    fs.renameSync(staging, linkPath);
     return true;
   } catch (_) {
-    // A real copy is still correct where symlinks are unavailable; the parity
-    // test reports the missing link instead of failing the install.
+    try { fs.rmSync(staging, { recursive: true, force: true }); } catch (_) { /* best effort */ }
     return false;
   }
 }
