@@ -24,7 +24,7 @@ try {
   const planText = '- [anbu]: Build checkout API\n- [jonin]: Build checkout form\n';
 
   const gate1 = JSON.parse(buildGate1Prompt({ tasks: [], plan: planText }, dir, 'root-1', planText));
-  const planPath = path.join(dir, 'plan.md');
+  const planPath = path.join(fs.realpathSync(dir), 'plan.md');
   assert.ok(fs.existsSync(planPath), 'Gate 1 must write plan.md into the task dir');
   assert.strictEqual(fs.readFileSync(planPath, 'utf8'), planText, 'plan.md must hold the full plan, not a summary');
   assert.strictEqual(gate1.plan_path, planPath, 'Gate 1 payload must expose the artifact path');
@@ -56,7 +56,7 @@ try {
   // write inside it, never next to the process cwd.
   const missingDir = path.join(dir, 'fresh-task');
   const gate1Missing = JSON.parse(buildGate1Prompt({ tasks: [], plan: refined }, missingDir, 'root-1', refined));
-  assert.strictEqual(gate1Missing.plan_path, path.join(missingDir, 'plan.md'), 'a fresh task dir must receive plan.md');
+  assert.strictEqual(gate1Missing.plan_path, path.join(fs.realpathSync(missingDir), 'plan.md'), 'a fresh task dir must receive plan.md');
   assert.strictEqual(fs.readFileSync(gate1Missing.plan_path, 'utf8'), refined);
   console.log('  ✓ missing task dir is created and receives plan.md');
 
@@ -70,6 +70,19 @@ try {
   assert.strictEqual(fs.existsSync(danglingTarget), false, 'a dangling task dir must not create its escape target');
   assert.ok(gate1Dangling.message.includes(refined.trim()), 'the plan body must still reach the approver');
   console.log('  ✓ dangling task dir is not traversed to write plan.md');
+
+  // A dangling plan.md symlink has no lstat-visible target, so a path-based
+  // existsSync() check would see "absent" and write through it. O_NOFOLLOW
+  // refuses at open instead.
+  const orphanTarget = path.join(dir, 'absent-target.md');
+  fs.rmSync(path.join(dir, 'plan.md'), { force: true });
+  fs.symlinkSync(orphanTarget, path.join(dir, 'plan.md'));
+  const gate1Orphan = JSON.parse(buildGate1Prompt({ tasks: [], plan: refined }, dir, 'root-1', refined));
+  assert.strictEqual(gate1Orphan.plan_path, null, 'a dangling plan.md symlink must be refused');
+  assert.strictEqual(fs.existsSync(orphanTarget), false, 'a dangling plan.md symlink must not materialize its target');
+  assert.ok(gate1Orphan.message.includes(refined.trim()), 'the plan body must still reach the approver');
+  fs.unlinkSync(path.join(dir, 'plan.md'));
+  console.log('  ✓ dangling plan.md symlink is refused');
 
   const tasks = [
     { id: 't1', agent: 'anbu', task: 'Build checkout API', status: 'completed', result: 'Added POST /checkout', files_modified: ['src/api/checkout.js'] },
@@ -94,7 +107,7 @@ try {
   assert.ok(gate2Empty.message.includes('No completed tasks recorded.'), 'Gate 2 message must state no completed tasks');
   console.log('  ✓ Gate 2 degrades cleanly with no completed tasks');
 
-  console.log('HITL gate artifacts: 7 cases passed, 0 failed.');
+  console.log('HITL gate artifacts: 8 cases passed, 0 failed.');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }

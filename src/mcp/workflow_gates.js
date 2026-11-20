@@ -192,18 +192,63 @@ function _serializeHitlPromptEnvelope(baseFields, { stage, gateName, choices, st
  * Gate 1 is the only moment the approved plan exists as text before execution.
  * Persist the compiled plan as the authoritative plan.md artifact next to
  * `final_report.md` so it survives compaction and the approver can open it.
- * Refuses symlink targets; write failures must never block the gate itself.
+ *
+ * Task dirs are shared with clients, so `plan.md` may be pre-created by someone
+ * else. Validation-by-path (`existsSync` + `lstatSync` then write) is racy: the
+ * file can be swapped for a symlink in between. Instead the artifact is opened
+ * once with O_NOFOLLOW on the final component and written through that
+ * descriptor, so a symlink — dangling or not — fails at open (ELOOP) and the
+ * bytes can only ever reach the inode we fstat'ed as a regular file.
+ * Write failures must never block the gate itself.
  */
-function writePlanArtifact(resolvedTaskDir, planText) {
-  if (!resolvedTaskDir || !String(planText).trim()) return null;
-  const planPath = path.join(path.resolve(resolvedTaskDir), 'plan.md');
+const PLAN_ARTIFACT_NAME = 'plan.md';
+
+/** Open `plan.md` for writing without ever following a symlink to another inode. */
+function _openPlanArtifactExclusive(planPath) {
+  // O_NOFOLLOW does not exist on Windows; there the descriptor check below and
+  // the post-open identity check carry the defense instead.
+  const NOFOLLOW = fs.constants.O_NOFOLLOW || 0;
+  const createFlags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | NOFOLLOW;
   try {
-    if (fs.existsSync(planPath) && fs.lstatSync(planPath).isSymbolicLink()) return null;
-    fs.mkdirSync(path.dirname(planPath), { recursive: true });
-    fs.writeFileSync(planPath, String(planText), 'utf8');
+    return fs.openSync(planPath, createFlags, 0o644);
+  } catch (err) {
+    if (err.code !== 'EEXIST') throw err;
+  }
+  // Regeneration overwrites an existing artifact, but only a real file: a
+  // symlink (dangling or not) is refused by lstat, and O_NOFOLLOW refuses it
+  // again at open on platforms that implement it.
+  const before = fs.lstatSync(planPath);
+  if (!before.isFile()) return null;
+  const fd = fs.openSync(planPath, fs.constants.O_WRONLY | NOFOLLOW);
+  const opened = fs.fstatSync(fd);
+  if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) {
+    fs.closeSync(fd);
+    return null;
+  }
+  return fd;
+}
+
+function writePlanArtifact(resolvedTaskDir, planText) {
+  const text = String(planText === undefined || planText === null ? '' : planText);
+  if (!resolvedTaskDir || !text.trim()) return null;
+  let fd = null;
+  try {
+    fs.mkdirSync(resolvedTaskDir, { recursive: true });
+    // Canonicalize after creation so a directory symlink resolves to the real
+    // task dir and the artifact can never be placed relative to a link.
+    const taskDir = fs.realpathSync(resolvedTaskDir);
+    const planPath = path.join(taskDir, PLAN_ARTIFACT_NAME);
+    fd = _openPlanArtifactExclusive(planPath);
+    if (fd === null) return null;
+    fs.ftruncateSync(fd, 0);
+    fs.writeFileSync(fd, text, 'utf8');
     return planPath;
   } catch (_) {
     return null;
+  } finally {
+    if (fd !== null) {
+      try { fs.closeSync(fd); } catch (_) { /* fd already closed */ }
+    }
   }
 }
 
