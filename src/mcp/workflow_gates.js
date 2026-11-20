@@ -214,18 +214,30 @@ function _openPlanArtifactExclusive(planPath, nofollow) {
   } catch (err) {
     if (err.code !== 'EEXIST') throw err;
   }
-  // Overwriting an existing artifact is the only step that needs to prove the
-  // final component is not a link, which requires O_NOFOLLOW.
-  if (!nofollow) return null;
+  // Overwriting an existing artifact must prove the descriptor is the regular
+  // file we inspected. O_NOFOLLOW makes that atomic where the platform has it;
+  // where it does not, the opened inode is compared against the inspected one,
+  // so a swap to a symlink (or a hard link to another file) shows up as a
+  // mismatch instead of a write into someone else's target. Refusing the
+  // overwrite outright would break plan regeneration on Windows.
   const before = fs.lstatSync(planPath);
   if (!before.isFile()) return null;
   const fd = fs.openSync(planPath, fs.constants.O_WRONLY | nofollow);
-  const opened = fs.fstatSync(fd);
-  if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) {
-    fs.closeSync(fd);
-    return null;
+  try {
+    const opened = fs.fstatSync(fd);
+    const sameInode = opened.isFile() && opened.dev === before.dev && opened.ino === before.ino;
+    // A reported inode of 0 is not an identity. Without O_NOFOLLOW nothing else
+    // proves the descriptor is the inspected file, so fail closed rather than
+    // truncate a file we cannot identify.
+    if (!sameInode || (!nofollow && (before.ino === 0 || opened.ino === 0))) {
+      fs.closeSync(fd);
+      return null;
+    }
+    return fd;
+  } catch (err) {
+    try { fs.closeSync(fd); } catch (_) { /* descriptor already gone */ }
+    throw err;
   }
-  return fd;
 }
 
 function writePlanArtifact(resolvedTaskDir, planText) {
@@ -580,5 +592,8 @@ module.exports = {
   parseGateChoice,
   applyGate1Choice,
   applyGate2Choice,
-  compactPostApprovalContext
+  compactPostApprovalContext,
+  // Internal, exported so the no-O_NOFOLLOW platform branch can be exercised on
+  // a host that has O_NOFOLLOW (Windows coverage without a Windows runner).
+  _openPlanArtifactExclusive
 };

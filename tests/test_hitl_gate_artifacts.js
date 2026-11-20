@@ -14,7 +14,7 @@ const path = require('path');
 
 require('./helpers/isolate_db');
 
-const { buildGate1Prompt, buildGate2Prompt } = require('../src/mcp/workflow_gates');
+const { buildGate1Prompt, buildGate2Prompt, _openPlanArtifactExclusive } = require('../src/mcp/workflow_gates');
 
 console.log('Running test_hitl_gate_artifacts tests...');
 
@@ -84,6 +84,86 @@ try {
   fs.unlinkSync(path.join(dir, 'plan.md'));
   console.log('  ✓ dangling plan.md symlink is refused');
 
+  // Race: plan.md is a regular file at lstat time and becomes a symlink to an
+  // outside file before the open. Opening by path is unavoidable there, so the
+  // only defence is that the descriptor's inode must match the inspected one.
+  const raceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_gate_race_'));
+  const raceVictim = path.join(raceDir, 'victim.md');
+  fs.writeFileSync(raceVictim, 'ORIGINAL', 'utf8');
+  fs.writeFileSync(path.join(dir, 'plan.md'), '- [anbu]: stale plan\n', 'utf8');
+  const realOpenSync = fs.openSync;
+  let swapped = false;
+  fs.openSync = function patchedOpenSync(target, flags, mode) {
+    if (!swapped && typeof flags === 'number' && (flags & fs.constants.O_CREAT) === 0) {
+      swapped = true;
+      fs.rmSync(target, { force: true });
+      fs.symlinkSync(raceVictim, target);
+    }
+    return realOpenSync.call(fs, target, flags, mode);
+  };
+  let gate1Race;
+  try {
+    gate1Race = JSON.parse(buildGate1Prompt({ tasks: [], plan: refined }, dir, 'root-1', refined));
+  } finally {
+    fs.openSync = realOpenSync;
+  }
+  assert.strictEqual(swapped, true, 'the race harness must actually swap the artifact mid-open');
+  assert.strictEqual(fs.readFileSync(raceVictim, 'utf8'), 'ORIGINAL', 'a raced symlink must never be written through');
+  assert.strictEqual(gate1Race.plan_path, null, 'a raced artifact must be reported as unwritten');
+  assert.ok(gate1Race.message.includes(refined.trim()), 'the plan body must still reach the approver');
+
+  // Same race with O_NOFOLLOW stripped from the open, which is what a Windows
+  // kernel does: the open follows the link, so the inode comparison is the only
+  // defence left and must still refuse.
+  fs.unlinkSync(path.join(dir, 'plan.md'));
+  fs.writeFileSync(path.join(dir, 'plan.md'), '- [anbu]: stale plan\n', 'utf8');
+  let swappedPortable = false;
+  fs.openSync = function patchedPortableOpenSync(target, flags, mode) {
+    if (typeof flags === 'number' && (flags & fs.constants.O_CREAT) === 0) {
+      if (!swappedPortable) {
+        swappedPortable = true;
+        fs.rmSync(target, { force: true });
+        fs.symlinkSync(raceVictim, target);
+      }
+      flags &= ~(fs.constants.O_NOFOLLOW || 0);
+    }
+    return realOpenSync.call(fs, target, flags, mode);
+  };
+  let gate1PortableRace;
+  try {
+    gate1PortableRace = JSON.parse(buildGate1Prompt({ tasks: [], plan: refined }, dir, 'root-1', refined));
+  } finally {
+    fs.openSync = realOpenSync;
+  }
+  assert.strictEqual(swappedPortable, true, 'the portable race harness must swap the artifact mid-open');
+  assert.strictEqual(fs.readFileSync(raceVictim, 'utf8'), 'ORIGINAL', 'a raced symlink must never be written through without O_NOFOLLOW');
+  assert.strictEqual(gate1PortableRace.plan_path, null, 'inode mismatch must refuse the write where O_NOFOLLOW is unsupported');
+  fs.rmSync(raceDir, { recursive: true, force: true });
+  fs.rmSync(path.join(dir, 'plan.md'), { force: true });
+  console.log('  ✓ symlink swapped mid-open is refused, with and without O_NOFOLLOW');
+
+  // Windows has no O_NOFOLLOW, so this branch decides whether Gate 1 can ever
+  // regenerate its artifact there. An existing regular file must stay
+  // overwritable, and a symlink must still be refused.
+  const portablePath = path.join(dir, 'portable.md');
+  fs.writeFileSync(portablePath, 'old', 'utf8');
+  const portableFd = _openPlanArtifactExclusive(portablePath, 0);
+  assert.ok(portableFd !== null, 'an existing regular artifact must be overwritable where O_NOFOLLOW is unsupported');
+  fs.ftruncateSync(portableFd, 0);
+  fs.writeFileSync(portableFd, 'new', 'utf8');
+  fs.closeSync(portableFd);
+  assert.strictEqual(fs.readFileSync(portablePath, 'utf8'), 'new', 'regeneration must replace content without O_NOFOLLOW');
+
+  const portableVictim = path.join(dir, 'portable-victim.md');
+  fs.writeFileSync(portableVictim, 'ORIGINAL', 'utf8');
+  fs.rmSync(portablePath, { force: true });
+  fs.symlinkSync(portableVictim, portablePath);
+  assert.strictEqual(_openPlanArtifactExclusive(portablePath, 0), null, 'a symlink must still be refused without O_NOFOLLOW');
+  assert.strictEqual(fs.readFileSync(portableVictim, 'utf8'), 'ORIGINAL', 'the refused symlink target must stay untouched');
+  fs.rmSync(portablePath, { force: true });
+  fs.rmSync(portableVictim, { force: true });
+  console.log('  ✓ existing artifact overwrite works without O_NOFOLLOW, symlink still refused');
+
   // Artifact persistence is advisory: if the task dir cannot be created, Gate 1
   // must still produce an approvable prompt carrying the plan inline.
   const blocker = path.join(dir, 'not-a-dir');
@@ -117,7 +197,7 @@ try {
   assert.ok(gate2Empty.message.includes('No completed tasks recorded.'), 'Gate 2 message must state no completed tasks');
   console.log('  ✓ Gate 2 degrades cleanly with no completed tasks');
 
-  console.log('HITL gate artifacts: 8 cases passed, 0 failed.');
+  console.log('HITL gate artifacts: 10 cases passed, 0 failed.');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
