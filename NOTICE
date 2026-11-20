@@ -72,15 +72,20 @@ Copyleft in the install graph (not redistributed)
 Two dependency families in the resolved tree carry copyleft terms. Neither is
 bundled into the published tarball, and neither is modified by this project.
 
-  @img/sharp-libvips-<platform>  LGPL-3.0-or-later
+  @img/sharp-<platform>  Apache-2.0 / Apache-2.0 AND LGPL-3.0-or-later
     Reached through `sharp@0.35.5`, a hard dependency of
     `@huggingface/transformers@4.3.2` (Konoha's ONNX embedding backend), which
-    requires `sharp` at module load (`dist/transformers.node.cjs`). `sharp` loads
-    these prebuilt libvips binaries for image decoding; Konoha calls transformers
-    for text embeddings and never processes an image. Each package is
-    platform-specific and marked `optional: true` in `pnpm-lock.yaml`, so exactly
-    one is installed per host, from its own published tarball, into the
-    consumer's install tree.
+    requires `sharp` at module load (`dist/transformers.node.cjs`). Each package
+    carries a prebuilt libvips binary for one platform, which `sharp` loads for
+    image decoding; Konoha calls transformers for text embeddings and never
+    processes an image. The declared license is not uniform across the builds:
+    the Windows packages state `Apache-2.0 AND LGPL-3.0-or-later`, the Linux and
+    macOS packages state `Apache-2.0` for the same libvips payload. Treated here
+    as copyleft on every host, which is why the dependency gate allowlists the
+    whole `@img/sharp-` prefix rather than the expression it happens to see.
+    Each package is platform-specific and marked `optional: true` in
+    `pnpm-lock.yaml`, so exactly one is installed per host, from its own
+    published tarball, into the consumer's install tree.
 
     Konoha does not redistribute this package: it is not in `bundleDependencies`
     and not in the published tarball. It is also not a removable dependency —

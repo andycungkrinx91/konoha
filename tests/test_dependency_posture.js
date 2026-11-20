@@ -157,7 +157,12 @@ console.log('  ok   isarray override current');
 //    tarball; the point of the gate is that a new copyleft package cannot arrive
 //    silently through a transitive dependency, which is what moved the Socket
 //    license score from 100 to 90 (see NOTICE, "Copyleft in the install graph").
-const COPYLEFT_ALLOWLIST = ['@img/sharp-libvips-', 'lightningcss'];
+// `sharp`'s prebuilt binaries are split per platform, and the declared license
+//    differs between them: the Windows builds state `Apache-2.0 AND
+//    LGPL-3.0-or-later`, while the Linux and macOS builds state `Apache-2.0` for
+//    the same libvips payload. Both halves are the same dependency, so one
+//    prefix covers every host instead of an allowlist that only passes on Linux.
+const COPYLEFT_ALLOWLIST = ['@img/sharp-', 'lightningcss'];
 const PERMISSIVE = new Set([
   'MIT', 'ISC', 'BSD-2-CLAUSE', 'BSD-3-CLAUSE', '0BSD', 'APACHE-2.0',
   'BLUEOAK-1.0.0', 'UNLICENSE', 'CC0-1.0', 'ZLIB', 'PYTHON-2.0', 'BSL-1.0'
@@ -202,7 +207,9 @@ function assertCopyleftAllowlisted() {
       else if (!isPermissive(license)) found.push(`${name} (${license})`);
     }
   }
-  const unlisted = found.filter((hit) => !COPYLEFT_ALLOWLIST.some((allowed) => hit.startsWith(allowed)));
+  // One package can appear under several store entries (its own directory plus a
+  //    dependent's link), so report each offending package once.
+  const unlisted = [...new Set(found.filter((hit) => !COPYLEFT_ALLOWLIST.some((allowed) => hit.startsWith(allowed))))];
   assert.deepStrictEqual(unlisted, [], `unlisted copyleft package(s) in the install tree: ${unlisted.join(', ')}`);
   const notice = read('NOTICE');
   for (const allowed of COPYLEFT_ALLOWLIST) {
