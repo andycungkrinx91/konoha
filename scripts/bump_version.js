@@ -16,6 +16,8 @@ const ROOT_DIR = process.env.KONOHA_BUMP_ROOT
   ? path.resolve(process.env.KONOHA_BUMP_ROOT)
   : path.resolve(__dirname, '..');
 
+const { discoverVersionClaims, claimDrift, rewriteStaleClaims } = require('./lib/version_claims');
+
 const SEMVER_REGEX = /^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?$/;
 
 function readJson(relPath) {
@@ -272,9 +274,23 @@ function runCheck() {
   if (hasErrors) {
     console.error('\nVersion consistency check FAILED.');
     process.exit(1);
-  } else {
-    console.log(`\nVersion consistency check PASSED (all ${manifest.length} files synchronized at v${currentVersion}).`);
   }
+
+  // The manifest covers the files a bump rewrites. Discovery covers every other
+  // active claim in the tree — a doc that asserts a release version without
+  // being on the manifest still has to agree with package.json.
+  const drift = claimDrift(currentVersion, { rootDir: ROOT_DIR });
+  if (drift.length > 0) {
+    console.error('\nActive version claims disagree with package.json:');
+    for (const claim of drift) {
+      console.error(`  ✗ ${claim.path}:${claim.line} [${claim.label}] claims ${claim.version}`);
+    }
+    console.error(`\n${drift.length} stale claim(s). Run \`node scripts/bump_version.js <version>\` to rewrite them.`);
+    process.exit(1);
+  }
+  console.log(`  ✓ ${discoverVersionClaims({ rootDir: ROOT_DIR }).length} discovered version claims agree with v${currentVersion}`);
+
+  console.log(`\nVersion consistency check PASSED (all ${manifest.length} files synchronized at v${currentVersion}).`);
 }
 
 function runBump(newVersion) {
@@ -315,6 +331,23 @@ function runBump(newVersion) {
     console.log(`│ ${p} │ ${s} │ ${c} │`);
   }
   console.log('└────────────────────────────────────────────────────────┴───────────┴───────┘');
+
+  // Claims outside the manifest (client mirrors, architecture intros, badges)
+  // are found by discovery rather than listed, so a bump keeps them coherent
+  // without anyone remembering to add the file.
+  const discovered = rewriteStaleClaims(oldVersion, newVersion, { rootDir: ROOT_DIR });
+  if (discovered.length > 0) {
+    console.log(`\nRewrote ${discovered.length} discovered claim file(s): ${discovered.join(', ')}`);
+  }
+  const leftover = claimDrift(newVersion, { rootDir: ROOT_DIR });
+  if (leftover.length > 0) {
+    console.error('\nClaims still disagree after the bump:');
+    for (const claim of leftover) {
+      console.error(`  ✗ ${claim.path}:${claim.line} [${claim.label}] claims ${claim.version}`);
+    }
+    process.exit(1);
+  }
+
   console.log(`\n✨ Successfully bumped all ${manifest.length} files to v${newVersion}.`);
 }
 

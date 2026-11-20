@@ -160,13 +160,26 @@ function parseEvents(wire) {
 
   console.log('provider compatibility');
 
-  test('stream usage reporting is requested by default and can be opted out', () => {
-    const { supportsStreamUsage } = require('../src/bridge/gateway_adapters');
+  test('unknown providers are denied stream_options by default', () => {
+    const { supportsStreamUsage } = require('../src/bridge/stream_usage');
     assert.strictEqual(supportsStreamUsage({ provider: 'openai' }), true);
     assert.strictEqual(supportsStreamUsage({ provider: 'openai-compatible' }), true);
-    assert.strictEqual(supportsStreamUsage({ provider: 'strict-validator' }), true);
-    assert.strictEqual(supportsStreamUsage(null), true);
-    assert.strictEqual(supportsStreamUsage({ provider: 'strict-validator', supportsStreamUsage: false }), false);
+    assert.strictEqual(supportsStreamUsage({ provider: 'strict-validator' }), false, 'an unrecognised provider must never be sent the field');
+    assert.strictEqual(supportsStreamUsage({ provider: 'antigravity-extension' }), false, 'an IDE extension is not a Chat Completions server');
+    assert.strictEqual(supportsStreamUsage(null), false);
+    assert.strictEqual(supportsStreamUsage({}), false);
+    assert.strictEqual(supportsStreamUsage({ provider: '' }), false);
+  });
+
+  test('the allowlist is configurable and a per-bridge flag overrides it both ways', () => {
+    const { supportsStreamUsage, providerAllowlist } = require('../src/bridge/stream_usage');
+    assert.deepStrictEqual([...providerAllowlist('openai, my-server')], ['openai', 'my-server']);
+    assert.strictEqual(supportsStreamUsage({ provider: 'my-server' }, 'openai'), false);
+    assert.strictEqual(supportsStreamUsage({ provider: 'my-server' }, 'openai,my-server'), true);
+    assert.strictEqual(supportsStreamUsage({ provider: 'openai-compatible' }, 'openai'), false, 'config may narrow the allowlist');
+    assert.strictEqual(supportsStreamUsage({ provider: 'strict-validator', supportsStreamUsage: true }), true, 'explicit opt-in wins');
+    assert.strictEqual(supportsStreamUsage({ provider: 'openai', supportsStreamUsage: false }), false, 'explicit opt-out wins');
+    assert.strictEqual(providerAllowlist('').size, 3, 'an empty override falls back to the defaults');
   });
 
   test('non-integer provider counts are rejected, not rounded or emitted', () => {
@@ -182,8 +195,28 @@ function parseEvents(wire) {
     );
   });
 
-  console.log('gateway forwarding');
+  console.log('local handler forwarding');
 
+  test('the local stream body forwards stream_options only to a supporting provider', () => {
+    const { buildStreamRequestBody } = require('../src/bridge/handlers/openai');
+    const messages = [{ role: 'user', content: 'hi' }];
+    const opts = { include_usage: true };
+
+    const allowed = buildStreamRequestBody({ requestedModel: 'm', bridgeConfig: { provider: 'openai' } }, messages, null, opts);
+    assert.deepStrictEqual(allowed.stream_options, opts);
+    assert.strictEqual(allowed.stream, true);
+
+    const denied = buildStreamRequestBody({ requestedModel: 'm', bridgeConfig: { provider: 'unknown-vendor' } }, messages, null, opts);
+    assert.strictEqual(denied.stream_options, undefined, 'an unsupported upstream must not receive the field');
+
+    const optedOut = buildStreamRequestBody({ requestedModel: 'm', bridgeConfig: { provider: 'openai', supportsStreamUsage: false } }, messages, null, opts);
+    assert.strictEqual(optedOut.stream_options, undefined);
+
+    const noneRequested = buildStreamRequestBody({ requestedModel: 'm', bridgeConfig: { provider: 'openai' } }, messages, null, undefined);
+    assert.strictEqual(noneRequested.stream_options, undefined);
+  });
+
+  console.log('gateway forwarding');
   await (async () => {
     const http = require('http');
     const seen = [];
@@ -258,8 +291,8 @@ function parseEvents(wire) {
       });
 
       seen.length = 0;
-      const optedOut = await callGateway({ provider: 'strict-validator', supportsStreamUsage: false });
-      test('an opted-out bridge is not sent stream_options', () => {
+      const optedOut = await callGateway({ provider: 'openai', supportsStreamUsage: false });
+      test('an allowed provider that opted out is not sent stream_options', () => {
         assert.strictEqual(seen[0].stream_options, undefined);
       });
       test('a stream without usage fails with an error event instead of an invalid message', () => {
@@ -267,6 +300,12 @@ function parseEvents(wire) {
         assert.strictEqual(evs.length, 1);
         assert.strictEqual(evs[0].event, 'error');
         assert.strictEqual(evs.find((e) => e.event === 'message_start'), undefined);
+      });
+
+      seen.length = 0;
+      await callGateway({ provider: 'unknown-vendor' });
+      test('an unrecognised provider never receives stream_options', () => {
+        assert.strictEqual(seen[0].stream_options, undefined, 'unsupported providers must not be sent the field');
       });
     } finally {
       await new Promise((r) => fakeBridge.close(r));

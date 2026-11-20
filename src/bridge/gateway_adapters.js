@@ -15,6 +15,7 @@ const { dedupeToolDefinitions, capToolOutputs } = require('./tool_payload');
 const { normalizeUsage } = require('../token_usage');
 const { recordProviderUsage, PROVIDER_USAGE_SOURCES } = require('../provider_usage_logger');
 const { validateRequestBudget, LIMITS } = require('./request_budget');
+const { supportsStreamUsage } = require('./stream_usage');
 
 // Anthropic's wire schema requires integer usage counts: `input_tokens` and
 // `output_tokens` on a message, and `output_tokens` on a `message_delta`.
@@ -290,16 +291,9 @@ function completeAnthropicUsage(openAiResp) {
 }
 
 /**
- * `stream_options.include_usage` is an [OI] Chat Completions field, and the
- * local bridge forwards to an [OI]-compatible upstream by construction, so it
- * is requested by default. A bridge pointed at a server that rejects unknown
- * parameters sets `supportsStreamUsage: false` to opt out.
+ * Whether this bridge may be sent `stream_options.include_usage`. The decision
+ * lives in `./stream_usage`: an unrecognised provider is never sent the field.
  */
-function supportsStreamUsage(bridgeConfig) {
-  if (!bridgeConfig) return true;
-  return bridgeConfig.supportsStreamUsage !== false;
-}
-
 function buildOpenAiPayloadFromAnthropic(body, targetModel, bridgeConfig) {
   const isStream = body.stream === true;
   const openAiPayload = {

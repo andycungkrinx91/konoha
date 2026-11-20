@@ -55,24 +55,64 @@ assert.strictEqual(
   `CONTRACT_VERSION (${agentContract.CONTRACT_VERSION}) must match package.json (${currentVersion})`
 );
 
-// Verify that specific active-version claims match package.json v2.2.24.
-// These are the exact rows the advisory requires updated before the doc audit can close:
-const CLAIMS = [
-  { path: 'docs/README.md', regex: /Capability to file to tool mapping for v(\d+\.\d+\.\d+)/, label: 'capability row' },
-  { path: 'docs/README.md', regex: /\| v(\d+\.\d+\.\d+) ingress, auth/, label: 'security row' },
-  { path: 'docs/SECURITY.md', regex: /# Konoha MCP Security Architecture & Ingress Controls \(v(\d+\.\d+\.\d+)\)/, label: 'SECURITY title' },
-];
-const claimDrift = [];
-for (const c of CLAIMS) {
-  const full = path.join(ROOT_DIR, c.path);
-  const content = fs.readFileSync(full, 'utf8');
-  const match = content.match(c.regex);
-  assert.ok(match, `Required claim "${c.label}" missing in ${c.path}`);
-  if (match[1] !== currentVersion) {
-    claimDrift.push(`${c.path} (${c.label}) claims ${match[1]}`);
-  }
+// Active version claims are DISCOVERED, not listed: a doc, badge, mirror or
+// architecture intro that asserts a release version is found by shape, so a new
+// one is covered the day it lands. Historical records (CHANGELOG, docs/archive,
+// dated reports, plans, tests) and third-party examples are excluded by the
+// module's rules; see scripts/lib/version_claims.js.
+const { discoverVersionClaims, claimDrift } = require('../scripts/lib/version_claims');
+
+const claims = discoverVersionClaims({ rootDir: ROOT_DIR });
+assert.ok(claims.length >= 20, `Discovery must find the repository's claims (found ${claims.length})`);
+
+const claimFiles = new Set(claims.map((c) => c.path));
+for (const required of ['README.md', 'docs/SECURITY.md', 'docs/MANUAL.md', 'docs/README.md', 'src/agent_contract.js']) {
+  assert.ok(claimFiles.has(required), `Discovery must cover ${required}`);
 }
-assert.deepStrictEqual(claimDrift, [], `All active-version claims must match v${currentVersion}`);
-console.log(`  ✓ ${CLAIMS.length} required-version claims match v${currentVersion}`);
+
+const drift = claimDrift(currentVersion, { rootDir: ROOT_DIR });
+assert.deepStrictEqual(
+  drift.map((c) => `${c.path}:${c.line} [${c.label}] claims ${c.version}`),
+  [],
+  `Every active version claim must match v${currentVersion}`
+);
+console.log(`  ✓ ${claims.length} discovered claims across ${claimFiles.size} files match v${currentVersion}`);
+
+// Excluded material must not be scanned: a stale claim there is a record, not drift.
+for (const claim of claims) {
+  assert.ok(!claim.path.startsWith('docs/archive'), `docs/archive must be excluded: ${claim.path}`);
+  assert.ok(!claim.path.startsWith('.omp'), `.omp plans must be excluded: ${claim.path}`);
+  assert.ok(!claim.path.startsWith('tests'), `tests must be excluded: ${claim.path}`);
+  assert.notStrictEqual(claim.path, 'CHANGELOG.md', 'CHANGELOG must be excluded');
+}
+
+// Prose that records when something landed is not a claim about the current release.
+const securityProse = claims.filter((c) => c.path === 'docs/SECURITY.md');
+assert.ok(
+  securityProse.every((c) => !/removed in|permanently removed|additions/i.test(c.text)),
+  'historical "removed in vX" prose must not be treated as an active claim'
+);
+
+// The check must actually fail on drift: prove it against a throwaway tree
+// rather than trusting a green run on a clean repository.
+const os = require('os');
+const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_claims_'));
+try {
+  fs.mkdirSync(path.join(tmpRoot, 'docs'), { recursive: true });
+  fs.mkdirSync(path.join(tmpRoot, 'docs', 'archive'), { recursive: true });
+  fs.writeFileSync(path.join(tmpRoot, 'README.md'), '<img alt="Release v1.2.3">\n', 'utf8');
+  fs.writeFileSync(path.join(tmpRoot, 'docs', 'SECURITY.md'), '# Konoha MCP Security Architecture & Ingress Controls (v1.2.3)\n', 'utf8');
+  fs.writeFileSync(path.join(tmpRoot, 'docs', 'archive', 'OLD.md'), '# Konoha MCP Security Architecture & Ingress Controls (v0.0.1)\n', 'utf8');
+
+  const found = claimDrift('9.9.9', { rootDir: tmpRoot });
+  assert.deepStrictEqual(
+    found.map((c) => c.path).sort(),
+    ['README.md', path.join('docs', 'SECURITY.md')],
+    'discovery must report live claims and ignore archived ones'
+  );
+  console.log('  ✓ discovery reports drift outside the managed manifest and skips archives');
+} finally {
+  fs.rmSync(tmpRoot, { recursive: true, force: true });
+}
 
 console.log(`\n✅ Version consistency verified across all ${manifest.length} targets at v${currentVersion}!`);

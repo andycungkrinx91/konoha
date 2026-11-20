@@ -173,7 +173,16 @@ function run() {
     const out = buildOpenAiPayloadFromAnthropic(
       { model: 'claude-x', stream: true, messages: [{ role: 'user', content: 'hi' }] },
       'gpt-x',
-      { provider: 'strict-validator', supportsStreamUsage: false }
+      { provider: 'openai', supportsStreamUsage: false }
+    );
+    assert.strictEqual(out.stream_options, undefined);
+  }) && ok;
+
+  ok = runCase('an unsupported provider is never sent stream_options', () => {
+    const out = buildOpenAiPayloadFromAnthropic(
+      { model: 'claude-x', stream: true, messages: [{ role: 'user', content: 'hi' }] },
+      'gpt-x',
+      { provider: 'unknown-vendor' }
     );
     assert.strictEqual(out.stream_options, undefined);
   }) && ok;

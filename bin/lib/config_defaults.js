@@ -63,6 +63,8 @@ const CONFIG_DEFAULTS = Object.freeze({
   semantic_top_k: 10,
   doc_gate_max_attempts: 3,
   bridge_max_tool_output_chars: 24000,
+  // providers whose contract defines stream_options.include_usage
+  bridge_stream_usage_providers: 'openai,openai-compatible,9router',
   qa_retention_count: 20,
   // sessions / web auth
   session_ttl_ms: 43200000,
@@ -148,6 +150,7 @@ const ENV_ALIASES = Object.freeze({
   spinners: ['KONOHA_SPINNERS'],
   offline_search: ['KONOHA_OFFLINE_SEARCH'],
   migrate_time_budget_seconds: ['KONOHA_MIGRATE_TIME_BUDGET'],
+  bridge_stream_usage_providers: ['KONOHA_BRIDGE_STREAM_USAGE_PROVIDERS'],
   // sessions / web auth
   session_ttl_ms: ['KONOHA_SESSION_TTL_MS'],
   web_token_ttl_ms: ['KONOHA_WEB_TOKEN_TTL_MS'],
