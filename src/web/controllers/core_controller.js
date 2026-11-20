@@ -302,8 +302,16 @@ async function _handleSystemMetrics(req, res, sessionToken, systemMetrics) {
 }
 
 function _updateBridge(bridgeName, body) {
+  if (Object.prototype.hasOwnProperty.call(body, 'supports_stream_usage')) {
+    dbBridges.setStreamUsage(bridgeName, body.supports_stream_usage);
+  }
   if (typeof body.enabled === 'boolean') {
     dbBridges.setEnabled(bridgeName, body.enabled);
+    return null;
+  }
+  if (!body.port && !body.provider && !body.target_url) {
+    // Capability-only patch: forwarding it into upsertBridge would send NaN
+    // port/provider and replace the row with garbage.
     return null;
   }
   if (body.target_url) {
@@ -343,7 +351,8 @@ async function _handleBridges(req, res, pathname, method, broadcastEvent) {
       }
       dbBridges.upsertBridge({
         name: body.name, port: parseInt(body.port, 10), provider: body.provider,
-        enabled: body.enabled !== false, target_url: body.target_url || null, api_key: body.api_key || null
+        enabled: body.enabled !== false, target_url: body.target_url || null, api_key: body.api_key || null,
+        supports_stream_usage: body.supports_stream_usage
       });
       broadcastEvent('bridges_updated', { action: 'create', name: body.name });
       return sendJson(res, 201, { ok: true, name: body.name });

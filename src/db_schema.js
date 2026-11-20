@@ -93,6 +93,10 @@ function _hasAllRequiredTables(conn) {
   if (!REQUIRED_FAST_SCHEMA_TABLES.every((t) => existing.has(t))) return false;
   if (existing.has('code_chunks') && !hasCanonicalCodeChunksLayout(conn)) return false;
   if (existing.has('persona_memories') && !hasCanonicalMemoryBrainLayout(conn)) return false;
+  if (existing.has('bridges')) {
+    const bridgeCols = new Set(conn.prepare('PRAGMA table_info(bridges)').all().map((c) => c.name));
+    if (!bridgeCols.has('supports_stream_usage')) return false;
+  }
   return _hasRequiredAgentSchema(conn);
 }
 

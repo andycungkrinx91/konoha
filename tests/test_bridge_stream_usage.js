@@ -73,3 +73,33 @@ test('bridge stream usage persists true/false/null round-trips', async (t) => {
     );
   });
 });
+
+test('reopening a pre-override database adds supports_stream_usage', (t) => {
+  const legacyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_test_legacy_bridges_'));
+  const legacyDbPath = path.join(legacyDir, 'skills.db');
+  t.after(() => {
+    try { fs.rmSync(legacyDir, { recursive: true, force: true }); } catch (_) {}
+  });
+
+  const conn = db.getConnection(legacyDbPath, false);
+  db.setupSchema(conn);
+  // Simulate a database written before the override column existed.
+  conn.exec(`
+    ALTER TABLE bridges RENAME TO bridges_legacy;
+    CREATE TABLE bridges (
+      name TEXT PRIMARY KEY, port INTEGER NOT NULL, provider TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1, target_url TEXT, api_key TEXT
+    );
+    INSERT INTO bridges SELECT name, port, provider, enabled, target_url, api_key FROM bridges_legacy;
+    DROP TABLE bridges_legacy;
+  `);
+  conn.close();
+
+  // ensureSchema fast-paths on user_version, so a stale column must force it.
+  const reopened = db.getConnection(legacyDbPath, false);
+  db.ensureSchema(reopened);
+  const columns = reopened.prepare('PRAGMA table_info(bridges)').all().map((c) => c.name);
+  reopened.close();
+
+  assert.ok(columns.includes('supports_stream_usage'), 'legacy bridge rows must gain the override column');
+});

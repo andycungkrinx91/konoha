@@ -84,6 +84,16 @@ try {
   fs.unlinkSync(path.join(dir, 'plan.md'));
   console.log('  ✓ dangling plan.md symlink is refused');
 
+  // Artifact persistence is advisory: if the task dir cannot be created, Gate 1
+  // must still produce an approvable prompt carrying the plan inline.
+  const blocker = path.join(dir, 'not-a-dir');
+  fs.writeFileSync(blocker, 'file', 'utf8');
+  const gate1Blocked = JSON.parse(buildGate1Prompt({ tasks: [], plan: refined }, path.join(blocker, 'task'), 'root-1', refined));
+  assert.strictEqual(gate1Blocked.plan_path, null, 'an unwritable task dir must not report an artifact path');
+  assert.ok(gate1Blocked.message.includes(refined.trim()), 'Gate 1 must still show the plan when the artifact cannot be written');
+  assert.ok(gate1Blocked.interactive_prompt.choices.length > 0, 'Gate 1 must still offer its choices');
+  console.log('  ✓ artifact write failure still yields a usable Gate 1');
+
   const tasks = [
     { id: 't1', agent: 'anbu', task: 'Build checkout API', status: 'completed', result: 'Added POST /checkout', files_modified: ['src/api/checkout.js'] },
     { id: 't2', agent: 'jonin', task: 'Build checkout form', status: 'completed', result: 'Added CheckoutForm', files_modified: ['src/ui/CheckoutForm.svelte'] },
