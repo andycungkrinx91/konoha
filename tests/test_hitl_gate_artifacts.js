@@ -14,7 +14,12 @@ const path = require('path');
 
 require('./helpers/isolate_db');
 
-const { buildGate1Prompt, buildGate2Prompt, _openPlanArtifactExclusive } = require('../src/mcp/workflow_gates');
+const {
+  buildGate1Prompt,
+  buildGate2Prompt,
+  _isReplaceableArtifact,
+  _replacePlanArtifact
+} = require('../src/mcp/workflow_gates');
 
 console.log('Running test_hitl_gate_artifacts tests...');
 
@@ -147,22 +152,65 @@ try {
   // overwritable, and a symlink must still be refused.
   const portablePath = path.join(dir, 'portable.md');
   fs.writeFileSync(portablePath, 'old', 'utf8');
-  const portableFd = _openPlanArtifactExclusive(portablePath, 0);
-  assert.ok(portableFd !== null, 'an existing regular artifact must be overwritable where O_NOFOLLOW is unsupported');
-  fs.ftruncateSync(portableFd, 0);
-  fs.writeFileSync(portableFd, 'new', 'utf8');
-  fs.closeSync(portableFd);
+  assert.strictEqual(_isReplaceableArtifact(portablePath, 0), true, 'an existing regular artifact must be replaceable where O_NOFOLLOW is unsupported');
+  _replacePlanArtifact(portablePath, 'new');
   assert.strictEqual(fs.readFileSync(portablePath, 'utf8'), 'new', 'regeneration must replace content without O_NOFOLLOW');
 
   const portableVictim = path.join(dir, 'portable-victim.md');
   fs.writeFileSync(portableVictim, 'ORIGINAL', 'utf8');
   fs.rmSync(portablePath, { force: true });
   fs.symlinkSync(portableVictim, portablePath);
-  assert.strictEqual(_openPlanArtifactExclusive(portablePath, 0), null, 'a symlink must still be refused without O_NOFOLLOW');
+  assert.strictEqual(_isReplaceableArtifact(portablePath, 0), false, 'a symlink must still be refused without O_NOFOLLOW');
   assert.strictEqual(fs.readFileSync(portableVictim, 'utf8'), 'ORIGINAL', 'the refused symlink target must stay untouched');
   fs.rmSync(portablePath, { force: true });
   fs.rmSync(portableVictim, { force: true });
   console.log('  ✓ existing artifact overwrite works without O_NOFOLLOW, symlink still refused');
+
+  // A hard link shares the inode, so the regular-file and inode-identity checks
+  // all pass while the bytes would land in a file outside the task dir. The
+  // artifact is always created singly linked, so a second name on that inode is
+  // someone else's file and must be refused before truncation.
+  const linkDir = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_gate_hardlink_'));
+  const linkVictim = path.join(linkDir, 'victim.md');
+  const victimBytes = 'ORIGINAL';
+  fs.writeFileSync(linkVictim, victimBytes, 'utf8');
+  fs.rmSync(planPath, { force: true });
+  // A hard link cannot cross filesystems, so a same-device fixture is a
+  // precondition of this test rather than something to assume.
+  assert.strictEqual(fs.statSync(linkDir).dev, fs.statSync(dir).dev, 'the hard-link fixture must live on the task dir filesystem');
+  fs.linkSync(linkVictim, planPath);
+  assert.strictEqual(fs.statSync(linkVictim).nlink, 2, 'the fixture must really be a hard link');
+  assert.strictEqual(fs.statSync(planPath).ino, fs.statSync(linkVictim).ino, 'both names must share one inode');
+  const gate1Link = JSON.parse(buildGate1Prompt({ tasks: [], plan: refined }, dir, 'root-1', refined));
+  assert.strictEqual(gate1Link.plan_path, null, 'a hard-linked plan.md must be refused');
+  assert.ok(fs.readFileSync(linkVictim).equals(Buffer.from(victimBytes)), 'a hard-linked plan.md must not be written through');
+  assert.strictEqual(fs.statSync(linkVictim).size, victimBytes.length, 'the external file must keep its original size');
+  assert.ok(gate1Link.message.includes(refined.trim()), 'the plan body must still reach the approver');
+
+  // The same refusal must hold where O_NOFOLLOW is unavailable (Windows), since
+  // there the inode check alone would accept the link.
+  assert.strictEqual(_isReplaceableArtifact(planPath, 0), false, 'a hard link must be refused without O_NOFOLLOW too');
+  assert.ok(fs.readFileSync(linkVictim).equals(Buffer.from(victimBytes)), 'the no-O_NOFOLLOW path must not write through the link');
+
+  // Structural guarantee, independent of any link count a filesystem reports:
+  // the new text goes to a fresh inode and is renamed over the name, so even a
+  // write that skipped inspection cannot reach the other name.
+  _replacePlanArtifact(planPath, refined);
+  assert.strictEqual(fs.readFileSync(planPath, 'utf8'), refined, 'the replace path must still update plan.md');
+  assert.ok(fs.readFileSync(linkVictim).equals(Buffer.from(victimBytes)), 'replacing a hard-linked artifact must not touch the other name');
+  assert.strictEqual(fs.statSync(linkVictim).nlink, 1, 'replacing the artifact must detach it from the external file');
+  fs.rmSync(planPath, { force: true });
+
+  // Dropping the extra name restores normal regeneration, and the other file
+  // still holds its original bytes.
+  fs.rmSync(planPath, { force: true });
+  assert.strictEqual(fs.statSync(linkVictim).nlink, 1, 'the victim must be back to a single name before regeneration');
+  const gate1Unlinked = JSON.parse(buildGate1Prompt({ tasks: [], plan: refined }, dir, 'root-1', refined));
+  assert.strictEqual(gate1Unlinked.plan_path, planPath, 'a singly linked artifact must stay writable');
+  assert.strictEqual(fs.readFileSync(planPath, 'utf8'), refined, 'regeneration must still replace the artifact');
+  assert.ok(fs.readFileSync(linkVictim).equals(Buffer.from(victimBytes)), 'the external file must survive both the refusal and the later write');
+  fs.rmSync(linkDir, { recursive: true, force: true });
+  console.log('  ✓ hard-linked plan.md is refused and never writes through to the other name');
 
   // Artifact persistence is advisory: if the task dir cannot be created, Gate 1
   // must still produce an approvable prompt carrying the plan inline.
@@ -197,7 +245,7 @@ try {
   assert.ok(gate2Empty.message.includes('No completed tasks recorded.'), 'Gate 2 message must state no completed tasks');
   console.log('  ✓ Gate 2 degrades cleanly with no completed tasks');
 
-  console.log('HITL gate artifacts: 10 cases passed, 0 failed.');
+  console.log('HITL gate artifacts: 11 cases passed, 0 failed.');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }

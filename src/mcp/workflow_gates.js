@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { saveWorkflowStatus, cleanupTransientScratchFiles } = require('./workflow_common');
 const { extractModifiedFiles, formatTaskSummary } = require('./workflow_completion_helpers');
 const { syncTodoAndWalkthrough } = require('./todo_walkthrough_sync');
@@ -194,48 +195,64 @@ function _serializeHitlPromptEnvelope(baseFields, { stage, gateName, choices, st
  * `final_report.md` so it survives compaction and the approver can open it.
  *
  * Task dirs are shared with clients, so `plan.md` may be pre-created by someone
- * else. Validation-by-path (`existsSync` + `lstatSync` then write) is racy: the
- * file can be swapped for a symlink in between. Instead the artifact is opened
- * once with O_NOFOLLOW on the final component and written through that
- * descriptor, so a symlink — dangling or not — fails at open (ELOOP) and the
- * bytes can only ever reach the inode we fstat'ed as a regular file.
+ * else — possibly as a symlink or a hard link to a file outside the task dir.
+ * Validation-by-path alone is racy, so two rules apply: an existing artifact is
+ * only accepted after the opened descriptor proves it is the same regular,
+ * singly linked file that was inspected, and the new text is written to a fresh
+ * inode that is then renamed over `plan.md`. A rename replaces the directory
+ * entry without following it, so even a link that slipped past inspection can
+ * never carry the bytes into another file.
  * Write failures must never block the gate itself.
  */
 const PLAN_ARTIFACT_NAME = 'plan.md';
 
-/** Open `plan.md` for writing without ever following a symlink to another inode. */
-function _openPlanArtifactExclusive(planPath, nofollow) {
-  // O_EXCL never truncates or follows an existing path: a regular file, a
-  // symlink (dangling or not) and a directory all come back as EEXIST, so
-  // creation is race-safe even where O_NOFOLLOW is unavailable (Windows).
-  const createFlags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | nofollow;
+/** True when `plan.md` is absent or a regular, singly linked file we may replace. */
+function _isReplaceableArtifact(planPath, nofollow) {
+  let before;
   try {
-    return fs.openSync(planPath, createFlags, 0o644);
+    before = fs.lstatSync(planPath);
   } catch (err) {
-    if (err.code !== 'EEXIST') throw err;
+    if (err.code === 'ENOENT') return true;
+    throw err;
   }
-  // Overwriting an existing artifact must prove the descriptor is the regular
-  // file we inspected. O_NOFOLLOW makes that atomic where the platform has it;
-  // where it does not, the opened inode is compared against the inspected one,
-  // so a swap to a symlink (or a hard link to another file) shows up as a
-  // mismatch instead of a write into someone else's target. Refusing the
-  // overwrite outright would break plan regeneration on Windows.
-  const before = fs.lstatSync(planPath);
-  if (!before.isFile()) return null;
+  // lstat does not follow the final component, so a symlink — dangling or not —
+  // and a directory or device all fail here instead of being written through.
+  if (!before.isFile()) return false;
   const fd = fs.openSync(planPath, fs.constants.O_WRONLY | nofollow);
   try {
     const opened = fs.fstatSync(fd);
-    const sameInode = opened.isFile() && opened.dev === before.dev && opened.ino === before.ino;
-    // A reported inode of 0 is not an identity. Without O_NOFOLLOW nothing else
-    // proves the descriptor is the inspected file, so fail closed rather than
-    // truncate a file we cannot identify.
-    if (!sameInode || (!nofollow && (before.ino === 0 || opened.ino === 0))) {
-      fs.closeSync(fd);
-      return null;
-    }
-    return fd;
+    // Opening by path can land on a different inode than lstat inspected (a
+    // swap in between), so the descriptor has to prove its identity. O_NOFOLLOW
+    // makes the open itself refuse a link where the platform supports it; the
+    // inode comparison covers platforms that do not.
+    if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) return false;
+    // A reported inode of 0 is not an identity, and without O_NOFOLLOW nothing
+    // else proves the descriptor is the inspected file.
+    if (!nofollow && (before.ino === 0 || opened.ino === 0)) return false;
+    // A hard link shares the inode, so every check above still passes while a
+    // truncate would land in a file outside the task dir. The artifact is only
+    // ever created singly linked, so a second name belongs to someone else.
+    // Refusing is the conservative choice; the rename below would be safe even
+    // where a filesystem under-reports this count.
+    return opened.nlink === 1;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/** Write `text` to a fresh inode and rename it over `planPath`. */
+function _replacePlanArtifact(planPath, text) {
+  const tmpPath = `${planPath}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  const fd = fs.openSync(tmpPath, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL, 0o644);
+  try {
+    fs.writeFileSync(fd, text, 'utf8');
+  } finally {
+    fs.closeSync(fd);
+  }
+  try {
+    fs.renameSync(tmpPath, planPath);
   } catch (err) {
-    try { fs.closeSync(fd); } catch (_) { /* descriptor already gone */ }
+    try { fs.unlinkSync(tmpPath); } catch (_) { /* temp file already gone */ }
     throw err;
   }
 }
@@ -244,24 +261,17 @@ function writePlanArtifact(resolvedTaskDir, planText) {
   const text = String(planText === undefined || planText === null ? '' : planText);
   if (!resolvedTaskDir || !text.trim()) return null;
   const nofollow = fs.constants.O_NOFOLLOW || 0;
-  let fd = null;
   try {
     fs.mkdirSync(resolvedTaskDir, { recursive: true });
     // Canonicalize after creation so a directory symlink resolves to the real
     // task dir and the artifact can never be placed relative to a link.
     const taskDir = fs.realpathSync(resolvedTaskDir);
     const planPath = path.join(taskDir, PLAN_ARTIFACT_NAME);
-    fd = _openPlanArtifactExclusive(planPath, nofollow);
-    if (fd === null) return null;
-    fs.ftruncateSync(fd, 0);
-    fs.writeFileSync(fd, text, 'utf8');
+    if (!_isReplaceableArtifact(planPath, nofollow)) return null;
+    _replacePlanArtifact(planPath, text);
     return planPath;
   } catch (_) {
     return null;
-  } finally {
-    if (fd !== null) {
-      try { fs.closeSync(fd); } catch (_) { /* fd already closed */ }
-    }
   }
 }
 
@@ -593,7 +603,8 @@ module.exports = {
   applyGate1Choice,
   applyGate2Choice,
   compactPostApprovalContext,
-  // Internal, exported so the no-O_NOFOLLOW platform branch can be exercised on
-  // a host that has O_NOFOLLOW (Windows coverage without a Windows runner).
-  _openPlanArtifactExclusive
+  // Internals, exported so the platform-specific branches can be exercised on a
+  // host that has O_NOFOLLOW (Windows coverage without a Windows runner).
+  _isReplaceableArtifact,
+  _replacePlanArtifact
 };
