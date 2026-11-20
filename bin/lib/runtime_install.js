@@ -255,6 +255,12 @@ function copyRuntimeFiles(copyTree, sourceRoot = REPO_ROOT) {
   // trustworthy source for docs/, skills, CLI or manifest either.
   if (!srcFresh) return cliDest;
 
+  // The flat ~/.konoha/mcp copy loses a directory level relative to src/mcp, so
+  // modules below it that reach upward (../../web/...) must resolve against the
+  // mirrored src/ tree instead. Link the flat name at that tree.
+  deployUtils.ensureMirroredSubdirLinks(SKILLS_DB_DIR);
+  deployUtils.ensureMirroredRootFileLinks(SKILLS_DB_DIR);
+
   copyRuntimeAssets(path.join(sourceRoot, 'assets'), copyTree);
 
   const sourceCliPath = path.join(sourceRoot, 'bin', 'cli.js');

@@ -206,6 +206,46 @@ function syncRuntimeJsFiles(srcDir, destDir) {
       copyJsFileIfMatching(entry, srcDir, destDir);
     }
   } catch (_) { /* non-fatal */ }
+  // Repoint the flat root modules at the mirrored src/ tree; the copy above is
+  // what a partial install (no src/ mirror yet) still needs.
+  ensureMirroredRootFileLinks(destDir);
+}
+
+// Top-level entries under src/ that are build or scratch output rather than
+// shipped runtime code. Everything else in src/ is mirrored, so a new src/<sub>
+// directory is installed without also being added to a hand-maintained list —
+// the list is what let src/web, src/telegram and src/templates go missing while
+// modules under src/mcp/ kept requiring them.
+const RUNTIME_MIRROR_DENYLIST = new Set([
+  'node_modules',
+  '.git',
+  '.cache',
+  '.svelte-kit',
+  '__pycache__',
+  '.pytest_cache',
+  '.ruff_cache',
+  '.DS_Store',
+  'build',
+  'dist',
+  'coverage',
+  'tmp',
+  'scratch'
+]);
+
+function listRuntimeSubdirectories(srcDir) {
+  const names = [];
+  let entries = [];
+  try {
+    entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  } catch (_) {
+    return names;
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    if (RUNTIME_MIRROR_DENYLIST.has(entry.name)) continue;
+    names.push(entry.name);
+  }
+  return names.sort();
 }
 
 function syncRuntimeSubdirectories(srcDir, destDir) {
@@ -219,26 +259,95 @@ function syncRuntimeSubdirectories(srcDir, destDir) {
   if (fileExists(migrationsSrc)) {
     synced += copyRecursiveIfDifferent(migrationsSrc, path.join(destDir, 'migrations'));
   }
-  const subdirs = [
-    { src: 'file_tools', dest: FILE_TOOLS_PY_DIR },
-    { src: 'mcp', dest: path.join(destDir, 'mcp') },
-    { src: 'mcp_clients', dest: path.join(destDir, 'mcp_clients') },
-    { src: 'queue', dest: path.join(destDir, 'queue') },
-    { src: 'workflow', dest: path.join(destDir, 'workflow') },
-    { src: 'bridge', dest: path.join(destDir, 'bridge') },
-    { src: 'code_intel', dest: path.join(destDir, 'code_intel') }
-  ];
+  const subdirs = listRuntimeSubdirectories(srcDir).map(name => ({
+    src: name,
+    // The Python file tools keep their own destination; every other
+    // subdirectory mirrors under its own name.
+    dest: name === 'file_tools' ? FILE_TOOLS_PY_DIR : path.join(destDir, name)
+  }));
   for (const item of subdirs) {
     const fullSrc = path.join(srcDir, item.src);
     if (fileExists(fullSrc)) {
       synced += copyRecursiveIfDifferent(fullSrc, item.dest);
     }
   }
+  // Link after the copy, so each flat name resolves at its mirrored tree and a
+  // module below it reaches src/ siblings instead of one level too high.
+  ensureMirroredSubdirLinks(destDir);
   const grammarsSrc = path.join(rootDir, 'assets', 'grammars');
   if (fileExists(grammarsSrc)) {
     synced += copyRecursiveIfDifferent(grammarsSrc, path.join(destDir, 'assets', 'grammars'));
   }
   return synced;
+}
+
+// The flat ~/.konoha/<sub> mirror sits one level above the mirrored
+// ~/.konoha/src/<sub> tree, so an escaped require such as
+// ../../web/controllers/common from ~/.konoha/mcp/three_asset/ resolves to
+// ~/.konoha/web instead of the mirrored src/web and fails at load. Linking the
+// flat name at the mirrored tree restores repo-relative resolution for every
+// module below it, rather than patching one require at a time.
+//
+// Node resolves a module's filename through realpath, so the link is enough: the
+// require graph is then evaluated at the mirrored depth, which is the depth the
+// repo tree has. src/file_tools is linked too, because its common.js reaches
+// ../../bin/lib/paths, which only resolves from that depth.
+function ensureMirroredSubdirLinks(destDir) {
+  const linked = new Set();
+  const mirrorRoot = path.join(destDir, 'src');
+  if (!fileExists(mirrorRoot)) return linked;
+  for (const sub of listRuntimeSubdirectories(mirrorRoot)) {
+    const target = path.join(mirrorRoot, sub);
+    if (!fileExists(target)) continue;
+    const linkPath = path.join(destDir, sub);
+    const relativeTarget = path.join('src', sub);
+    if (replaceWithMirrorLink(linkPath, relativeTarget)) linked.add(sub);
+  }
+  return linked;
+}
+
+// A root module is copied flat into ~/.konoha/, where its upward require —
+// ../package.json in cyber_pack.js, ../bin/lib/yaml_utils in db_agents.js —
+// escapes to the home directory instead of the install. Link each flat root
+// module at the mirrored src/ file so it resolves from the repo's own depth.
+function ensureMirroredRootFileLinks(destDir) {
+  const linked = new Set();
+  const mirrorRoot = path.join(destDir, 'src');
+  if (!fileExists(mirrorRoot)) return linked;
+  let entries = [];
+  try {
+    entries = fs.readdirSync(mirrorRoot, { withFileTypes: true });
+  } catch (_) {
+    return linked;
+  }
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.js')) continue;
+    const linkPath = path.join(destDir, entry.name);
+    const relativeTarget = path.join('src', entry.name);
+    if (replaceWithMirrorLink(linkPath, relativeTarget)) linked.add(entry.name);
+  }
+  return linked;
+}
+
+function replaceWithMirrorLink(linkPath, relativeTarget) {
+  try {
+    let existing = null;
+    try {
+      existing = fs.lstatSync(linkPath);
+    } catch (_) {
+      existing = null;
+    }
+    if (existing) {
+      if (existing.isSymbolicLink() && fs.readlinkSync(linkPath) === relativeTarget) return true;
+      fs.rmSync(linkPath, { recursive: true, force: true });
+    }
+    fs.symlinkSync(relativeTarget, linkPath, 'dir');
+    return true;
+  } catch (_) {
+    // A real copy is still correct where symlinks are unavailable; the parity
+    // test reports the missing link instead of failing the install.
+    return false;
+  }
 }
 
 function installRuntimePackageDependencies(destDir, silent) {
@@ -481,6 +590,8 @@ module.exports = {
   KONOHA_CANONICAL_TOOLS,
   buildKonohaFilesMcpEntry,
   installFileTools,
+  ensureMirroredSubdirLinks,
+  ensureMirroredRootFileLinks,
   syncRuntimeSubdirectories,
   cleanKonohaRuntimeDir
 };
