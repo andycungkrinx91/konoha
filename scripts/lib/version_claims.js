@@ -26,11 +26,16 @@
 const fs = require('fs');
 const path = require('path');
 
+// Relative paths in this module are POSIX-style on every host: they are repo
+// paths, not filesystem paths, and a claim list must be identical whether it is
+// produced on Linux or Windows. `path.join` would emit backslashes on Windows
+// and make the same tree yield two different path spellings; `path.join` is
+// still used where a path is handed to fs, which accepts `/` on Windows.
 const EXCLUDED_DIRS = new Set([
   'node_modules', '.git', '.omp', 'dist', 'coverage', 'tests',
-  path.join('docs', 'archive'), path.join('docs', 'security'), path.join('docs', 'SecurityCompliance'),
-  path.join('.agents', 'dev-skills'), path.join('.agents', 'plugins'),
-  path.join('apps', 'web', 'build')
+  'docs/archive', 'docs/security', 'docs/SecurityCompliance',
+  '.agents/dev-skills', '.agents/plugins',
+  'apps/web/build'
 ]);
 
 const EXCLUDED_FILE = /^(CHANGELOG\.md|package-lock\.json|pnpm-lock\.yaml)$/;
@@ -39,7 +44,7 @@ const SCANNED_EXT = new Set(['.md', '.json', '.js', '.svelte', '.yml', '.yaml'])
 
 /** Vendored skill material for other personas, not Konoha's own release claims. */
 function isThirdPartyReference(relPath) {
-  const parts = relPath.split(path.sep);
+  const parts = relPath.split('/');
   const refs = parts.indexOf('references');
   if (refs === -1 || parts[refs - 1] === 'konoha') return false;
   return parts.includes('skills');
@@ -47,7 +52,7 @@ function isThirdPartyReference(relPath) {
 
 /** The web app's agent mirrors are generated locally and gitignored. */
 function isGeneratedMirror(relPath) {
-  return relPath.startsWith(`apps${path.sep}web${path.sep}`)
+  return relPath.startsWith('apps/web/')
     && /^(AGENTS|CLAUDE|GEMINI)\.md$/.test(path.basename(relPath));
 }
 
@@ -97,14 +102,13 @@ function isExcluded(relPath) {
   if (EXCLUDED_FILE.test(base) || DATED_ARTIFACT.test(base)) return true;
   if (isThirdPartyReference(relPath) || isGeneratedMirror(relPath)) return true;
   for (const dir of EXCLUDED_DIRS) {
-    if (relPath === dir || relPath.startsWith(`${dir}${path.sep}`)) return true;
+    if (relPath === dir || relPath.startsWith(`${dir}/`)) return true;
   }
   return false;
 }
 
 function patternsFor(relPath) {
-  const normalized = relPath.split(path.sep).join('/');
-  return CLAIM_PATTERNS.filter((p) => !p.only || p.only.test(normalized));
+  return CLAIM_PATTERNS.filter((p) => !p.only || p.only.test(relPath));
 }
 
 function claimsInFile(rootDir, relPath) {
@@ -133,7 +137,7 @@ function claimsInFile(rootDir, relPath) {
 
 function walk(rootDir, dir, out) {
   for (const entry of fs.readdirSync(path.join(rootDir, dir), { withFileTypes: true })) {
-    const rel = dir ? path.join(dir, entry.name) : entry.name;
+    const rel = dir ? `${dir}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
       if (isExcluded(rel)) continue;
       walk(rootDir, rel, out);

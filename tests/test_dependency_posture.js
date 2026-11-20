@@ -5,6 +5,7 @@ require('./helpers/isolate_db');
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -162,7 +163,18 @@ console.log('  ok   isarray override current');
 //    LGPL-3.0-or-later`, while the Linux and macOS builds state `Apache-2.0` for
 //    the same libvips payload. Both halves are the same dependency, so one
 //    prefix covers every host instead of an allowlist that only passes on Linux.
-const COPYLEFT_ALLOWLIST = ['@img/sharp-', 'lightningcss'];
+// The prefix is not a blank cheque: each family pins the expressions reviewed
+//    for it, so a new package arriving under `@img/sharp-` with a different
+//    licence still fails the gate instead of inheriting the exemption.
+const COPYLEFT_ALLOWLIST = [
+  { prefix: '@img/sharp-', licenses: [
+    'LGPL-3.0-OR-LATER',
+    'APACHE-2.0 AND LGPL-3.0-OR-LATER',
+    // wasm32 builds only; published but never installed on a CI host.
+    'APACHE-2.0 AND LGPL-3.0-OR-LATER AND MIT'
+  ] },
+  { prefix: 'lightningcss', licenses: ['MPL-2.0'] }
+];
 const PERMISSIVE = new Set([
   'MIT', 'ISC', 'BSD-2-CLAUSE', 'BSD-3-CLAUSE', '0BSD', 'APACHE-2.0',
   'BLUEOAK-1.0.0', 'UNLICENSE', 'CC0-1.0', 'ZLIB', 'PYTHON-2.0', 'BSL-1.0'
@@ -176,54 +188,142 @@ function isPermissive(expr) {
     .some((alt) => alt.split(/\s+AND\s+/).every((t) => PERMISSIVE.has(t.replace(/[()]/g, '').trim())));
 }
 const STORE = path.join(ROOT, 'node_modules', '.pnpm');
+
+/** Package directories reachable from one store entry's node_modules. */
+function packageDirsIn(nodeModules) {
+  const dirs = [];
+  for (const name of fs.readdirSync(nodeModules)) {
+    if (name.startsWith('.')) continue;
+    if (!name.startsWith('@')) {
+      dirs.push({ name, dir: path.join(nodeModules, name) });
+      continue;
+    }
+    const scope = path.join(nodeModules, name);
+    if (!fs.statSync(scope).isDirectory()) continue;
+    for (const sub of fs.readdirSync(scope)) dirs.push({ name: `${name}/${sub}`, dir: path.join(scope, sub) });
+  }
+  return dirs;
+}
+
+/**
+ * Every installed package whose license is not permissive, each physical
+ * directory inspected once.
+ *
+ * Identity is the realpath, not the spelling of the path: pnpm links a
+ * dependency into the node_modules of every package that depends on it, so
+ * `sharp`'s platform binary is reachable both from its own store entry and from
+ * the `@img` link inside each dependent's store entry. Counting those as two
+ * packages inflated the report on Windows, where the same layout exists with the
+ * win32 binary.
+ * A package reachable *only* through a link is still inspected: its realpath is
+ * evaluated the first time any path reaches it.
+ */
+function scanCopyleftPackages(storeDir) {
+  const found = [];
+  const seen = new Set();
+  for (const entry of fs.readdirSync(storeDir)) {
+    const nm = path.join(storeDir, entry, 'node_modules');
+    if (!fs.existsSync(nm)) continue;
+    for (const { name, dir } of packageDirsIn(nm)) {
+      const manifest = path.join(dir, 'package.json');
+      if (!fs.existsSync(manifest)) continue;
+      const identity = fs.realpathSync(dir);
+      if (seen.has(identity)) continue;
+      seen.add(identity);
+      const license = JSON.parse(fs.readFileSync(manifest, 'utf8')).license;
+      // A missing or non-string license is not evidence of permission, so it fails
+      //    the gate the same way an unlisted copyleft expression does.
+      if (typeof license !== 'string' || !license.trim()) found.push({ name, license: null });
+      else if (!isPermissive(license)) found.push({ name, license });
+    }
+  }
+  return found;
+}
+
+const normalizeLicense = (license) => license.toUpperCase().replace(/\s+/g, ' ').trim();
+
 function assertCopyleftAllowlisted() {
   assert.ok(
     fs.existsSync(STORE),
     `the copyleft gate needs a populated ${STORE}; run pnpm install (a missing store must fail, not skip)`
   );
-  const found = [];
-  for (const entry of fs.readdirSync(STORE)) {
-    const nm = path.join(STORE, entry, 'node_modules');
-    if (!fs.existsSync(nm)) continue;
-    const names = [];
-    for (const name of fs.readdirSync(nm)) {
-      if (name.startsWith('.')) continue;
-      if (name.startsWith('@')) {
-        const scope = path.join(nm, name);
-        if (fs.statSync(scope).isDirectory()) {
-          for (const sub of fs.readdirSync(scope)) names.push(`${name}/${sub}`);
-        }
-      } else {
-        names.push(name);
-      }
-    }
-    for (const name of names) {
-      const manifest = path.join(nm, name, 'package.json');
-      if (!fs.existsSync(manifest)) continue;
-      const license = JSON.parse(fs.readFileSync(manifest, 'utf8')).license;
-      // A missing or non-string license is not evidence of permission, so it fails
-      //    the gate the same way an unlisted copyleft expression does.
-      if (typeof license !== 'string' || !license.trim()) found.push(`${name} (no license field)`);
-      else if (!isPermissive(license)) found.push(`${name} (${license})`);
+  const found = scanCopyleftPackages(STORE);
+  const unlisted = [];
+  for (const hit of found) {
+    const allowed = COPYLEFT_ALLOWLIST.find((entry) => hit.name.startsWith(entry.prefix));
+    const declared = hit.license ? `${hit.name} (${hit.license})` : `${hit.name} (no license field)`;
+    if (!allowed) unlisted.push(declared);
+    else if (!hit.license || !allowed.licenses.includes(normalizeLicense(hit.license))) {
+      unlisted.push(`${declared} — license not reviewed for ${allowed.prefix}`);
     }
   }
-  // One package can appear under several store entries (its own directory plus a
-  //    dependent's link), so report each offending package once.
-  const unlisted = [...new Set(found.filter((hit) => !COPYLEFT_ALLOWLIST.some((allowed) => hit.startsWith(allowed))))];
   assert.deepStrictEqual(unlisted, [], `unlisted copyleft package(s) in the install tree: ${unlisted.join(', ')}`);
   const notice = read('NOTICE');
-  for (const allowed of COPYLEFT_ALLOWLIST) {
+  for (const { prefix } of COPYLEFT_ALLOWLIST) {
     assert.ok(
-      found.some((hit) => hit.startsWith(allowed)),
-      `allowlist entry "${allowed}" matches no installed package; drop it or fix the name`
+      found.some((hit) => hit.name.startsWith(prefix)),
+      `allowlist entry "${prefix}" matches no installed package; drop it or fix the name`
     );
     assert.ok(
-      notice.includes(allowed),
-      `NOTICE must explain the copyleft package "${allowed}"`
+      notice.includes(prefix),
+      `NOTICE must explain the copyleft package "${prefix}"`
     );
   }
   console.log(`  ok   copyleft confined to the allowlist (${found.length} package(s), all documented in NOTICE)`);
 }
 assertCopyleftAllowlisted();
+
+// The gate must count a package once per physical directory, and must still see
+// a package that is only reachable through a link. Both properties are proven on
+// a throwaway store, because the real tree cannot be arranged to have a dangling
+// duplicate on demand.
+{
+  const tmpStore = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_posture_'));
+  try {
+    const writePkg = (rel, name, license) => {
+      const dir = path.join(tmpStore, rel);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name, license }), 'utf8');
+      return dir;
+    };
+    // A platform binary in its own store entry, plus the dependent's link to it.
+    const own = writePkg(path.join('@img+sharp-win32-x64@0.35.5', 'node_modules', '@img', 'sharp-win32-x64'), '@img/sharp-win32-x64', 'Apache-2.0 AND LGPL-3.0-or-later');
+    const dependent = path.join(tmpStore, 'sharp@0.35.5', 'node_modules', '@img');
+    fs.mkdirSync(dependent, { recursive: true });
+    const ownLink = path.join(dependent, 'sharp-win32-x64');
+    fs.symlinkSync(own, ownLink, 'junction');
+    // A copyleft package whose real directory sits outside the store, reachable
+    // only through a dependent's link: dedupe must not drop it.
+    const external = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_external_'));
+    const externalLink = path.join(tmpStore, 'consumer@1.0.0', 'node_modules', 'hidden');
+    try {
+      fs.writeFileSync(
+        path.join(external, 'package.json'),
+        JSON.stringify({ name: 'hidden', license: 'GPL-3.0-only' }),
+        'utf8'
+      );
+      fs.mkdirSync(path.dirname(externalLink), { recursive: true });
+      fs.symlinkSync(external, externalLink, 'junction');
+
+      const scanned = scanCopyleftPackages(tmpStore);
+      const names = scanned.map((hit) => hit.name);
+      assert.deepStrictEqual(
+        names.filter((n) => n === '@img/sharp-win32-x64'),
+        ['@img/sharp-win32-x64'],
+        'a linked duplicate must be inspected once, not reported twice'
+      );
+      assert.ok(names.includes('hidden'), 'a package reachable only through a link must still be inspected');
+      console.log('  ok   store walk dedupes linked duplicates and keeps link-only packages');
+    } finally {
+      // Unlink the junctions before the recursive delete: a junction resolves to
+      // a directory outside the temp store, and removing the tree must never
+      // descend through one.
+      for (const link of [externalLink, ownLink]) fs.rmSync(link, { force: true });
+      fs.rmSync(external, { recursive: true, force: true });
+    }
+  } finally {
+    fs.rmSync(tmpStore, { recursive: true, force: true });
+  }
+}
 
 console.log('\nAll test_dependency_posture checks passed successfully!');

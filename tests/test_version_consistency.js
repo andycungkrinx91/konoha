@@ -66,6 +66,13 @@ const claims = discoverVersionClaims({ rootDir: ROOT_DIR });
 assert.ok(claims.length >= 20, `Discovery must find the repository's claims (found ${claims.length})`);
 
 const claimFiles = new Set(claims.map((c) => c.path));
+// A claim path is a repo path, not a filesystem path: the same tree must yield
+// the same spelling on every host. Building them with `path.join` produced
+// `docs\SECURITY.md` on Windows and made every forward-slash comparison miss.
+for (const claim of claims) {
+  assert.ok(!claim.path.includes('\\'), `claim path must use POSIX separators: ${claim.path}`);
+  assert.strictEqual(claim.path, path.posix.normalize(claim.path), `claim path must be normalized: ${claim.path}`);
+}
 for (const required of ['README.md', 'docs/SECURITY.md', 'docs/MANUAL.md', 'docs/README.md', 'src/agent_contract.js']) {
   assert.ok(claimFiles.has(required), `Discovery must cover ${required}`);
 }
@@ -102,13 +109,17 @@ try {
   fs.mkdirSync(path.join(tmpRoot, 'docs', 'archive'), { recursive: true });
   fs.writeFileSync(path.join(tmpRoot, 'README.md'), '<img alt="Release v1.2.3">\n', 'utf8');
   fs.writeFileSync(path.join(tmpRoot, 'docs', 'SECURITY.md'), '# Konoha MCP Security Architecture & Ingress Controls (v1.2.3)\n', 'utf8');
+  fs.mkdirSync(path.join(tmpRoot, 'docs', 'nested'), { recursive: true });
+  fs.writeFileSync(path.join(tmpRoot, 'docs', 'nested', 'DEEP.md'), '# Deep Nested Controls (v1.2.3)\n', 'utf8');
   fs.writeFileSync(path.join(tmpRoot, 'docs', 'archive', 'OLD.md'), '# Konoha MCP Security Architecture & Ingress Controls (v0.0.1)\n', 'utf8');
 
   const found = claimDrift('9.9.9', { rootDir: tmpRoot });
+  // Forward-slash literals, not `path.join`: a nested file must be reported as
+  // `docs/nested/DEEP.md` on Windows too, which is the assertion that broke.
   assert.deepStrictEqual(
     found.map((c) => c.path).sort(),
-    ['README.md', path.join('docs', 'SECURITY.md')],
-    'discovery must report live claims and ignore archived ones'
+    ['README.md', 'docs/SECURITY.md', 'docs/nested/DEEP.md'],
+    'discovery must report live claims with POSIX paths and ignore archived ones'
   );
   console.log('  ✓ discovery reports drift outside the managed manifest and skips archives');
 } finally {
