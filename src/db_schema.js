@@ -16,7 +16,7 @@ const {
   _mergeLegacyAgyClientRows
 } = require('./db_schema_repairs');
 
-const CURRENT_SCHEMA_VERSION = 9;
+const CURRENT_SCHEMA_VERSION = 10;
 const _ensuredSchemaInodes = new Map();
 const REQUIRED_FAST_SCHEMA_TABLES = [
   'skills', 'skills_fts', 'persona_memories', 'persona_memories_fts',
@@ -410,7 +410,8 @@ function _applyCoreColumnAndIndexMigrations(conn, ftsSupported) {
     "ALTER TABLE projects ADD COLUMN agent_input_token_quota INTEGER DEFAULT 100000;",
     "ALTER TABLE tool_calls ADD COLUMN cached_tokens INTEGER;",
     "ALTER TABLE tool_calls ADD COLUMN input_tokens INTEGER;",
-    "ALTER TABLE tool_calls ADD COLUMN output_tokens INTEGER;"
+    "ALTER TABLE tool_calls ADD COLUMN output_tokens INTEGER;",
+    "ALTER TABLE bridges ADD COLUMN supports_stream_usage INTEGER;"
   ];
   for (const sql of colSqls) _tryExecSql(conn, sql);
   _ensureAgentsColumns(conn);

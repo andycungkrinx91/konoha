@@ -84,7 +84,8 @@ const CORE_SCHEMA_DDL = `
         provider TEXT NOT NULL,
         enabled INTEGER NOT NULL DEFAULT 1,
         target_url TEXT,
-        api_key TEXT
+        api_key TEXT,
+        supports_stream_usage INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS projects (
