@@ -48,3 +48,16 @@ Read this before "fixing" the install, migrate, or upgrade path. Each row alread
 | Unmirrored Socket/stream overrides or stale bundled manifests | Rely on `pnpm-workspace.yaml#overrides` alone while `package.json#overrides` and bundled `jszip`/`string_decoder` manifests still reference `readable-stream@~2.3.6`, `setimmediate@^1.0.5`, or `safe-buffer@~5.2.0` | npm and Socket.dev never see `pnpm-workspace.yaml` and walk bundled `node_modules/*/package.json`, firing HIGH `socketUpgradeAvailable` on `isarray@1.0.0`, `safe-buffer@5.1.2`, `safe-buffer@5.2.1` plus `usesEval` on `setimmediate@1.0.5`; mirror pins in `package.json#overrides` and patch `jszip@3.10.2` + `string_decoder@1.3.0`; guards: `tests/test_dependency_audit.js`, `tests/test_dependency_posture.js`, `tests/test_pnpm_config_migration.js` |
 
 Only `skill`-type rows are exempt from the embedding time budget (`src/vector_search.js:533`). Reference documents can therefore remain unembedded after a "successful" migrate, and `runMigration` reports them via `deferredSkills`.
+
+## v2.2.25 — installer mirror, supply chain, release bump
+
+| Trap | Cause | Guard |
+|---|---|---|
+| `konoha.sannin` died with `MODULE_NOT_FOUND` on every install | the installer mirrored a 7-entry allowlist of `src/` subdirectories; `web`, `telegram`, `templates` were never on it, and the flat copy also lost a directory level | `src/deploy_installer.js` walks `src/` with a denylist and links each flat entry at the mirrored tree; `tests/test_runtime_mirror_requires.js` |
+| Windows golden seed failed with `init did not produce a complete seed (status 0)` | the mirror swap deleted the copy before creating the symlink, and symlink creation needs elevation on Windows | probe + staged swap, `tests/test_mirror_link_failure_safety.js` |
+| Socket license score fell 90 -> 70 on 2.2.24 | `NOTICE` gained install-graph copyleft SPDX identifiers, and `NOTICE` ships in the tarball | `tests/test_tarball_copyleft_scan.js` reads the packed artefact and evaluates SPDX disjunction |
+| Socket "2 high" dependency alerts | the stream overrides lived in `pnpm-workspace.yaml`, which is not published | bundled manifests patched in `patches/jszip@3.10.2.patch` and `patches/string_decoder@1.3.0.patch` |
+| Release bump left the suite red | `bump_version.js` missed the `docs/MANUAL.md` version table that `test_manual_book.js` asserts | the managed `check()` requires the table row |
+| Screenshot generators failed on a clean checkout | `@napi-rs/canvas` and `gifenc` were undeclared | declared in `dependencies` and on the manifest allowlist |
+
+Also: the `src/` boundary audit for issue #25 (`docs/architecture/SRC-BOUNDARY-AUDIT-2026-11-21.md`) found `(root)` is an unnamed shared layer that seven domains depend on, and that `mcp/` and `workflow/` are mutually coupled (45/39 edges).

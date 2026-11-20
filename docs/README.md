@@ -11,6 +11,7 @@ Single entry point for every live document. One topic, one source of truth. `doc
 | `architecture/canonical-cli` | [architecture/CANONICAL-CLI.md](architecture/CANONICAL-CLI.md) | Authoritative CLI command tree and flags |
 | `architecture/canonical-naming` | [architecture/CANONICAL-NAMING.md](architecture/CANONICAL-NAMING.md) | Approved identifiers; blocks synonyms in code review |
 | `architecture/capabilities` | [architecture/CAPABILITY-MAP.md](architecture/CAPABILITY-MAP.md) | Capability to file to tool mapping for v2.2.25 |
+| `architecture/src-boundaries` | [architecture/SRC-BOUNDARY-AUDIT-2026-11-21.md](architecture/SRC-BOUNDARY-AUDIT-2026-11-21.md) | Issue #25 `src/` dependency audit: inventory, cycles, hubs, and the phased modularization plan |
 | `architecture/gaps` | [architecture/ARCHITECTURAL-GAPS.md](architecture/ARCHITECTURAL-GAPS.md) | Open architectural gaps and their remediation order |
 | `architecture/issue-13-native-code-intelligence` | [architecture/ISSUE-13-GATE-1-NATIVE-CODE-INTELLIGENCE.md](architecture/ISSUE-13-GATE-1-NATIVE-CODE-INTELLIGENCE.md) | Gate 1 audit, initial schema v6 design, and native code intelligence (`web-tree-sitter` / 8 `code_*` tools; current DB schema v9) |
 | `architecture/token-baseline` | [architecture/TOKEN-BASELINE.md](architecture/TOKEN-BASELINE.md) | Measured token footprints; Section 11.4 is the evidence for the 83–98% context-saving claim |
