@@ -372,15 +372,23 @@ function loadBridgesFromMcp() {
   try {
     const db = require("./db");
     conn = db.getConnection();
-    const rows = conn.prepare("SELECT name, port, provider, enabled, target_url AS targetUrl, api_key AS apiKey FROM bridges").all();
-    const existing = rows.map(r => ({
-      name: r.name,
-      port: r.port,
-      provider: r.provider,
-      enabled: Boolean(r.enabled),
-      targetUrl: r.targetUrl,
-      apiKey: r.apiKey
-    }));
+    const rows = conn.prepare("SELECT name, port, provider, enabled, target_url AS targetUrl, api_key AS apiKey, supports_stream_usage AS supportsStreamUsage FROM bridges").all();
+    const existing = rows.map(r => {
+      const bridge = {
+        name: r.name,
+        port: r.port,
+        provider: r.provider,
+        enabled: Boolean(r.enabled),
+        targetUrl: r.targetUrl,
+        apiKey: r.apiKey
+      };
+      // Only an explicit stored override becomes a boolean; `undefined` keeps
+      // the provider allowlist in charge.
+      if (r.supportsStreamUsage !== null && r.supportsStreamUsage !== undefined) {
+        bridge.supportsStreamUsage = Boolean(r.supportsStreamUsage);
+      }
+      return bridge;
+    });
     for (const b of existing) {
       validateBridgeTargetUrl(b);
     }
