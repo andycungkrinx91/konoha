@@ -185,6 +185,19 @@ function getDocumentationFiles(version) {
       bump: (oldV, newV) => replaceInFile('docs/MANUAL.md', new RegExp(`\\*\\*Version of record: ${oldV.replace(/\./g, '\\.')}\\*\\*`, 'g'), `**Version of record: ${newV}**`)
     },
     {
+      // tests/test_diagram_sync.js fails on any diagram caption that names a
+      // version other than package.json, so the label is managed here rather
+      // than left to rot until CI notices.
+      path: 'docs/diagrams/konoha-architecture.drawio',
+      check: (c) => c.includes(`(v${version})`),
+      bump: (oldV, newV) => replaceInFile('docs/diagrams/konoha-architecture.drawio', new RegExp(`v${oldV.replace(/\./g, '\\.')}\\b`, 'g'), `v${newV}`)
+    },
+    {
+      path: 'docs/diagrams/konoha-infrastructure-architecture.drawio',
+      check: (c) => c.includes(`(v${version})`),
+      bump: (oldV, newV) => replaceInFile('docs/diagrams/konoha-infrastructure-architecture.drawio', new RegExp(`v${oldV.replace(/\./g, '\\.')}\\b`, 'g'), `v${newV}`)
+    },
+    {
       path: 'docs/README.md',
       check: (c) => c.includes(`Capability to file to tool mapping for v${version}`) && c.includes(`| v${version} ingress, auth`),
       bump: (oldV, newV) => {
@@ -345,6 +358,15 @@ function runBump(newVersion) {
     for (const claim of leftover) {
       console.error(`  ✗ ${claim.path}:${claim.line} [${claim.label}] claims ${claim.version}`);
     }
+    process.exit(1);
+  }
+
+  // The PDF trailer ID is derived from docs/MANUAL.md, so a bumped manual
+  // without a rebuild fails tests/test_manual_book.js on every platform.
+  const { spawnSync } = require('child_process');
+  const rebuild = spawnSync(process.execPath, [path.join(ROOT_DIR, 'scripts', 'build_manual_pdf.js')], { stdio: 'inherit' });
+  if (rebuild.status !== 0) {
+    console.error(`\n✗ docs/MANUAL.pdf rebuild failed (exit ${rebuild.status}). Run: node scripts/build_manual_pdf.js`);
     process.exit(1);
   }
 
