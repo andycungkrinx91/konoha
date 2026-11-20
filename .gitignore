@@ -84,6 +84,13 @@ coverage/
 .pnpm-store/
 .eleventy-cache/
 
+# Generated CLI screenshot PNGs (scripts/render_fullscreen_assets.js,
+# scripts/render_uniform_core_screenshots.js, scripts/generate_all_command_screenshots.js).
+# They are reproduced from live `konoha` output, so they are build artefacts rather
+# than sources; nothing under docs/ or README references them. The logo
+# (assets/konoha_logo_kyubi.png) uses an underscore and is unaffected.
+assets/konoha-*.png
+
 # Playwright Test
 apps/web/tests/e2e/screenshots/
 apps/web/tests/

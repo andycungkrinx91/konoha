@@ -131,7 +131,9 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.1"
+    "@napi-rs/canvas": "^1.1.1",
+    "@playwright/test": "^1.64.1",
+    "gifenc": "^1.0.3"
   },
   "packageManager": "pnpm@12.16.1"
 }
