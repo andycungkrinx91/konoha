@@ -10,7 +10,7 @@ tags:
   - fts5
 ---
 
-# 🍃 Konoha MCP Tools Orchestrator Skill (v2.2.24)
+# 🍃 Konoha MCP Tools Orchestrator Skill (v2.2.25)
 
 Runtime guide for the **Konoha MCP Tools Orchestrator**, native Tree-sitter + FTS5 + Granite/MiniLM code-intelligence engine, and multi-agent coordination server.
 

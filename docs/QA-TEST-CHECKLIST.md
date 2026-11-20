@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > **This file is a versioned verification log, not a live test plan.** Only the sections for the current release are instructions; every other section records what was run at the time, against the code as it was then. A row that cites `agent-browser` or the Docker browser workspace is history — both were retired in 2.2.23 and headed QA now runs the host's own Playwright. Read a `PASS` from an older section as evidence about that release, never as validation of the current tree.
 
-Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.24). This checklist defines the mandatory QA verification sections:
+Authoritative verification matrix for Konoha MCP Tools Orchestrator (v2.2.25). This checklist defines the mandatory QA verification sections:
 1. **Section 1: TUI & CLI Subsystem Verification** (Terminal UI, subcommands, flags, edge cases, symlink safety, and runtime error parity).
 2. **Section 2: Web UI & Browser Automation QA** (Playwright test suite, Playwright flow verification, SvelteKit application tabs, responsive layout, theme toggle, and token-safe execution).
 
@@ -18,7 +18,7 @@ Every command must execute with clean output, valid exit codes (0 for success, n
 | Command | Subcommands / Flags | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- |
 | `konoha` | (bare invocation) | Renders Kyubi ASCII art splash screen, version banner, and interactive main menu. | `PASS` (verified) |
-| `konoha version` | `-v`, `--version` | Displays `2.2.24`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
+| `konoha version` | `-v`, `--version` | Displays `2.2.25`, queries npm registry for updates with progress indicator. | `PASS` (verified) |
 | `konoha akatsuki status` | - | Displays Akatsuki security controls, engine, mode (blue/red), env (docker/lxc), lab status, and tools inventory. | `PASS` (verified) |
 | `konoha akatsuki mode` | `[blue|red]` | Switch between defensive Blue-Team and offensive Red-Team mode (automates lab setup in red mode). | `PASS` (verified) |
 | `konoha akatsuki env` | `[docker|lxc]` | View or set container execution engine environment (`docker` / `lxc`). | `PASS` (verified) |

@@ -8,7 +8,7 @@
  * assert the current release, including ones nobody added to that manifest. A
  * stale claim is a documentation bug even when no bump touched it.
  *
- * Discovery is by shape, so a new doc that says "**Version of record: 2.2.24**"
+ * Discovery is by shape, so a new doc that says "**Version of record: 2.2.25**"
  * is covered the day it lands, without editing a list here.
  *
  * Only release-identity shapes count. Incidental semver in prose or third-party

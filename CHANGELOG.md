@@ -1,4 +1,4 @@
-## [Unreleased]
+## [2.2.25] - 2026-11-20
 
 ### Fixed
 
@@ -13,6 +13,14 @@
 
 **Changed**
 - **The live Socket score and its cause are now recorded, not asserted (`README.md`, `docs/SECURITY.md` §12.6)**: read from the package page on 2026-11-20 for `konoha-mcp@2.2.24` — overall **82**, with Supply Chain 100, Vulnerability 100, Quality 96, Maintenance 70 and License **70**. Socket.dev answers HTTP 403 to non-browser clients, so the figure comes from a browser session rather than an API call, and it is a server-side property of a published artefact that no repository test can assert. The `NOTICE` identifiers were removed and the explanation moved into `docs/SECURITY.md`, so License should recover **toward 90** once a version without them is published — the level `2.2.23` held. That recovery is **not claimed here**: it cannot be observed until the next publish, and reaching 100 would require dropping either the embedding backend (`@img/sharp-*` via `@huggingface/transformers`) or the frontend build tooling (`lightningcss`), which is not a trade this project makes. `README.md` names those two families but not their licence identifiers, because `README.md` also ships in the tarball and would fail the gate above.
+
+### CI & Verification
+
+**Added**
+- **The macOS local CI leg is documented, and per-leg availability is reportable (`docs/CI.md`, `scripts/sandbox_preflight.js`)**: the third local leg had no local path on a non-Apple host and no honest way to say so. `docs/CI.md` now carries a `dockur/macos` section with a copy-pasteable compose — storage outside the checkout, host port `8007` so it cannot collide with the Windows VM on `8006` — the four host requirements, and the leg's real status on this machine: **BLOCKED**, at 1.97 GB allocatable against dockur's 4 GB floor. It records that the floor is env-overridable (`/run/entry.sh` line 12 is `: "${RAM_MINIMUM:="4G"}"`) and states that this repository does not recommend forcing it, because the missing memory is held by the desktop session and a 2 GB macOS guest would swap-thrash the host and likely fail mid-install. The leg was **not** run that way, and no native macOS pass is claimed. `scripts/sandbox_preflight.js` answers "which of the three legs can this host actually run" per leg with its reason; it reports rather than gates, since a host without a macOS kernel is not a broken host. Guarded by `tests/test_ci_leg_preflight.js`.
+
+**Changed**
+- **The shipped contract allows a proxy-verified macOS leg (`src/templates/skills/konoha/references/contract.md`, mirrored to `.agents/skills`)**: item 6 previously required all three legs to be verified with no allowance for a host that cannot provide a macOS kernel, which made every non-Apple machine permanently non-compliant. It now names the documented symlinked-`HOME` proxy as an allowed state and requires a leg the host cannot provide to be reported as `proxy-verified` or `blocked` with its reason — never as a native pass. Only a GitHub `macos-latest` run at 4 GB or more closes the macOS leg natively.
 
 ## [2.2.24] - 2026-11-19
 

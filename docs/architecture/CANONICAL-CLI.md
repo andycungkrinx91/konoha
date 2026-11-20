@@ -1,6 +1,6 @@
 # Konoha Canonical CLI Specification
 
-**Document Version:** 1.7.0 (Konoha v2.2.24)  
+**Document Version:** 1.7.0 (Konoha v2.2.25)  
 **Date:** 2026-11-16  
 **Status:** Authoritative CLI Command Reference
 

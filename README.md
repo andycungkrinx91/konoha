@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.24-blue.svg?style=for-the-badge&logo=git&logoColor=white" alt="Release v2.2.24"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-v2.2.25-blue.svg?style=for-the-badge&logo=git&logoColor=white" alt="Release v2.2.25"></a>
   <a href="https://github.com/andycungkrinx91/konoha/actions/workflows/cross-platform.yml"><img src="https://img.shields.io/github/actions/workflow/status/andycungkrinx91/konoha/cross-platform.yml?branch=master&label=cross-platform%20CI&style=for-the-badge&logo=githubactions&logoColor=white" alt="Cross-platform CI on master"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge&logo=apache&logoColor=white" alt="License: Apache 2.0"></a>
   <a href="docs/SETUP-CLI.md"><img src="https://img.shields.io/badge/Node.js-%E2%89%A5%2024.0.0-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js >= 24.0.0"></a>
@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.24%20Controls-blue?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Security policy"></a>
+  <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.25%20Controls-blue?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Security policy"></a>
   <a href="https://socket.dev/npm/package/konoha-mcp"><img src="https://img.shields.io/badge/Socket%20score-82%20(license%2070)-blue?style=for-the-badge&logo=socketdotio&logoColor=white" alt="Socket score 82, license category 70"></a>
   <a href="docs/QA-AUTOMATION.md"><img src="https://img.shields.io/badge/QA-Playwright%20E2E-10b981?style=for-the-badge&logo=vitest&logoColor=white" alt="QA automation"></a>
   <a href="docs/TELEGRAM_INTEGRATION_GUIDE.md"><img src="https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram remote"></a>

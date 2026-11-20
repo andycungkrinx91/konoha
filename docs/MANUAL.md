@@ -1,6 +1,6 @@
 # Konoha — Operator's Manual
 
-**Version of record: 2.2.24**
+**Version of record: 2.2.25**
 
 | Field | Value |
 |---|---|

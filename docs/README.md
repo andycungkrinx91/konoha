@@ -10,7 +10,7 @@ Single entry point for every live document. One topic, one source of truth. `doc
 | `architecture/canonical-api` | [architecture/CANONICAL-API.md](architecture/CANONICAL-API.md) | Authoritative exported API and MCP tool signatures |
 | `architecture/canonical-cli` | [architecture/CANONICAL-CLI.md](architecture/CANONICAL-CLI.md) | Authoritative CLI command tree and flags |
 | `architecture/canonical-naming` | [architecture/CANONICAL-NAMING.md](architecture/CANONICAL-NAMING.md) | Approved identifiers; blocks synonyms in code review |
-| `architecture/capabilities` | [architecture/CAPABILITY-MAP.md](architecture/CAPABILITY-MAP.md) | Capability to file to tool mapping for v2.2.24 |
+| `architecture/capabilities` | [architecture/CAPABILITY-MAP.md](architecture/CAPABILITY-MAP.md) | Capability to file to tool mapping for v2.2.25 |
 | `architecture/gaps` | [architecture/ARCHITECTURAL-GAPS.md](architecture/ARCHITECTURAL-GAPS.md) | Open architectural gaps and their remediation order |
 | `architecture/issue-13-native-code-intelligence` | [architecture/ISSUE-13-GATE-1-NATIVE-CODE-INTELLIGENCE.md](architecture/ISSUE-13-GATE-1-NATIVE-CODE-INTELLIGENCE.md) | Gate 1 audit, initial schema v6 design, and native code intelligence (`web-tree-sitter` / 8 `code_*` tools; current DB schema v9) |
 | `architecture/token-baseline` | [architecture/TOKEN-BASELINE.md](architecture/TOKEN-BASELINE.md) | Measured token footprints; Section 11.4 is the evidence for the 83–98% context-saving claim |
@@ -20,7 +20,7 @@ Single entry point for every live document. One topic, one source of truth. `doc
 
 | Topic key | Document | Answers |
 |---|---|---|
-| `security/architecture` | [SECURITY.md](SECURITY.md) | v2.2.24 ingress, auth, Telegram, and queue controls |
+| `security/architecture` | [SECURITY.md](SECURITY.md) | v2.2.25 ingress, auth, Telegram, and queue controls |
 | `security/database-isolation` | [security/DATABASE-ISOLATION-INVENTORY.md](security/DATABASE-ISOLATION-INVENTORY.md) | Which database every lab and skill may touch |
 | `security/kali-tools-provenance` | [security/DB-KALI-TOOLS-PROVENANCE.md](security/DB-KALI-TOOLS-PROVENANCE.md) | Provenance and disposition of every `kali_tools` row |
 | `security/red-skill-inventory` | [security/RED-SKILL-INVENTORY.md](security/RED-SKILL-INVENTORY.md) | Opt-in red pack contents and authorization model |
