@@ -205,15 +205,18 @@ const PLAN_ARTIFACT_NAME = 'plan.md';
 
 /** Open `plan.md` for writing without ever following a symlink to another inode. */
 function _openPlanArtifactExclusive(planPath, nofollow) {
+  // O_EXCL never truncates or follows an existing path: a regular file, a
+  // symlink (dangling or not) and a directory all come back as EEXIST, so
+  // creation is race-safe even where O_NOFOLLOW is unavailable (Windows).
   const createFlags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | nofollow;
   try {
     return fs.openSync(planPath, createFlags, 0o644);
   } catch (err) {
     if (err.code !== 'EEXIST') throw err;
   }
-  // Regeneration overwrites an existing artifact, but only a real file: a
-  // symlink (dangling or not) is refused by lstat, and O_NOFOLLOW refuses it
-  // again at open.
+  // Overwriting an existing artifact is the only step that needs to prove the
+  // final component is not a link, which requires O_NOFOLLOW.
+  if (!nofollow) return null;
   const before = fs.lstatSync(planPath);
   if (!before.isFile()) return null;
   const fd = fs.openSync(planPath, fs.constants.O_WRONLY | nofollow);
@@ -228,11 +231,7 @@ function _openPlanArtifactExclusive(planPath, nofollow) {
 function writePlanArtifact(resolvedTaskDir, planText) {
   const text = String(planText === undefined || planText === null ? '' : planText);
   if (!resolvedTaskDir || !text.trim()) return null;
-  // Without O_NOFOLLOW there is no way to prove the final component is not a
-  // link, and a path check cannot close that window. Skip the artifact rather
-  // than risk writing outside the task dir; Gate 1 still shows the plan inline.
-  const nofollow = fs.constants.O_NOFOLLOW;
-  if (!nofollow) return null;
+  const nofollow = fs.constants.O_NOFOLLOW || 0;
   let fd = null;
   try {
     fs.mkdirSync(resolvedTaskDir, { recursive: true });
