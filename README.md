@@ -35,10 +35,25 @@
 
 <p align="center">
   <a href="docs/SECURITY.md"><img src="https://img.shields.io/badge/Security-v2.2.24%20Controls-blue?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Security policy"></a>
+  <a href="https://socket.dev/npm/package/konoha-mcp"><img src="https://img.shields.io/badge/Socket%20score-82%20(license%2070)-blue?style=for-the-badge&logo=socketdotio&logoColor=white" alt="Socket score 82, license category 70"></a>
   <a href="docs/QA-AUTOMATION.md"><img src="https://img.shields.io/badge/QA-Playwright%20E2E-10b981?style=for-the-badge&logo=vitest&logoColor=white" alt="QA automation"></a>
   <a href="docs/TELEGRAM_INTEGRATION_GUIDE.md"><img src="https://img.shields.io/badge/Telegram-Dual--Mode%20Remote-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram remote"></a>
   <a href="https://saweria.co/andycungkrinx"><img src="https://img.shields.io/badge/Sponsor-Saweria-orange?style=for-the-badge&logo=buymeacoffee&logoColor=white" alt="Sponsor via Saweria"></a>
 </p>
+
+> **On the Socket score (overall 82; license category 70).** `konoha-mcp` is Apache-2.0, and the
+> published tarball carries no imposed copyleft licence. The license category scores 70 because two
+> copyleft families sit in the *optional install graph* rather than in the tarball: the
+> `@img/sharp-*` prebuilt binaries (via `sharp` behind `@huggingface/transformers`) and
+> `lightningcss` (frontend build tooling). They are host-specific binaries and build tooling,
+> are installed from their own published packages rather than redistributed, and cannot be removed
+> without dropping text embeddings or the frontend build. Their exact SPDX identifiers, and why each
+> is unavoidable, are in [docs/SECURITY.md §12.6](docs/SECURITY.md) — this paragraph does not repeat
+> them because `tests/test_tarball_copyleft_scan.js` fails if a copyleft identifier ships in the
+> packed tarball on a line that does not also offer a permissive alternative, and `README.md` is
+> inside that tarball. The score is a property of that dependency graph, not of this repository's
+> licence.
+
 
 <p align="center">
   <b>Jump to:</b>
