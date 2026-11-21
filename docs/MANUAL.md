@@ -233,7 +233,7 @@ physical Windows hardware and not on Docker Desktop for Windows, so confirm with
 report anything that differs.
 
 What does back those platforms is the CI matrix, not this manual alone: `.github/workflows/cross-platform.yml` runs the
-install, lint, sharded suite (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 4 shards), and fresh-install smoke step on `ubuntu-latest`, `windows-latest`, and `macos-latest` for every push and pull
+install, lint, sharded suite (`windows-latest`: 20 shards, `ubuntu-latest`: 10 shards, `macos-latest`: 5 shards), and fresh-install smoke step on `ubuntu-latest`, `windows-latest`, and `macos-latest` for every push and pull
 request, on manual dispatch, and nightly at 02:00 UTC. Locally, all three environments have a verification path: Linux (`pnpm test:sandbox` / `pnpm ci:act`), Windows (`docker/windows-vm/oem/run-ci.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` for the clean-room container gate on Apple silicon, plus native replay on a Mac or the symlinked-`HOME` proxy on Linux; see `docs/CI.md`).
 
 ### 2.6 Installing 2.2.24 from source

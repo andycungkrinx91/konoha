@@ -199,8 +199,8 @@ Three install modes, never blurred:
 
 | Platform | Status |
 |---|---|
-| Linux x64 | **yes** — `ubuntu-latest` 8/8 shards plus the full-suite job pass on run `44224126588` at `7f312c1f` |
-| Windows 11 x64 | **yes** — `windows-latest` 16/16 shards plus the full-suite job pass on run `44224126588` at `7f312c1f` |
+| Linux x64 | **yes** — `ubuntu-latest` shards and the `checks`/`seed` jobs pass on run `44926621746` at `89e840ff` |
+| Windows 11 x64 | **yes** — `windows-latest` shards and the `checks`/`seed` jobs pass on run `44926621746` at `89e840ff` |
 | macOS arm64 | **yes** — `macos-latest` `checks`, all four shards, and the golden-seed build pass on run `44224126588` at `7f312c1f` (that run predates the move to four macOS shards); slowest shard 741 s |
 
 Repo is public, so `macos-latest` is arm64. Do not mark the matrix green while any shard is

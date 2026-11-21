@@ -505,9 +505,9 @@ Issues and pull requests are welcome at [github.com/andycungkrinx91/konoha](http
 
 Run the narrowest check that exercises your change, then the three local cross-platform environments before handing over:
 
-1. **Linux** — `pnpm test:sandbox [-- --shard=I/8]` (Debian clean-room container) plus `pnpm ci:act` / `pnpm ci:act:shard` (Ubuntu `act` workflow).
+1. **Linux** — `pnpm test:sandbox [-- --shard=I/N]` (Debian clean-room container) plus `pnpm ci:act` / `pnpm ci:act:shard` (Ubuntu `act` workflow).
 2. **Windows** — `docker/windows-vm/oem/run-ci.cmd [-Shard I/N]` / `retest.cmd` inside `dockur/windows`.
-3. **macOS** — `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox [-- --shard=I/8]` via [Apple's `container`](https://github.com/apple/container), plus `macos-latest` or the native replay in [docs/CI.md](docs/CI.md).
+3. **macOS** — `KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox [-- --shard=I/N]` via [Apple's `container`](https://github.com/apple/container), plus `macos-latest` or the native replay in [docs/CI.md](docs/CI.md).
 
 Per-change checks are `rtk node tests/<suite>.js` for one suite and `pnpm test` for the whole set; the harness and its sharding rules are documented in [docs/CI.md](docs/CI.md).
 
