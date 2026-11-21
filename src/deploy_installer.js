@@ -91,7 +91,10 @@ function fileExists(p) {
 function ensureDir(p) {
   try {
     fs.mkdirSync(p, { recursive: true });
-  } catch { /* intentional fallback */ }
+  } catch (err) {
+    // A swallowed mkdir loses every file written under it, so report the path.
+    console.warn(`[warning] Could not create directory ${p}: ${err && err.message ? err.message : err}`);
+  }
 }
 
 function copyIfDifferent(src, dest) {
@@ -105,7 +108,10 @@ function copyIfDifferent(src, dest) {
     ensureDir(path.dirname(dest));
     fs.writeFileSync(dest, srcBuf);
     return true;
-  } catch {
+  } catch (err) {
+    // Returning false silently used to hide a missing runtime file behind an
+    // install that reported success.
+    console.warn(`[warning] Could not copy ${src} -> ${dest}: ${err && err.message ? err.message : err}`);
     return false;
   }
 }
@@ -329,38 +335,81 @@ function ensureMirroredRootFileLinks(destDir) {
   return linked;
 }
 
-// Symlink creation needs elevation on Windows unless Developer Mode is on, and a
-// failed attempt must never cost the caller the copy it already had. Probe once
-// per process, and build the link beside its destination before swapping, so a
-// failure leaves the original in place.
+// A link is an optimisation, not a correctness requirement: the flat copy is a
+// valid install, so every failure here must keep the copy rather than lose it.
+//
+// The probe is per link KIND because the two are not interchangeable on Windows.
+// A 'junction' is a directory reparse point; pointing one at a FILE is created
+// without error and then resolves to nothing, so probing only a directory
+// junction authorised file links that could never work and silently deleted the
+// file they replaced. Probe a directory junction and a real file link separately.
 let symlinkSupport = null;
 
-function supportsSymlinks(destDir) {
+// statSync follows the link, and readdir/readFile then prove the target is
+// actually reachable. existsSync alone returns false for a dangling link, so it
+// cannot distinguish a working link from one that resolves to nothing.
+function linkResolves(linkPath, expectDirectory) {
+  try {
+    const stat = fs.statSync(linkPath);
+    if (stat.isDirectory() !== expectDirectory) return false;
+    if (expectDirectory) fs.readdirSync(linkPath);
+    else fs.readFileSync(linkPath);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function probeSymlinkSupport(destDir) {
   if (symlinkSupport !== null) return symlinkSupport;
   const probeDir = path.join(destDir, '.konoha-link-probe');
-  const probeLink = path.join(probeDir, 'link');
-  const probeTarget = path.join(probeDir, 'target');
+  const support = { dir: false, file: false };
   try {
     fs.rmSync(probeDir, { recursive: true, force: true });
-    fs.mkdirSync(probeTarget, { recursive: true });
-    fs.symlinkSync(probeTarget, probeLink, 'junction');
-    symlinkSupport = true;
-  } catch (_) {
-    symlinkSupport = false;
-  } finally {
+    fs.mkdirSync(probeDir, { recursive: true });
+
+    const dirTarget = path.join(probeDir, 'dir-target');
+    fs.mkdirSync(dirTarget, { recursive: true });
+    const dirLink = path.join(probeDir, 'dir-link');
     try {
-      fs.rmSync(probeDir, { recursive: true, force: true });
-    } catch (_) { /* best effort */ }
+      fs.symlinkSync(dirTarget, dirLink, 'junction');
+      support.dir = linkResolves(dirLink, true);
+    } catch (_) {
+      support.dir = false;
+    }
+
+    const fileTarget = path.join(probeDir, 'file-target');
+    fs.writeFileSync(fileTarget, 'probe');
+    const fileLink = path.join(probeDir, 'file-link');
+    try {
+      fs.symlinkSync(fileTarget, fileLink, 'file');
+      support.file = linkResolves(fileLink, false);
+    } catch (_) {
+      support.file = false;
+    }
+  } catch (_) {
+    support.dir = false;
+    support.file = false;
+  } finally {
+    try { fs.rmSync(probeDir, { recursive: true, force: true }); } catch (_) { /* best effort */ }
   }
-  return symlinkSupport;
+  symlinkSupport = support;
+  return support;
 }
 
 function replaceWithMirrorLink(linkPath, relativeTarget, destDir) {
-  // Without symlink support the existing real copy is the correct install: a
-  // mirror whose relative requires resolve a level too high still loads its own
-  // files, whereas deleting it would remove the module entirely. On Windows this
-  // is also what keeps seed sentinels such as ~/.konoha/server.js present.
-  if (!supportsSymlinks(destDir)) return false;
+  // The link kind follows the target: directories take a junction, files take a
+  // real file link, and on Windows only the directory form is elevation-free.
+  let targetIsDirectory = null;
+  try {
+    targetIsDirectory = fs.statSync(path.join(destDir, relativeTarget)).isDirectory();
+  } catch (_) {
+    return false;
+  }
+  const support = probeSymlinkSupport(destDir);
+  if (targetIsDirectory ? !support.dir : !support.file) return false;
+  const linkType = targetIsDirectory ? 'junction' : 'file';
+
   const staging = `${linkPath}.konoha-link-tmp`;
   try {
     let existing = null;
@@ -369,19 +418,20 @@ function replaceWithMirrorLink(linkPath, relativeTarget, destDir) {
     } catch (_) {
       existing = null;
     }
-    if (existing) {
-      if (existing.isSymbolicLink() && fs.readlinkSync(linkPath) === relativeTarget) return true;
-      // A staging path from an interrupted run would block symlink creation.
-      fs.rmSync(staging, { recursive: true, force: true });
-      // 'junction' is a directory link that Windows resolves without elevation;
-      // on POSIX it behaves like a normal directory symlink.
-      fs.symlinkSync(relativeTarget, staging, 'junction');
-      fs.rmSync(linkPath, { recursive: true, force: true });
-      fs.renameSync(staging, linkPath);
-      return true;
+    if (existing && existing.isSymbolicLink()) {
+      try {
+        if (fs.readlinkSync(linkPath) === relativeTarget && linkResolves(linkPath, targetIsDirectory)) return true;
+      } catch (_) { /* rebuild below */ }
     }
     fs.rmSync(staging, { recursive: true, force: true });
-    fs.symlinkSync(relativeTarget, staging, 'junction');
+    fs.symlinkSync(relativeTarget, staging, linkType);
+    // Nothing is deleted until the replacement is proven to resolve. A dangling
+    // staging link leaves the working copy untouched and reports failure.
+    if (!linkResolves(staging, targetIsDirectory)) {
+      fs.rmSync(staging, { recursive: true, force: true });
+      return false;
+    }
+    fs.rmSync(linkPath, { recursive: true, force: true });
     fs.renameSync(staging, linkPath);
     return true;
   } catch (_) {

@@ -51,7 +51,7 @@ const { installUv } = require('../lib/extension');
 const { checkPortActive } = require('../lib/ui_commands');
 const { cmdBridgeStart } = require('./bridge');
 const { parseRequestedClients, setupClientIntegrations } = require('./init_clients');
-const { executeInitMigration, renderInitSummary, measureEmbeddingCoverage } = require('./init_migration');
+const { executeInitMigration, renderInitSummary, measureEmbeddingCoverage, verifyRuntimeDeployment } = require('./init_migration');
 const { createEmbedProgress, INIT_PHASES } = require('../lib/embed_progress');
 const {
   executePreInstallBackup,
@@ -437,6 +437,12 @@ async function cmdInit(args, options = {}) {
         : 'installation complete');
   }
 
+  // Write the marker and verify the deployment before the summary claims success:
+  // the banner reads its paths from constants, so it used to print "Server: <path>"
+  // for a server.js that a failed mirror swap had deleted.
+  recordAutoSetupState();
+  verifyRuntimeDeployment();
+
   const embedCoverage = skipEmbed ? null : measureEmbeddingCoverage();
   renderInitSummary({
     ...clientFlags,
@@ -449,7 +455,6 @@ async function cmdInit(args, options = {}) {
   if (args.includes('--with-red-team')) {
     await installCyberPackAfterInit();
   }
-  recordAutoSetupState();
 }
 
 /**
