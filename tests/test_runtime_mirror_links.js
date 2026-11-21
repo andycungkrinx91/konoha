@@ -83,11 +83,17 @@ function testManualSiblingLinkIsNotRequired() {
   // hand-made ~/.konoha/web symlink is redundant. Its absence must not matter.
   const manual = path.join(KONOHA_HOME, 'web');
   const resolved = require.resolve(UPWARD_SPECIFIER, { paths: [path.dirname(MODEL_ROUTER)] });
-  const goesThroughMirror = resolved.startsWith(path.resolve(KONOHA_HOME, 'src'));
+  // Node hands back a realpath, and macOS /var is a symlink to /private/var, so the
+  // prefix must be realpath'd too or a correct resolution reads as outside src/.
+  let mirrorRoot = path.resolve(KONOHA_HOME, 'src');
+  try {
+    mirrorRoot = fs.realpathSync(mirrorRoot);
+  } catch (_) { /* keep the unresolved form if it cannot be resolved */ }
+  const goesThroughMirror = resolved.startsWith(mirrorRoot);
   if (fs.existsSync(manual)) {
     console.log(`  ! note: a manual ${manual} link still exists; resolution no longer depends on it`);
   }
-  assert.ok(goesThroughMirror, 'resolution does not pass through the mirrored src/ tree');
+  assert.ok(goesThroughMirror, `resolution does not pass through the mirrored src/ tree (${resolved})`);
   console.log('  ✓ resolution is independent of a manual ~/.konoha/web link');
 }
 

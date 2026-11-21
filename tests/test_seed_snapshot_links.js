@@ -32,9 +32,10 @@ function buildSeed() {
   fs.symlinkSync(path.join('src', 'mcp'), path.join(seed, '.konoha', 'mcp'), 'dir');
 }
 
-function testCpSyncCollidesOnLinks() {
-  // The reason this helper exists: fs.cpSync cannot recreate a link over an
-  // existing path, and neither `force` nor `verbatimSymlinks` changes that.
+function testCpSyncCollisionIsPlatformDependent() {
+  // The collision that broke every Windows shard is a property of fs.cpSync and
+  // varies by platform and Node build, so record it rather than assert it. The
+  // assertion that matters is the next one: the copier must survive either way.
   const dest = path.join(sandbox, 'collide');
   fs.mkdirSync(path.join(dest, '.konoha'), { recursive: true });
   fs.writeFileSync(path.join(dest, '.konoha', 'agent_contract.js'), 'stale\n');
@@ -44,12 +45,9 @@ function testCpSyncCollidesOnLinks() {
   } catch (err) {
     code = err.code;
   }
-  assert.strictEqual(
-    code, 'EEXIST',
-    `fs.cpSync must collide on a linked entry over an existing file (saw ${code}); `
-    + 'if this ever starts succeeding the fallback copier can be simplified'
-  );
-  console.log('  ok   fs.cpSync collides with EEXIST, which is why the fallback exists');
+  console.log(code
+    ? `  ok   fs.cpSync collides with ${code} here, which is why the fallback exists`
+    : '  ok   fs.cpSync did not collide on this platform; the fallback copier still must not depend on it');
 }
 
 function testFallbackCopySurvivesLinks() {
@@ -119,7 +117,7 @@ function testNoLeftoverLinkArtifacts() {
 console.log('Running test_seed_snapshot_links: a linked seed must copy without EEXIST...');
 try {
   buildSeed();
-  testCpSyncCollidesOnLinks();
+  testCpSyncCollisionIsPlatformDependent();
   testFallbackCopySurvivesLinks();
   testNoLeftoverLinkArtifacts();
 } finally {
