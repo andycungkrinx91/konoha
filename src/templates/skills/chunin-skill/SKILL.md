@@ -69,6 +69,40 @@ Evaluate all discovered sources against the 4-tier credibility matrix:
 3. Explicitly report discrepancies, deprecated APIs, and version-specific divergences.
 4. Record exact versions, dates, and publication status for all referenced libraries.
 
+### SOP 4: Deep Research Loop (cache-first, batched)
+
+Research runs cache-first so a repeated topic costs no network at all. The loop
+follows the dzhng/deep-research shape, implemented in `src/mcp/chunin_knowledge.js`.
+
+1. **Retrieve before searching.** Query the local `chunin_knowledge` store for the
+   **top 5** references relevant to the topic (`retrieveRelevant`, hybrid FTS5 +
+   vector + cross-encoder rerank). Seed `visitedUrls` and `learnings` from them.
+   Skip this only when `use_knowledge_cache: false`.
+2. **Search only for what is new.** Call `web_search` with `exclude_urls` set to the
+   retrieved canonical URLs and take the **top 3** net-new results. URLs are
+   canonicalized (scheme forced to https, host lowercased, `utm_*`/`fbclid`/`gclid`
+   dropped, query sorted, trailing slash and `index.html` removed), so one page
+   reached by two spellings is fetched once.
+3. **Deduplicate before storing.** A learning is dropped when its `content_hash`
+   matches an existing one, when its canonical URL is already known, or when its
+   embedding scores `>= 0.90` cosine against a known learning. That cosine is
+   computed on **mean-centered** vectors: the embedder's raw cosine rates two
+   unrelated sentences at ~0.997, so the raw value cannot separate duplicates from
+   distinct claims.
+4. **Store in one batched write.** Surviving learnings are embedded with a single
+   `embedBatch` call (batched ONNX inference, length-sorted so padding is not
+   wasted) and inserted in one transaction with a prepared statement.
+5. **Recurse.** `breadth` (default 3, max 5) queries per level, `depth` (default 2,
+   max 3) levels, with `nextBreadth = ceil(breadth / 2)`. Learnings, follow-up
+   questions and visited URLs accumulate across levels; raw page bodies are
+   discarded after extraction.
+6. **Report.** `output_mode: "report"` keeps citations and follow-ups;
+   `"concise"` returns the learnings alone.
+
+A store that was never embedded still answers: retrieval falls back to FTS, then to
+the most recent rows for the topic, and storage keeps the text without a vector
+when the semantic runtime is unavailable. Degrade, never fail.
+
 ### SOP 4: Cited Technical Intel Report Schema
 Deliver research findings structured in the standardized format:
 

@@ -19,3 +19,14 @@ index d167aab2597e79dd4a5f2332a82838dec76b5b9f..c41ce2e53fc2e89fc18c36b6c28d4708
    "types": "./index.d.ts",
    "repository": {
      "type": "git",
+@@ -60,8 +56,8 @@
+   "dependencies": {
+     "lie": "~3.3.0",
+     "pako": "~1.0.2",
+-    "readable-stream": "~2.3.6",
+-    "setimmediate": "^1.0.5"
++    "readable-stream": "^3.6.2",
++    "setimmediate": "npm:immediate@^3.3.0"
+   },
+   "license": "(MIT OR GPL-3.0-or-later)"
+ }

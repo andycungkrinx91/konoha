@@ -180,9 +180,22 @@ function getDocumentationFiles(version) {
       bump: (oldV, newV) => replaceInFile('docs/VPS-INSTALL.md', new RegExp(`akatsuki-cyber-pack-${oldV.replace(/\./g, '\\.')}\\.tar\\.zst`, 'g'), `akatsuki-cyber-pack-${newV}.tar.zst`)
     },
     {
+      // The table is asserted by tests/test_manual_book.js, which requires
+      // `| Manual version | <package.json version> |`. Bumping only the
+      // "Version of record" line left that assertion failing after a release
+      // bump, so every version-bearing row in the header is managed here.
       path: 'docs/MANUAL.md',
-      check: (c) => c.includes(`**Version of record: ${version}**`),
-      bump: (oldV, newV) => replaceInFile('docs/MANUAL.md', new RegExp(`\\*\\*Version of record: ${oldV.replace(/\./g, '\\.')}\\*\\*`, 'g'), `**Version of record: ${newV}**`)
+      check: (c) => c.includes(`**Version of record: ${version}**`) && c.includes(`| Manual version | ${version} |`),
+      bump: (oldV, newV) => {
+        const esc = (v) => v.replace(/\./g, '\\.');
+        replaceInFile('docs/MANUAL.md', new RegExp(`\\*\\*Version of record: ${esc(oldV)}\\*\\*`, 'g'), `**Version of record: ${newV}**`);
+        replaceInFile('docs/MANUAL.md', new RegExp(`\\| Manual version \\| ${esc(oldV)} \\|`, 'g'), `| Manual version | ${newV} |`);
+        replaceInFile('docs/MANUAL.md', new RegExp(`\\| Code reference \\| \\x60package\\.json\\x60 version \\x60${esc(oldV)}\\x60`, 'g'), `| Code reference | \x60package.json\x60 version \x60${newV}\x60`);
+        replaceInFile('docs/MANUAL.md', new RegExp(`tagged \\x60v${esc(oldV)}\\x60`, 'g'), `tagged \x60v${newV}\x60`);
+        replaceInFile('docs/MANUAL.md', new RegExp(`\\*\\*${esc(oldV)} unreleased\\*\\*`, 'g'), `**${newV} unreleased**`);
+        replaceInFile('docs/MANUAL.md', new RegExp(`Because ${esc(oldV)} is not on the registry`, 'g'), `Because ${newV} is not on the registry`);
+        return 1;
+      }
     },
     {
       // tests/test_diagram_sync.js fails on any diagram caption that names a

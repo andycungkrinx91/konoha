@@ -297,6 +297,35 @@ function buildSubagentToolGrants(client = 'generic', agent = null) {
   ];
 }
 
+const PI_READONLY_BUILTINS = Object.freeze(['read', 'grep', 'find', 'ls']);
+
+const PI_WRITE_BUILTINS = Object.freeze(['read', 'write', 'edit', 'bash', 'grep', 'find', 'ls']);
+
+/**
+ * Tool grants in the spelling Pi itself uses.
+ *
+ * Pi registers builtins in lowercase (`read`, `grep`, `find`, `ls`) and selects MCP
+ * tools as `mcp:server/tool`. pi-subagents treats `tools` as a strict allowlist and
+ * rejects the launch when a listed name does not resolve, so the `mcp__server__tool`
+ * form the other clients use would fail every Pi child.
+ */
+function buildPiSubagentToolGrants(agent = null) {
+  const { isReadOnlyAgent } = require('../agent_file_safety');
+  const readOnly = isReadOnlyAgent(agent);
+  const { GENIN_BLOCKED_TOOLS } = readOnly
+    ? require('../mcp/genin_guard')
+    : { GENIN_BLOCKED_TOOLS: [] };
+  const blockedMcp = new Set(GENIN_BLOCKED_TOOLS);
+
+  const konoha = (deployUtils.KONOHA_CANONICAL_TOOLS || [])
+    .filter((t) => !readOnly || !blockedMcp.has(t))
+    .map((t) => `mcp:konoha/${t}`);
+  const aislopSource = readOnly ? READONLY_AISLOP_TOOLS : SUBAGENT_SAFE_MCP_GRANTS.aislop;
+  const aislop = aislopSource.map((t) => `mcp:aislop/${t}`);
+
+  return [...konoha, ...aislop, ...(readOnly ? PI_READONLY_BUILTINS : PI_WRITE_BUILTINS)];
+}
+
 function buildCommandCodeTools(agent = null) {
   const { isReadOnlyAgent, isRouterAgent } = require('../agent_file_safety');
   const readOnly = isReadOnlyAgent(agent);
@@ -380,6 +409,8 @@ module.exports = {
   backupFile,
   buildClientToolGrants,
   buildBareToolGrants,
+  buildPiSubagentToolGrants,
+  PI_READONLY_BUILTINS,
   MAIN_AGENT_BUILTIN_TOOLS,
   SUBAGENT_SAFE_MCP_GRANTS,
   getKonohaMappedTools,

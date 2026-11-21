@@ -143,21 +143,42 @@ assert.ok(
 assert.ok(!publish.includes('--no-frozen-lockfile'), 'publish workflow must not use --no-frozen-lockfile');
 console.log('  ok   publish installs from the frozen lockfile');
 
-// The dead isarray override must point at a real, current registry package. Only
-//    pnpm-workspace.yaml carries it: package.json#overrides is limited to the pins
-//    npm and Socket read, and duplicating it there fails test_pnpm_config_migration.
+// Socket/stream overrides must match across pnpm-workspace.yaml, package.json#overrides,
+//    and the bundled jszip/string_decoder manifests so npm and Socket.dev never resolve
+//    legacy isarray@1.0.0, safe-buffer@5.1.2/5.2.1, readable-stream@2.3.8, or setimmediate@1.0.5.
 assert.ok(
   /"?isarray"?:\s*"?npm:@socketregistry\/isarray@1\.0\.8"?/.test(workspace),
   'isarray override must resolve to @socketregistry/isarray@1.0.8'
 );
 assert.ok(!/isarray@1\.0\.7/.test(lock) && !/isarray@1\.0\.7/.test(workspace), 'no stale isarray@1.0.7 override');
-console.log('  ok   isarray override current');
+assert.ok(
+  workspace.includes('patches/string_decoder@1.3.0.patch'),
+  'pnpm-workspace.yaml must register string_decoder@1.3.0 -> patches/string_decoder@1.3.0.patch'
+);
+const resolveTransitiveManifest = (pkgName, fromDirs) => {
+  const manifestPath = require.resolve(`${pkgName}/package.json`, { paths: fromDirs });
+  return { dir: path.dirname(manifestPath), pkg: JSON.parse(fs.readFileSync(manifestPath, 'utf8')) };
+};
+const jszip = resolveTransitiveManifest('jszip', [fs.realpathSync(path.join(ROOT, 'node_modules', 'xlsx-populate'))]);
+assert.strictEqual(jszip.pkg.dependencies['readable-stream'], '^3.6.2', 'patched jszip must pin readable-stream ^3.6.2');
+assert.strictEqual(jszip.pkg.dependencies.setimmediate, 'npm:immediate@^3.3.0', 'patched jszip must alias setimmediate to immediate@^3.3.0');
+const readableStream = resolveTransitiveManifest('readable-stream', [jszip.dir]);
+const stringDecoder = resolveTransitiveManifest('string_decoder', [readableStream.dir]);
+assert.strictEqual(
+  stringDecoder.pkg.dependencies['safe-buffer'],
+  'npm:@socketregistry/safe-buffer@1.0.9',
+  'patched string_decoder must alias safe-buffer to @socketregistry/safe-buffer@1.0.9'
+);
+console.log('  ok   isarray/safe-buffer/readable-stream/setimmediate overrides and bundled manifests aligned');
 
 // Copyleft packages may exist in the resolved tree only when this allowlist names
-//    them and NOTICE explains them. Nothing here is bundled into the published
-//    tarball; the point of the gate is that a new copyleft package cannot arrive
-//    silently through a transitive dependency, which is what moved the Socket
-//    license score from 100 to 90 (see NOTICE, "Copyleft in the install graph").
+//    them and docs/SECURITY.md explains them. Nothing here is bundled into the
+//    published tarball; the point of the gate is that a new copyleft package cannot
+//    arrive silently through a transitive dependency, which is what moved the Socket
+//    license score from 100 to 90 (see docs/SECURITY.md §12.6). Non-redistributed
+//    copyleft SPDX identifiers must NOT appear in NOTICE, because NOTICE ships in
+//    the npm tarball and automated SPDX/Socket scanners treat them as konoha-mcp's
+//    own license (which dropped 2.2.24's Socket license score from 90 to 70).
 // `sharp`'s prebuilt binaries are split per platform, and the declared license
 //    differs between them: the Windows builds state `Apache-2.0 AND
 //    LGPL-3.0-or-later`, while the Linux and macOS builds state `Apache-2.0` for
@@ -258,6 +279,7 @@ function assertCopyleftAllowlisted() {
     }
   }
   assert.deepStrictEqual(unlisted, [], `unlisted copyleft package(s) in the install tree: ${unlisted.join(', ')}`);
+  const securityDoc = read('docs/SECURITY.md');
   const notice = read('NOTICE');
   for (const { prefix } of COPYLEFT_ALLOWLIST) {
     assert.ok(
@@ -265,11 +287,15 @@ function assertCopyleftAllowlisted() {
       `allowlist entry "${prefix}" matches no installed package; drop it or fix the name`
     );
     assert.ok(
-      notice.includes(prefix),
-      `NOTICE must explain the copyleft package "${prefix}"`
+      securityDoc.includes(prefix),
+      `docs/SECURITY.md must explain the copyleft package "${prefix}"`
     );
   }
-  console.log(`  ok   copyleft confined to the allowlist (${found.length} package(s), all documented in NOTICE)`);
+  assert.ok(
+    !/\b(LGPL|AGPL|MPL)-[0-9]/i.test(notice),
+    'NOTICE ships in the npm tarball and must not contain non-redistributed copyleft SPDX identifiers (keep them in docs/SECURITY.md)'
+  );
+  console.log(`  ok   copyleft confined to the allowlist (${found.length} package(s), documented in docs/SECURITY.md, NOTICE clean)`);
 }
 assertCopyleftAllowlisted();
 

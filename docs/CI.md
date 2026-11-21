@@ -861,6 +861,71 @@ The suite is the part that finds macOS host semantics — `/var/folders/...` res
 gate. The [container sandbox](#on-macos-container-versus-the-native-run) is the clean room, and
 the two answer different questions.
 
+## Local macOS VM (dockur/macos)
+
+A real macOS kernel on an x86_64 Linux host, inside a Docker container under QEMU. This is the
+third local leg: `act` cannot provide it, and the symlinked-`HOME` proxy above cannot reproduce a
+real `/private/var`, case-insensitive APFS, or `.dmg` behaviour. Status on this host: **BLOCKED**, see
+"Host requirements" below — the instructions are here so the leg is runnable the moment RAM is free.
+
+Compose, adapted from the repository layout (storage outside the checkout, so the guest never sees
+it, and a host port that does not collide with the Windows VM's 8006):
+
+```yaml
+services:
+  macos:
+    image: docker.io/dockurr/macos
+    container_name: konoha-macos-vm
+    environment:
+      VERSION: "14"          # 14 or 15 on x86_64; Intel-supported releases only
+      RAM_SIZE: "4G"
+      CPU_CORES: "4"
+      DISK_SIZE: "32G"
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "127.0.0.1:8007:8006"   # Windows VM already owns 8006
+      - "127.0.0.1:5900:5900/tcp"
+      - "127.0.0.1:5900:5900/udp"
+    volumes:
+      - /home/andycungkrinx/.cache/konoha-macos-vm/storage:/storage
+    stop_grace_period: 2m
+    restart: "no"
+```
+
+```bash
+docker compose -f <the file above> up -d
+# viewer: http://127.0.0.1:8007/   first boot downloads recovery and installs hands-free (30-60+ min)
+# then, inside the guest:
+#   CI=true pnpm test          (or the sharded variant)
+```
+
+### Host requirements
+
+All four are checked by `node scripts/sandbox_preflight.js`, which reports this host per leg:
+
+| Requirement | Why | This host |
+|---|---|---|
+| `/dev/kvm` plus the `kvm_amd`/`kvm_intel` module | QEMU acceleration; without it the guest is unusably slow | present (`kvm_amd`) |
+| AVX2 | dockur/macos requires Intel Haswell or AMD Zen or newer | present |
+| `/dev/net/tun` | guest networking | present |
+| 32 GB free disk | sparse 32 GB guest image plus the recovery download | 51 GB free |
+| **4 GB allocatable RAM** | the QEMU guest's floor | **1.45 GB — the blocker** |
+
+The 4 GB floor comes from `/run/entry.sh` line 12, `: "${RAM_MINIMUM:="4G"}"`, so `RAM_MINIMUM`
+takes an env override and the check can technically be forced. **This repository does not
+recommend it and the leg was not run that way:** the missing ~2.5 GB is held by the desktop
+session, and a 2 GB macOS guest would swap-thrash the host and very likely fail mid-install,
+leaving a half-provisioned guest. Treat the floor as a real requirement, free the RAM, and let the
+guest start on its own terms.
+
+Until that RAM is free the macOS leg is **proxy-verified, not native**: the symlinked-`HOME` proxy
+above is an allowed state on a non-Apple host and is not a claim that `macos-latest` passed. Only a
+GitHub `macos-latest` run or this container at 4 GB or more closes the leg.
+
 ## Local Windows VM
 
 `act` covers the ubuntu leg only. Windows containers are not an option on a Linux Docker

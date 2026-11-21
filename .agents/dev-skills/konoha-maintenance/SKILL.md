@@ -28,13 +28,14 @@ Repo-maintainer guidance for the Konoha MCP Tools Orchestrator and shipped `kono
 
 | Need | Reference |
 |---|---|
-| 29 cardinal invariants + guard files | [invariants](references/invariants.md) |
-| Past shipped traps (v2.2.17 → 2.2.23) | [history](references/history.md) |
+| 35 cardinal invariants + guard files | [invariants](references/invariants.md) |
+| Past shipped traps (v2.2.17 → 2.2.25) | [history](references/history.md) |
 | LangGraph StateGraph / worktrees / HITL | [workflow](references/workflow.md) |
 | Architecture map | [architecture](references/architecture.md) |
 | Benchmark evidence | [benchmark](references/benchmark.md) |
 | Test inventory | [test](references/test.md) |
 | Code-intel/guardrail/spawn contracts | [codeintel-contracts](references/codeintel-contracts.md) |
 | Docs conventions | [docs](references/docs.md) |
+| `src/` boundary audit + modularization plan (issue #25) | [architecture/SRC-BOUNDARY-AUDIT-2026-11-21.md](../../../../docs/architecture/SRC-BOUNDARY-AUDIT-2026-11-21.md) |
 
 After changing shipped templates, keep `.agents/skills` parity with `src/templates/skills` for shipped skills and prove maintenance skill is excluded from sync.

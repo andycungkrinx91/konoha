@@ -17,10 +17,12 @@ const SEMANTIC_SEARCH_ENV = 'KONOHA_SEMANTIC_SEARCH';
 const EMBED_MODEL_REPO = 'onnx-community/granite-embedding-97m-multilingual-r2-ONNX';
 const RERANK_MODEL_REPO = 'Xenova/ms-marco-MiniLM-L-6-v2';
 const EMBED_DIM = 384;
-// One sequence per ONNX call is 1.58x faster than 16 on the bundled granite-97m
-// q8 graph (44 295 live chunks: 201.5 vs 127.6 chunks/s, 220 s vs 347 s). Padding
-// waste is already ~0 at these widths, so the win is the int8 kernel at M=1, not
-// saved tokens. Callers can still raise it via `batchSize`.
+// One sequence per ONNX call wins once padding is real: on a heterogeneous mix
+// (40..1600 char chunks, 48 texts, best of 3) batch 1 measured 817 ms against 866
+// ms at 4 and 941 ms at 16, because padding to the longest sequence in each batch
+// costs more than the dispatch it saves. A homogeneous corpus hides this (batch 4
+// then looks ~1.5x faster), which is why the default stays at 1. Callers with
+// near-uniform widths can still raise it via `batchSize`.
 const DEFAULT_EMBED_BATCH_SIZE = 1;
 const DEFAULT_RERANK_BATCH_SIZE = 16;
 const DEFAULT_EMBED_MAX_LENGTH = 512;

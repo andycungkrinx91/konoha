@@ -40,8 +40,8 @@ check('package.json overrides only duplicates documented yaml security pins', ()
   const keys = Object.keys(pkg.overrides || {}).sort();
   assert.deepStrictEqual(
     keys,
-    ['globalthis', 'image-size'],
-    'package.json#overrides must stay empty except documented security pins mirrored for npm/Socket resolution; pnpm-workspace.yaml is authoritative'
+    ['globalthis', 'image-size', 'isarray', 'readable-stream', 'safe-buffer', 'setimmediate'],
+    'package.json#overrides must stay empty except documented security/Socket pins mirrored for npm/Socket resolution; pnpm-workspace.yaml is authoritative'
   );
 });
 

@@ -1,8 +1,8 @@
 # Konoha Canonical API Snapshot
 
-**Document Version:** 2.2.24  
+**Document Version:** 2.2.25  
 **Date:** 2026-11-17  
-**Status:** Machine-Readable & Authoritative Architecture Snapshot (v2.2.24)
+**Status:** Machine-Readable & Authoritative Architecture Snapshot (v2.2.25)
 
 ---
 
@@ -35,14 +35,14 @@ All tools (56 active) are served through the `konoha` MCP server over stdio JSON
 | `akatsuki` | `task?: string, context?: string, constraints?: string, skills?: array, workflow_type?: string, scope?: string, authorization?: string, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string, tools?: array, target?: string, custom_tools?: array, allow_controlled_exploit_verification?: boolean, allow_external_scope?: boolean, engine?: string, lab_name?: string, report?: object, authorized?: boolean` | Delegate authorized red-team, blue-team, or security audit work to Akatsuki. | Security review & penetration testing report JSON |
 | `yamanaka` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string, source_mode?: string, image_path?: string, target_polycount?: number, texture_resolution?: number, compute?: string` | Delegate generative 3D work to Yamanaka (Three.js/Manifold synthesis, live Blender refinement, PBR asset delivery). | JSON result object |
 | `akatsuki_init` | `action?: string, engines?: string, profile?: string, lab_name?: string, tool?: object, query?: string, category?: string` | Initialize Akatsuki Red-Team Lab containers (Docker, LXC, or both), manage offensive toolsets, and query Kali tool catalog. | JSON result object |
-| `chunin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate research work to Chunin. | Citation-backed report JSON |
+| `chunin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string, breadth?: number, depth?: number, output_mode?: string, use_knowledge_cache?: boolean` | Delegate research work to Chunin. | Citation-backed report JSON |
 | `tokubetsu_jonin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate documentation work to Tokubetsu-Jonin. | Generated documentation JSON |
 | `genin` | `task?: string, context?: string, constraints?: string, skills?: array, taste_dials?: object, project_path?: string, task_dir?: string, prompt?: string, instructions?: string, task_id?: string, session_id?: string, flow_hash?: string` | Delegate codebase exploration to Genin. | Structured exploration report JSON |
 | `report_from_agent` | `agent_name: string, summary: string, status?: string, files_created?: array, files_modified?: array, learnings?: array, project_path?: string, task_dir?: string, dispatch_id?: string, task_id?: string, validation?: array` | Record a structured agent result. | Checkpoint confirmation JSON |
 | `get_project_context` | `project_path?: string` | Get project context and memories. | JSON context object |
 | `save_project_context` | `project_path?: string, context_summary: string, tech_stack?: object` | Save project invariants. | Save confirmation JSON |
 | `query_project_memory` | `query?: string, project_path?: string, agent_name?: string, memory_type?: string, limit?: number` | Query project-scoped memories. | JSON match list |
-| `web_search` | `query: string, num_results?: number, search_depth?: string` | Search the web with fallback providers. | Search result JSON with citations |
+| `web_search` | `query: string, num_results?: number, search_depth?: string, exclude_urls?: array` | Search the web with fallback providers. | Search result JSON with citations |
 | `migrate_skills` | `force?: boolean, skills?: array, skills_dir?: string` | Re-index skills into SQLite FTS5 for ranked search and reranking. Optional: `find_skill`, `get_skill`, and `list_skills` already read the project skill tree alongside the database. | Migration summary JSON |
 | `save_persona_memory` | `agent_name: string, content: string, title?: string, memory_type?: string, tags?: string, importance?: number, domain?: string, source_type?: string, source_ref?: string, verification_status?: string, confidence?: number, action?: string, target_id?: string, reason?: string` | Save a persona memory. | Record ID confirmation |
 | `query_persona_memory` | `agent_name: string, query?: string, memory_type?: string, limit?: number, domain?: string, confirmed_only?: boolean, include_inactive?: boolean` | Query persona memories. | Matched persona records JSON |

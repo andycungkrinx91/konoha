@@ -585,7 +585,8 @@ async function _executeHeavyToolAsync(toolName, args, agent) {
     const query = args.query;
     const numResults = Math.min(Math.max(parseInt(args.num_results || 5, 10), 1), 50);
     const searchDepth = ['standard', 'deep'].includes(args.search_depth) ? args.search_depth : 'standard';
-    return await runWebSearch(query, numResults, searchDepth, agent);
+    const excludeUrls = Array.isArray(args.exclude_urls) ? args.exclude_urls : undefined;
+    return await runWebSearch(query, numResults, searchDepth, agent, { excludeUrls });
   }
   const docEngineMethod = {
     document_create: 'documentCreate',

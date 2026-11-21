@@ -38,6 +38,8 @@ const {
   KONOHA_CANONICAL_TOOLS,
   buildKonohaFilesMcpEntry,
   installFileTools,
+  ensureMirroredSubdirLinks,
+  ensureMirroredRootFileLinks,
   cleanKonohaRuntimeDir
 } = require('./deploy_installer');
 
@@ -612,6 +614,8 @@ module.exports = {
   copySkillsDirFast,
   pruneObsoleteStandaloneSkills,
   installFileTools,
+  ensureMirroredSubdirLinks,
+  ensureMirroredRootFileLinks,
   cleanKonohaRuntimeDir,
   parseNodeVersion,
   isNodeVersionCompatible,

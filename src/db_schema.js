@@ -11,12 +11,13 @@ const {
 const { CORE_SCHEMA_DDL } = require('./schema_ddl');
 const { createAndVerifyPreMigrationBackup } = require('./db_migration_safety');
 const { hasCanonicalMemoryBrainLayout, applyMemoryBrainMigration } = require('./memory_brain_ddl');
+const { applyChuninKnowledgeSchema } = require('./chunin_knowledge_ddl');
 const {
   _renameLegacyClaudeHarnessLabel,
   _mergeLegacyAgyClientRows
 } = require('./db_schema_repairs');
 
-const CURRENT_SCHEMA_VERSION = 10;
+const CURRENT_SCHEMA_VERSION = 11;
 const _ensuredSchemaInodes = new Map();
 const REQUIRED_FAST_SCHEMA_TABLES = [
   'skills', 'skills_fts', 'persona_memories', 'persona_memories_fts',
@@ -533,6 +534,8 @@ function setupSchema(conn, backupDatabaseFn = null) {
     _applyCodeIntelligenceMigration(conn, ftsSupported);
     // Migration v8: provenance-aware knowledge brain tables & additive columns.
     applyMemoryBrainMigration(conn);
+    // Migration v11: Chunin research knowledge store (FTS5 + vector column).
+    applyChuninKnowledgeSchema(conn);
     _verifyPostMigrationOrThrow(conn);
 
     setUserVersion(conn, CURRENT_SCHEMA_VERSION);

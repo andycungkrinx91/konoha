@@ -51,7 +51,7 @@ const { installUv } = require('../lib/extension');
 const { checkPortActive } = require('../lib/ui_commands');
 const { cmdBridgeStart } = require('./bridge');
 const { parseRequestedClients, setupClientIntegrations } = require('./init_clients');
-const { executeInitMigration, renderInitSummary, measureEmbeddingCoverage } = require('./init_migration');
+const { executeInitMigration, renderInitSummary, measureEmbeddingCoverage, verifyRuntimeDeployment } = require('./init_migration');
 const { createEmbedProgress, INIT_PHASES } = require('../lib/embed_progress');
 const {
   executePreInstallBackup,
@@ -91,7 +91,12 @@ function recordAutoSetupState() {
   try {
     ensureDir(path.dirname(marker));
     fs.writeFileSync(marker, `${Date.now()}\n`);
-  } catch { /* best-effort */ }
+  } catch (err) {
+    // Silent best-effort used to hide the one signal that explains a seed gate
+    // failing with exit status 0: the marker is a required seed sentinel, so a
+    // swallowed write makes CI report an incomplete seed with no cause.
+    log(`  ! Could not write ${marker}: ${err && err.message ? err.message : err}`);
+  }
 }
 
 function checkNodeAndToolchains(options) {
@@ -432,6 +437,12 @@ async function cmdInit(args, options = {}) {
         : 'installation complete');
   }
 
+  // Write the marker and verify the deployment before the summary claims success:
+  // the banner reads its paths from constants, so it used to print "Server: <path>"
+  // for a server.js that a failed mirror swap had deleted.
+  recordAutoSetupState();
+  verifyRuntimeDeployment();
+
   const embedCoverage = skipEmbed ? null : measureEmbeddingCoverage();
   renderInitSummary({
     ...clientFlags,
@@ -444,7 +455,6 @@ async function cmdInit(args, options = {}) {
   if (args.includes('--with-red-team')) {
     await installCyberPackAfterInit();
   }
-  recordAutoSetupState();
 }
 
 /**

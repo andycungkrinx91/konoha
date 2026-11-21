@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const { fileExists } = require('../../src/platform_utils');
 const {
@@ -194,6 +195,35 @@ function buildClientStatusLines(flags) {
   ];
 }
 
+/**
+ * Assert that init actually deployed what the summary is about to claim.
+ *
+ * The Windows golden seed failed for four runs because the success banner printed
+ * `Server: <path>` from a constant, never from the filesystem: a mirror swap had
+ * replaced server.js with a dangling link and init still exited 0. Read the paths
+ * back and throw with the exact missing file instead of reporting a healthy install.
+ */
+function verifyRuntimeDeployment() {
+  const expected = [
+    ['MCP server', SERVER_PATH],
+    ['migration script', MIGRATE_PATH],
+    ['database', DB_PATH],
+    ['auto-setup marker', path.join(HOME, '.konoha', '.autosetup-done')],
+    ['Konoha skill', path.join(HOME, '.agents', 'skills', 'konoha', 'SKILL.md')]
+  ];
+  const failures = [];
+  for (const [label, target] of expected) {
+    try {
+      fs.readFileSync(target);
+    } catch (err) {
+      failures.push(`${label} missing or unreadable: ${target} (${err && err.code ? err.code : err})`);
+    }
+  }
+  if (failures.length > 0) {
+    throw new Error(`[INIT] Runtime deployment incomplete:\n  ${failures.join('\n  ')}`);
+  }
+}
+
 function renderInitSummary(flags) {
   const summaryLines = [
     `${C.bold}Konoha MCP Orchestrator installed successfully!${C.reset}`,
@@ -237,5 +267,6 @@ function renderInitSummary(flags) {
 module.exports = {
   executeInitMigration,
   measureEmbeddingCoverage,
-  renderInitSummary
+  renderInitSummary,
+  verifyRuntimeDeployment
 };

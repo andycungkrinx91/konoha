@@ -80,11 +80,13 @@ function run() {
   assertNoOrphans(MAINT_DIR, maintSlugs, 'konoha-maintenance');
   console.log(`✓ ${maintSlugs.length} maintenance pointer(s) all resolve, no orphan references`);
 
-  // The rulebook did not shrink, it moved: all 29 invariants live in one loadable reference.
+  // The rulebook did not shrink, it moved: every invariant lives in one loadable reference.
   const invariants = fs.readFileSync(path.join(MAINT_DIR, 'references', 'invariants.md'), 'utf8');
   const numbered = (invariants.match(/^\d+\. \*\*/gm) || []).length;
-  assert.strictEqual(numbered, 29, `invariants.md must carry all 29 numbered rules, found ${numbered}`);
-  console.log('✓ invariants.md carries all 29 numbered rules');
+  // The count grows as shipped traps are added; it must never shrink, because a
+  // missing rule means a known regression lost its guard.
+  assert.strictEqual(numbered, 35, `invariants.md must carry all 35 numbered rules, found ${numbered}`);
+  console.log('✓ invariants.md carries all 35 numbered rules');
 
   // Maintenance material must never reach a deployment target.
   assert.ok(
