@@ -247,33 +247,7 @@ function getGoldenSeed() {
   }
 }
 
-function copySeedDir(seedDir, suiteHome) {
-  const src = `${seedDir}/.`;
-  const dest = `${suiteHome}/`;
-  const attempts = [
-    ['cp', '-a', '--reflink=auto', '--no-preserve=ownership', src, dest],
-    ['cp', '-a', '--no-preserve=ownership', src, dest],
-    ['cp', '-a', src, dest],
-    ['cp', '-r', '--no-preserve=ownership', src, dest],
-    ['cp', '-r', src, dest],
-  ];
-  for (const args of attempts) {
-    const res = spawnSync(args[0], args.slice(1), { encoding: 'utf-8' });
-    if (res.status === 0 && !res.error) {
-      ensureSeedNodeModules(suiteHome);
-      return;
-    }
-  }
-  const linkDir = path.join('.konoha', 'node_modules');
-  fs.cpSync(seedDir, suiteHome, {
-    recursive: true,
-    filter: (from) => {
-      const rel = path.relative(seedDir, from);
-      return rel !== linkDir && !rel.startsWith(`${linkDir}${path.sep}`);
-    }
-  });
-  ensureSeedNodeModules(suiteHome);
-}
+const { copySeedDir } = require('./helpers/seed_snapshot');
 
 function _armShardTimeoutIfNeeded() {
   if (shardWatchdog) return;
@@ -313,7 +287,7 @@ function createSuiteSnapshot(name) {
   const seed = getGoldenSeed();
   _armShardTimeoutIfNeeded();
   const suiteHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_suite_'));
-  copySeedDir(seed.dir, suiteHome);
+  copySeedDir(seed.dir, suiteHome, ensureSeedNodeModules);
   writeSuiteMeta(suiteHome, { runnerPid: process.pid, childPid: null, suite: name, createdAt: new Date().toISOString() });
 
   const konohaModules = path.join(suiteHome, '.konoha', 'node_modules');

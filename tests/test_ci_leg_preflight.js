@@ -45,13 +45,20 @@ for (const entry of report.legs) {
 }
 console.log('  ok   every leg carries a state and a reason');
 
-// A BLOCKED macOS leg on non-Apple hardware must name the RAM floor, because that
-// is the one requirement a reader can act on.
+// A BLOCKED macOS leg must name a concrete blocker a reader can act on. RAM is
+// only one of them: a runner can be blocked on /dev/kvm, AVX2 or /dev/net/tun
+// first, and this host's own 2 GB shortfall is not universal.
 const macos = report.legs.find(entry => entry.leg === 'macos');
 if (process.platform !== 'darwin' && macos.state === 'BLOCKED') {
-  assert.ok(/GB/.test(macos.detail), 'a blocked macOS leg must quote the RAM shortfall in GB');
+  assert.ok(
+    /\/dev\/kvm|AVX2|\/dev\/net\/tun|docker|allocatable/.test(macos.detail),
+    `a blocked macOS leg must name a concrete blocker, got: ${macos.detail}`
+  );
+  if (/allocatable/.test(macos.detail)) {
+    assert.ok(/GB/.test(macos.detail), 'a RAM shortfall must be quoted in GB');
+  }
   assert.ok(/dockur\/macos/.test(macos.detail), 'a blocked macOS leg must name dockur/macos');
-  console.log(`  ok   macos blocked with a quoted shortfall: ${macos.detail.split(';').pop().trim()}`);
+  console.log(`  ok   macos blocked with a named blocker: ${macos.detail.split(';').pop().trim()}`);
 } else {
   console.log(`  note macos is ${macos.state} on this host; shortfall wording not asserted`);
 }

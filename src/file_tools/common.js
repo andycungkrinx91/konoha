@@ -89,6 +89,22 @@ let _KONOHA_HOME = null;
 // Extra project roots an operator opted into, path.delimiter-separated in
 // KONOHA_ALLOWED_ROOTS (the same shape as KONOHA_ALLOWED_DB_ROOTS). Empty by
 // default, so the boundary only widens for a root that is named explicitly.
+// Resolve a path through symlinks, tolerating one that does not exist yet: fall
+// back to resolving its deepest existing ancestor and re-appending the rest, so a
+// path under a symlinked parent (macOS /var -> /private/var) still matches a root.
+function realpathOrSelf(target) {
+  const resolved = path.resolve(target);
+  try {
+    return fs.realpathSync(resolved);
+  } catch (_) {
+    try {
+      return path.join(fs.realpathSync(path.dirname(resolved)), path.basename(resolved));
+    } catch (_) {
+      return resolved;
+    }
+  }
+}
+
 function getAllowedRoots() {
   const raw = process.env.KONOHA_ALLOWED_ROOTS;
   if (!raw || typeof raw !== 'string') return [];
@@ -229,16 +245,25 @@ function assertWithinAllowed(resolvedPath, baseDir = null, devRoot = null) {
   wsReal = stripWinPrefix(wsReal);
   const wsNorm = norm(wsReal);
 
-  const rel = path.relative(wsNorm, normPath);
-  if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
+  // macOS exposes /var as a symlink to /private/var, and the roots above are
+  // realpath'd, so an input still carrying the unresolved form would not match
+  // its own root. Compare both forms; a sibling still fails closed in both.
+  const candidates = [normPath];
+  const realNorm = norm(realpathOrSelf(resolvedPath));
+  if (realNorm !== normPath) candidates.push(realNorm);
+  const containedIn = (root, candidate) => {
+    const rel = path.relative(root, candidate);
+    return !rel.startsWith('..') && !path.isAbsolute(rel);
+  };
+
+  if (candidates.some((candidate) => containedIn(wsNorm, candidate))) {
     return;
   }
 
   // Operator-allowlisted project roots, checked with the same containment rule
   // as the workspace so a sibling of a named root still fails closed.
   for (const allowed of getAllowedRoots()) {
-    const allowedRel = path.relative(allowed, normPath);
-    if (!allowedRel.startsWith('..') && !path.isAbsolute(allowedRel)) {
+    if (candidates.some((candidate) => containedIn(allowed, candidate))) {
       return;
     }
   }

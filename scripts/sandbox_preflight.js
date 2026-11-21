@@ -18,7 +18,6 @@
  */
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
@@ -137,7 +136,7 @@ function checkMacos() {
     return record(
       'macos',
       'BLOCKED',
-      `${blockers.join('; ')}. Proxy only: symlinked-HOME suites per docs/CI.md; not a native claim`
+      `${blockers.join('; ')}. dockur/macos cannot run here; proxy only: symlinked-HOME suites per docs/CI.md, not a native claim`
     );
   }
   return record('macos', 'AVAILABLE', 'dockur/macos prerequisites met; see docs/CI.md "Local macOS VM"');

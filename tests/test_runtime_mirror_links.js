@@ -57,12 +57,18 @@ function testFlatNameIsLinked() {
 
 function testUpwardRequireResolves() {
   const resolved = require.resolve(UPWARD_SPECIFIER, { paths: [path.dirname(MODEL_ROUTER)] });
-  const expectedRoot = path.resolve(KONOHA_HOME, 'src', 'web', 'controllers');
+  // Node resolves through realpath, and on macOS /var is a symlink to
+  // /private/var, so the expected root must be realpath'd too or every correct
+  // resolution on macOS reads as "outside".
+  let expectedRoot = path.resolve(KONOHA_HOME, 'src', 'web', 'controllers');
+  try {
+    expectedRoot = fs.realpathSync(expectedRoot);
+  } catch (_) { /* keep the unresolved form if it cannot be resolved */ }
   assert.ok(
     resolved.startsWith(expectedRoot),
     `../../web/controllers/common resolved to ${resolved}, outside ${expectedRoot}`
   );
-  console.log(`  ✓ ../../web/controllers/common -> ${path.relative(KONOHA_HOME, resolved)}`);
+  console.log(`  ✓ ../../web/controllers/common -> ${path.relative(expectedRoot, resolved)}`);
 }
 
 function testModuleLoads() {
