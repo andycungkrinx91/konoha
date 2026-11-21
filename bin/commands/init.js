@@ -91,7 +91,12 @@ function recordAutoSetupState() {
   try {
     ensureDir(path.dirname(marker));
     fs.writeFileSync(marker, `${Date.now()}\n`);
-  } catch { /* best-effort */ }
+  } catch (err) {
+    // Silent best-effort used to hide the one signal that explains a seed gate
+    // failing with exit status 0: the marker is a required seed sentinel, so a
+    // swallowed write makes CI report an incomplete seed with no cause.
+    log(`  ! Could not write ${marker}: ${err && err.message ? err.message : err}`);
+  }
 }
 
 function checkNodeAndToolchains(options) {

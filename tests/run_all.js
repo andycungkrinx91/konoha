@@ -62,16 +62,7 @@ const guardResult = assertMaintenanceSandbox(process.env, {
 });
 const GUARD_MODE = guardResult.mode;
 
-const SEED_SENTINELS = [
-  ['.konoha', 'konoha.db'],
-  ['.konoha', 'server.js'],
-  ['.konoha', '.autosetup-done'],
-  ['.agents', 'skills', 'konoha', 'SKILL.md']
-];
-
-function seedIsComplete(dir) {
-  return SEED_SENTINELS.every((parts) => fs.existsSync(path.join(dir, ...parts)));
-}
+const { seedIsComplete, describeMissingSentinels, describeSeedContents } = require('./helpers/seed_sentinels');
 
 function seedIsCurrent(dir) {
   if (!seedIsComplete(dir)) return false;
@@ -232,7 +223,14 @@ function getGoldenSeed() {
     });
     const seedElapsed = ((Date.now() - seedStart) / 1000).toFixed(1);
     if (!seedIsComplete(seedDir)) {
-      throw new Error(`[SEED] init did not produce a complete seed in ${seedElapsed}s (status ${res.status}). ${(res.stderr || '').trim().split('\n').slice(-5).join(' | ')}`);
+      const missing = describeMissingSentinels(seedDir);
+      const stderrTail = (res.stderr || '').trim().split('\n').slice(-8).join(' | ');
+      const stdoutTail = (res.stdout || '').trim().split('\n').slice(-15).join(' | ');
+      throw new Error(
+        `[SEED] init did not produce a complete seed in ${seedElapsed}s (status ${res.status}); `
+        + `missing: ${missing.join(', ')}. contents: ${describeSeedContents(seedDir)}. `
+        + `stdout: ${stdoutTail || '<empty>'} stderr: ${stderrTail || '<empty>'}`
+      );
     }
     stampSourceFingerprint(seedDir);
     console.log(`[SEED] Golden seed ready (${seedElapsed}s)`);
