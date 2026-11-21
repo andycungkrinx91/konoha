@@ -624,6 +624,22 @@ function _readPiAgentsContent() {
   }
 }
 
+/**
+ * Agent profile names present in a Pi agents directory, without the extension.
+ *
+ * @returns {string[]} sorted names, empty when the directory is absent
+ */
+function readPiAgentProfileNames(agentsDir) {
+  try {
+    return fs.readdirSync(agentsDir)
+      .filter((f) => f.endsWith('.md'))
+      .map((f) => f.slice(0, -3))
+      .sort();
+  } catch (_) { /* absent directory: no profiles deployed yet */
+    return [];
+  }
+}
+
 function getPiStatus(options = {}) {
   const installed = isPiInstalled();
   const { mcpKonoha, mcpAislop } = _readPiMcpServerFlags();
@@ -633,6 +649,11 @@ function getPiStatus(options = {}) {
   const agentsContent = _readPiAgentsContent();
   const rtkRuleDeployed = fileExists(PI_RTK_EXTENSION) || agentsContent.includes(RTK_BLOCK_START);
   const contractDeployed = agentsContent.includes('<!-- KONOHA-CONTRACT-START -->');
+  const agentDir = options.agentDir || (options.home ? path.join(options.home, '.pi', 'agent') : PI_AGENT_DIR);
+  const agentProfiles = readPiAgentProfileNames(path.join(agentDir, 'agents'));
+  const missingAgentProfiles = require('./canonical_agents')
+    .getDeployableAgentNames()
+    .filter((name) => !agentProfiles.includes(name));
 
   return {
     installed,
@@ -644,6 +665,11 @@ function getPiStatus(options = {}) {
     contractDeployed,
     blockerDeployed,
     subagentExtensionInstalled,
+    // A subagent extension alone cannot spawn anything: the harness also needs a
+    // profile per agent, which is what this field makes visible.
+    agentProfiles,
+    missingAgentProfiles,
+    agentRosterComplete: missingAgentProfiles.length === 0,
     configPath: PI_MCP_CONFIG
   };
 }
@@ -673,6 +699,7 @@ module.exports = {
   deployPiRtkRule,
   deployPiContract,
   deployPiAgentProfiles,
+  readPiAgentProfileNames,
   stripStalePiMandates,
   deployPiBlockerExtension,
   removePiBlockerExtension,

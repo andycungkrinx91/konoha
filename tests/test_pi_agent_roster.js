@@ -125,5 +125,16 @@ const geninTools = toolLines(frontmatterOf(genin)) || [];
 check('read-only profile keeps read/grep/find/ls', ['read', 'grep', 'find', 'ls'].every((t) => geninTools.includes(t)),
   geninTools.join(','));
 
+console.log('\nStatus visibility');
+const status = piManager.getPiStatus({ agentDir: path.join(TEST_HOME, '.pi', 'agent') });
+check('status lists the deployed profiles', Array.isArray(status.agentProfiles) && status.agentProfiles.length === expected.length,
+  `${status.agentProfiles.length} of ${expected.length}`);
+check('status reports a complete roster', status.agentRosterComplete === true,
+  (status.missingAgentProfiles || []).join(','));
+fs.unlinkSync(path.join(agentsDir, 'chunin.md'));
+const afterDelete = piManager.getPiStatus({ agentDir: path.join(TEST_HOME, '.pi', 'agent') });
+check('status names the missing profile', afterDelete.agentRosterComplete === false && afterDelete.missingAgentProfiles.includes('chunin'),
+  (afterDelete.missingAgentProfiles || []).join(','));
+
 console.log(`\n${passed} passed / ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);
