@@ -78,7 +78,6 @@ runs:
     - name: Build golden seed
       if: steps.seed-cache.outputs.cache-hit != 'true'
       shell: bash
-      timeout-minutes: 30
       env:
         KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
       run: node tests/run_all.js --seed-only
@@ -197,7 +196,6 @@ runs:
     # suite, and names the network when that is what broke.
     - name: Prefetch semantic models
       shell: bash
-      timeout-minutes: 20
       # Every shard runs this, so a Hub outage must not redden the whole matrix:
       # the one shard that owns test_code_intel_search.js fails with the reason.
       continue-on-error: true
@@ -225,5 +223,4 @@ runs:
         KONOHA_SHARD_TIMEOUT: '3600000'
         KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
         PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
-      timeout-minutes: 60
       run: pnpm test

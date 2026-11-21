@@ -96,7 +96,13 @@ check('the harness enforces a 3600s timeout for shard tests across workflow and 
   const action = fs.readFileSync(shardAction, 'utf8');
   mustMatch(action, /KONOHA_TEST_TIMEOUT:\s*'3600000'/, 'shard action env KONOHA_TEST_TIMEOUT');
   mustMatch(action, /KONOHA_SHARD_TIMEOUT:\s*'3600000'/, 'shard action env KONOHA_SHARD_TIMEOUT');
-  mustMatch(action, /timeout-minutes:\s*60\r?\n\s*run:\s*pnpm test/, 'shard action step ceiling');
+  // A composite action rejects `timeout-minutes` on a step. When it carried one,
+  // GitHub failed to load the action with "Unexpected value 'timeout-minutes'" and
+  // all 35 shard jobs died before their first step (run 44932068005). The ceiling
+  // is enforced by KONOHA_SHARD_TIMEOUT and the harness watchdog instead.
+  assert.doesNotMatch(action, /^\s*timeout-minutes:/m, 'a composite action step cannot set timeout-minutes; GitHub refuses to load the action');
+  const wfSrc = fs.readFileSync(workflowPath, 'utf8');
+  assert.match(wfSrc, /timeout-minutes:\s*90/, 'the per-OS shard jobs must bound the whole job with timeout-minutes');
   const runnerSrc = fs.readFileSync(harness, 'utf8');
   mustMatch(runnerSrc, /KONOHA_SHARD_TIMEOUT[^\n]*3600000/, 'run_all.js KONOHA_SHARD_TIMEOUT');
   mustMatch(runnerSrc, /KONOHA_TEST_TIMEOUT[^\n]*3600000/, 'run_all.js KONOHA_TEST_TIMEOUT');
