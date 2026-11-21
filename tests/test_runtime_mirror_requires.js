@@ -234,10 +234,18 @@ if (LINK_MODE) {
   }
 }
 
-assert.ok(
-  installedUnresolved.length <= repoUnresolved.length,
-  `installed tree has ${installedUnresolved.length} unresolved relative requires, ` +
-  `more than the repo source tree's ${repoUnresolved.length}`
-);
+// Compare against the two known false positives rather than against the repo's own
+// count. That count is platform-dependent: on a case-insensitive filesystem
+// `./nodes/Plan` resolves against `nodes/plan.js` and disappears from the repo
+// side, so `installed <= repo` fails on Windows for a reason that is not a defect.
+const KNOWN_FALSE_POSITIVES = new Set(['./nodes/Plan', './yaml_utils']);
+for (const [label, list] of [['repo', repoUnresolved], ['installed', installedUnresolved]]) {
+  const unexpected = list.filter((item) => !KNOWN_FALSE_POSITIVES.has(item.specifier));
+  assert.deepStrictEqual(
+    unexpected.map((item) => `${label}: ${path.relative(KONOHA_HOME, item.file)} -> ${item.specifier}`),
+    [],
+    `${label} tree gained an unresolved relative require that is not a known false positive`
+  );
+}
 
 console.log('\nAll test_runtime_mirror_requires checks passed successfully!');

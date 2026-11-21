@@ -120,7 +120,13 @@ function testAbsoluteSeedLinksAreRepaired() {
     resolved = null;
   }
   assert.ok(resolved, 'the flat entry must resolve after repair');
-  const rel = path.relative(dest, resolved);
+  // macOS reports /var as /private/var through realpath, so both sides are
+  // compared in their resolved form.
+  let destReal = dest;
+  try {
+    destReal = fs.realpathSync(dest);
+  } catch (_) { /* keep the given form */ }
+  const rel = path.relative(destReal, resolved);
   assert.ok(
     !rel.startsWith('..') && !path.isAbsolute(rel),
     `a snapshot link must not resolve outside the snapshot, got ${resolved}`
