@@ -36,7 +36,7 @@ runs:
         cache: 'pnpm'
 
     - name: Install dependencies
-      shell: bash
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       run: pnpm install --frozen-lockfile
 
     # Fresh checkouts ignore apps/web/build (apps/web/.gitignore:3) but
@@ -57,7 +57,7 @@ runs:
           konoha-hf-models-${{ runner.os }}-
 
     - name: Build web
-      shell: bash
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       env:
         SOURCE_DATE_EPOCH: ${{ inputs.source_date_epoch }}
       run: pnpm --filter konoha-web build
@@ -77,7 +77,7 @@ runs:
 
     - name: Build golden seed
       if: steps.seed-cache.outputs.cache-hit != 'true'
-      shell: bash
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       env:
         KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
       run: node tests/run_all.js --seed-only
@@ -110,14 +110,14 @@ runs:
 
     - name: Install Playwright browsers (Linux)
       if: runner.os == 'Linux'
-      shell: bash
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       env:
         PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
       run: pnpm exec playwright install --with-deps chromium
 
     - name: Install Playwright browsers (Windows/macOS)
       if: runner.os != 'Linux'
-      shell: bash
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       env:
         PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
       run: pnpm exec playwright install chromium
@@ -129,7 +129,7 @@ runs:
     # one explicitly and keep the runner's ffmpeg when it already qualifies.
     - name: Ensure ffmpeg with libwebp (Linux)
       if: runner.os == 'Linux'
-      shell: bash
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       run: |
         if ! ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libwebp_anim; then
           sudo apt-get update
@@ -142,7 +142,7 @@ runs:
     # its bin dir has to be appended to PATH explicitly.
     - name: Ensure ffmpeg with libwebp (macOS)
       if: runner.os == 'macOS'
-      shell: bash
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       run: |
         if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libwebp_anim; then
           exit 0
@@ -186,7 +186,7 @@ runs:
     # rejected: the three provisioning legs differ and the runner's ffmpeg is
     # a plausible suspect every time.
     - name: Verify ffmpeg webp encoder
-      shell: bash
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       run: |
         node -e 'const{spawnSync}=require("child_process");const enc=spawnSync("ffmpeg",["-hide_banner","-encoders"],{encoding:"utf8"});if(enc.stdout&&enc.stdout.includes("libwebp_anim")){console.log("ffmpeg exposes libwebp_anim");process.exit(0);}const ver=spawnSync("ffmpeg",["-hide_banner","-version"],{encoding:"utf8"});const which=(ver.stdout||"").split("\n")[0]||(ver.error?"ffmpeg not on PATH ("+ver.error.code+")":"ffmpeg not on PATH");console.error("ffmpeg build lacks the libwebp_anim encoder");console.error("resolved:",which);process.exit(1);'
 
@@ -195,7 +195,7 @@ runs:
     # keeps an HF download hiccup from surfacing as an unrelated failing
     # suite, and names the network when that is what broke.
     - name: Prefetch semantic models
-      shell: bash
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       # Every shard runs this, so a Hub outage must not redden the whole matrix:
       # the one shard that owns test_code_intel_search.js fails with the reason.
       continue-on-error: true
@@ -205,7 +205,7 @@ runs:
     # test starts its own Xvfb on Linux when the binary is present.
     - name: Install Xvfb (Linux)
       if: runner.os == 'Linux'
-      shell: bash
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       run: sudo apt-get update && sudo apt-get install -y xvfb
 
     # Full suite via tests/run_all.js, split into the shard this job owns.
@@ -215,7 +215,7 @@ runs:
     # reporting it green.
     # No continue-on-error: a failing suite must turn the workflow red.
     - name: Test (shard)
-      shell: bash
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       env:
         KONOHA_TEST_PARALLEL: '1'
         KONOHA_TEST_SHARD: ${{ inputs.shard }}/${{ inputs.shard_total }}

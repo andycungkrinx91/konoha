@@ -30,6 +30,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const zlib = require('zlib');
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -78,9 +79,52 @@ if (!packed.tarball) {
   process.exit(0);
 }
 
+// Extracting with an external `tar` made this suite depend on which tar is first
+// on PATH: GNU tar reads `C:\...` as a `host:path` remote archive and fails on
+// Windows under bash, while the bundled bsdtar accepts it (issue #36). A ustar
+// reader over zlib removes the dependency: pnpm pack emits plain ustar with GNU
+// long-name entries for paths over 100 bytes.
+function extractTarball(tarball, destDir) {
+  const buf = zlib.gunzipSync(fs.readFileSync(tarball));
+  let offset = 0;
+  let longName = null;
+  while (offset + 512 <= buf.length) {
+    const header = buf.subarray(offset, offset + 512);
+    if (header.every(byte => byte === 0)) break;
+    const field = (start, length) => header.subarray(start, start + length).toString('utf8').replace(/\0.*$/s, '');
+    const size = parseInt(field(124, 12).trim() || '0', 8);
+    const typeflag = field(156, 1);
+    const dataStart = offset + 512;
+    const data = buf.subarray(dataStart, dataStart + size);
+    const padded = Math.ceil(size / 512) * 512;
+
+    if (typeflag === 'L') {
+      longName = data.toString('utf8').replace(/\0.*$/s, '');
+      offset = dataStart + padded;
+      continue;
+    }
+
+    const prefix = field(345, 155);
+    const hadLongName = Boolean(longName);
+    let name = longName || field(0, 100);
+    longName = null;
+    if (!hadLongName && prefix) name = `${prefix}/${name}`;
+    name = name.replace(/^(\.\/)+/, '');
+    const target = path.join(destDir, name);
+
+    if (typeflag === '5') {
+      fs.mkdirSync(target, { recursive: true });
+    } else if (typeflag === '0' || typeflag === '\0' || typeflag === '') {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, data);
+    }
+    offset = dataStart + padded;
+  }
+}
+
 const extractDir = path.join(packed.dest, 'unpacked');
 fs.mkdirSync(extractDir, { recursive: true });
-execSync(`tar -xzf "${packed.tarball}" -C "${extractDir}"`, { stdio: 'pipe', timeout: 120000 });
+extractTarball(packed.tarball, extractDir);
 const PKG = path.join(extractDir, 'package');
 
 function readJson(file) {

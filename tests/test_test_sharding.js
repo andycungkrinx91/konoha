@@ -207,6 +207,27 @@ check('hyphenated job ids are read with bracket notation, not dot syntax', () =>
   }
 });
 
+// Every composite `run:` step needs an explicit shell, and the shell must be the
+// platform's own: naming `bash` everywhere silently changed Windows semantics for
+// all 358 suites at once and broke test_tarball_copyleft_scan, which extracted a
+// tarball with GNU tar and read `C:\...` as a remote host (issue #36).
+check('every composite run step names a platform-appropriate shell', () => {
+  const action = fs.readFileSync(shardAction, 'utf8');
+  const steps = action.split(/^ {4}- name:/m).slice(1);
+  assert.ok(steps.length > 5, 'expected the shard action to define its steps');
+  let runSteps = 0;
+  for (const step of steps) {
+    if (!/^\s+run:/m.test(step)) continue;
+    runSteps += 1;
+    const shell = /^\s+shell:\s*(.+)$/m.exec(step);
+    assert.ok(shell, `run step "${step.split('\n')[0]}" has no shell; a composite action requires one`);
+    const value = shell[1].trim();
+    const isPlatformDefault = value === 'pwsh' || /runner\.os == 'Windows' && 'pwsh' \|\| 'bash'/.test(value);
+    assert.ok(isPlatformDefault, `run step "${step.split('\n')[0]}" must use pwsh on Windows and bash elsewhere, found: ${value}`);
+  }
+  assert.ok(runSteps >= 8, `expected the shard action to keep its run steps, found ${runSteps}`);
+});
+
 check('parsePositiveTimeoutMs rejects invalid, zero, and negative env values cleanly', () => {
   assert.strictEqual(parsePositiveTimeoutMs(['-1', '1800000']), 1800000);
   assert.strictEqual(parsePositiveTimeoutMs(['0', 'abc', '5000']), 5000);
