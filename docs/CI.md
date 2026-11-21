@@ -13,11 +13,13 @@ an optional extra. It never publishes anything — the tag-only `publish.yml` an
 
 A `v*` tag is a release event and triggers **only** those two workflows. The test
 matrix does not run on tags: tagging is not gated on, and does not wait behind, a
-35-job run. The README CI badge reads the default branch
+42-job run. The README CI badge reads the default branch
 (`cross-platform.yml?branch=master`), which is the run that actually exists.
 
-There are two jobs per OS (Node 24, pnpm 12.16.1, setup reused exactly from
-`publish.yml`).
+There are three jobs per OS — `checks`, `seed`, and one `test-<os>` job — on the runtime
+pinned by `.nvmrc`, with pnpm 12.16.1 setup reused exactly from `publish.yml`. The Node
+version is declared once in `.nvmrc` and every workflow reads it with
+`node-version-file`, so a runtime bump cannot land on some workflows and miss others.
 
 `checks` — cheap, once per OS, no seed and no Playwright browsers:
 
@@ -31,9 +33,22 @@ There are two jobs per OS (Node 24, pnpm 12.16.1, setup reused exactly from
    by the suite job, and an unbounded Hugging Face download here would turn a
    network hiccup into a fake cross-platform failure.
 
-`seed` — once per OS (`ubuntu-latest`, `macos-latest`, `windows-latest`), restoring Hugging Face model caches and building the golden seed (`node tests/run_all.js --seed-only`) only when `konoha-seed` misses, avoiding redundant seed builds across all 28 test shards.
+`seed` — once per OS (`ubuntu-latest`, `macos-latest`, `windows-latest`), restoring Hugging Face model caches and building the golden seed (`node tests/run_all.js --seed-only`) only when `konoha-seed` misses, avoiding redundant seed builds across all 35 test shards.
 
-`test` — `needs: [seed]`, 28 shards across OSes (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 4 shards), `KONOHA_TEST_SHARD=<shard>/<shard_total>`:
+`test-ubuntu`, `test-macos`, `test-windows` — one job per OS rather than one mixed
+matrix, so each OS owns its shard count and its `needs`. The setup is written once in
+`.github/actions/konoha-test-shard` (a composite action) and the three jobs differ only
+in runner, matrix length and `needs`; a fix cannot land on one OS and miss the others.
+
+| Job | `needs` | Shards | Why |
+| --- | --- | --- | --- |
+| `test-ubuntu` | `[seed]` | 10 | fastest OS; finishes first and releases slots for Windows |
+| `test-macos` | `[seed, checks]` | 5 | 5 is Free's concurrent macOS cap exactly; `checks` is the 6th macOS job, so the shards wait for it instead of competing with it |
+| `test-windows` | `[seed]` | 20 | slowest OS, so the most shards |
+
+`KONOHA_TEST_SHARD=<shard>/<shard_total>`, where `shard_total` is
+`${{ strategy.job-total }}` — the matrix length — so the shard count has one definition
+and cannot drift from the matrix:
 
 1. `pnpm install --frozen-lockfile`
 2. Restore Hugging Face model cache (`node_modules/@huggingface/transformers/.cache`, `~/.cache/huggingface`, `~/.konoha/models`) and run `pnpm --filter konoha-web build` (with deterministic `SOURCE_DATE_EPOCH`) — before the seed fallback, because `konoha init` builds the UI on demand when no build of the current version exists; with the repo build present the seed copies it instead of running a second SvelteKit build.
@@ -65,7 +80,8 @@ The compatibility direction matters: green on 26.04 does not prove a developer m
 on 22.04. It holds today because no addon is compiled at install time; the day one is,
 its artifact would require the runner's glibc and break older hosts. If 22.04 support
 ever becomes a promise, add one unsharded `ubuntu-22.04` leg rather than a ninth shard
-per release — a run is already 35 jobs (`3 checks + 3 seed + 29 test shards`) against a 20-job plan cap.
+per release — a run is already 42 jobs (`3 checks + 3 seed + 35 test shards + 1 summary`)
+against a 20-job plan cap.
 
 
 ## Duration budget
@@ -88,15 +104,16 @@ short tail instead of queueing behind the whole list.
 That is why the matrix is asymmetric (within GitHub Free's 256-job matrix cap, 20 total
 concurrent jobs, and 5 concurrent macOS jobs):
 
-- `windows-latest`: **16 shards** (`~18 suites/shard`), cutting the ~17 min 8-shard suite
-  step roughly in half per runner.
-- `ubuntu-latest`: **8 shards** (`~36 suites/shard`, measured worst shard `175 s` against a
-  `< 10 min` budget; finishes first and frees concurrent slots for Windows).
-- `macos-latest`: **4 shards** (`~72 suites/shard`). The matrix is sized so the peak macOS
-  demand equals Free's 5-runner macOS cap: `checks` + four shards. At five shards a run asked
-  for **seven** macOS jobs (`seed`, `checks`, five shards) and GitHub cancelled the two that
-  never acquired a runner after 15 minutes — the queue is not a buffer, it is a failure mode.
-  Four shards + `checks` = 5 fits in one wave; `seed` frees its slot before the shards start.
+- `windows-latest`: **20 shards** (`~14 suites/shard`), cutting the ~17 min 8-shard suite
+  step to a fraction per runner. The slowest OS gets the most shards.
+- `ubuntu-latest`: **10 shards** (`~29 suites/shard`, measured worst shard `175 s` at N=8
+  against a `< 10 min` budget; finishes first and frees concurrent slots for Windows).
+- `macos-latest`: **5 shards** (`~58 suites/shard`), with `needs: [seed, checks]`. The peak
+  macOS demand must equal Free's 5-runner macOS cap. `checks` and `seed` are both macOS
+  jobs, so an unsynchronised run asked for more than five at once and GitHub cancelled the
+  jobs that never acquired a runner after 15 minutes — the queue is not a buffer, it is a
+  failure mode. Sequencing the shards behind `checks` holds the peak at 5; `seed` frees its
+  slot before the shards start.
 
 The other term — install, seed restore, Playwright, web build, ffmpeg — has **not** been
 measured on a runner, and it is what decides the verdict on a cold cache. Locally those
@@ -104,7 +121,8 @@ steps are fast (a seed cache hit is 0.4 s, the web build is seconds), but a host
 is slower and the seed restore pulls ~400 MB out of the cache. Treat it as a minute or
 two, not as a number.
 
-A run is 3 `checks` jobs, 3 `seed` jobs, plus 28 shard jobs (`34` total). A Free plan capped at 20 concurrent
+A run is 3 `checks` jobs, 3 `seed` jobs, plus 35 shard jobs and one `summary` job
+(`42` total). A Free plan capped at 20 concurrent
 jobs (and 5 concurrent macOS jobs) queues the surplus beyond 20, though `ubuntu-latest` and
 `macos-latest` complete early and yield slots to the remaining `windows-latest` shards — so
 if a run looks slower than the sum of its steps, read the queue time before reading it as a
@@ -112,9 +130,9 @@ regression.
 
 | OS | Shards | Target | Slowest shard (measured at 8 shards) | Verdict |
 | --- | --- | --- | --- | --- |
-| ubuntu-latest | 8 | < 10 min | 175 s (Linux, measured) | headroom is large; finishes fast and releases slots |
-| macos-latest | 4 | < 20 min | 723 s (run 44059199230, shard 2) | green on `master` (runs 44059199230, 43994208143); fits the 5-runner macOS cap in one wave |
-| windows-latest | 16 | < 30 min | 1013 s (shard 8 at N=8) | doubled to 16 shards (~18 suites/shard) to cut suite time |
+| ubuntu-latest | 10 | < 10 min | 175 s (Linux, measured) | headroom is large; finishes fast and releases slots |
+| macos-latest | 5 | < 20 min | 723 s (run 44059199230, shard 2) | green on `master` (runs 44059199230, 43994208143); 5 shards behind `checks` fits the 5-runner macOS cap |
+| windows-latest | 20 | < 30 min | 1013 s (shard 8 at N=8) | raised to 20 shards (~14 suites/shard) to cut suite time |
 
 **A cache miss adds the seed build to every shard.** The seed is content-addressed by
 `src`/`bin`/`scripts`, so a PR touching any of them misses, and each shard pays its own
@@ -592,7 +610,8 @@ engine instead of weakening the gate.
 
 Open the failed run from the Checks tab of the pull request (or Actions →
 Cross-Platform), pick the failed job, and expand the failed step. Job names carry the
-OS and, for the suite, the shard: `<os> checks` and `<os> shard <n>/<shard_total>`.
+OS and, for the suite, the shard: `<os> checks`, and `<os> shard <n>/<shard_total>` from
+the `test-ubuntu` / `test-macos` / `test-windows` jobs.
 
 - `checks`: Install dependencies, Lint, Fresh-install smoke test. A lint failure names
   the file and rule; a smoke-test failure names the CLI command that exited non-zero.
@@ -860,6 +879,71 @@ The suite is the part that finds macOS host semantics — `/var/folders/...` res
 `CI=true` here, understanding that this bypasses the clean room rather than reproducing the
 gate. The [container sandbox](#on-macos-container-versus-the-native-run) is the clean room, and
 the two answer different questions.
+
+## Local macOS VM (dockur/macos)
+
+A real macOS kernel on an x86_64 Linux host, inside a Docker container under QEMU. This is the
+third local leg: `act` cannot provide it, and the symlinked-`HOME` proxy above cannot reproduce a
+real `/private/var`, case-insensitive APFS, or `.dmg` behaviour. Status on this host: **BLOCKED**, see
+"Host requirements" below — the instructions are here so the leg is runnable the moment RAM is free.
+
+Compose, adapted from the repository layout (storage outside the checkout, so the guest never sees
+it, and a host port that does not collide with the Windows VM's 8006):
+
+```yaml
+services:
+  macos:
+    image: docker.io/dockurr/macos
+    container_name: konoha-macos-vm
+    environment:
+      VERSION: "14"          # 14 or 15 on x86_64; Intel-supported releases only
+      RAM_SIZE: "4G"
+      CPU_CORES: "4"
+      DISK_SIZE: "32G"
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "127.0.0.1:8007:8006"   # Windows VM already owns 8006
+      - "127.0.0.1:5900:5900/tcp"
+      - "127.0.0.1:5900:5900/udp"
+    volumes:
+      - /home/andycungkrinx/.cache/konoha-macos-vm/storage:/storage
+    stop_grace_period: 2m
+    restart: "no"
+```
+
+```bash
+docker compose -f <the file above> up -d
+# viewer: http://127.0.0.1:8007/   first boot downloads recovery and installs hands-free (30-60+ min)
+# then, inside the guest:
+#   CI=true pnpm test          (or the sharded variant)
+```
+
+### Host requirements
+
+All four are checked by `node scripts/sandbox_preflight.js`, which reports this host per leg:
+
+| Requirement | Why | This host |
+|---|---|---|
+| `/dev/kvm` plus the `kvm_amd`/`kvm_intel` module | QEMU acceleration; without it the guest is unusably slow | present (`kvm_amd`) |
+| AVX2 | dockur/macos requires Intel Haswell or AMD Zen or newer | present |
+| `/dev/net/tun` | guest networking | present |
+| 32 GB free disk | sparse 32 GB guest image plus the recovery download | 51 GB free |
+| **4 GB allocatable RAM** | the QEMU guest's floor | **1.45 GB — the blocker** |
+
+The 4 GB floor comes from `/run/entry.sh` line 12, `: "${RAM_MINIMUM:="4G"}"`, so `RAM_MINIMUM`
+takes an env override and the check can technically be forced. **This repository does not
+recommend it and the leg was not run that way:** the missing ~2.5 GB is held by the desktop
+session, and a 2 GB macOS guest would swap-thrash the host and very likely fail mid-install,
+leaving a half-provisioned guest. Treat the floor as a real requirement, free the RAM, and let the
+guest start on its own terms.
+
+Until that RAM is free the macOS leg is **proxy-verified, not native**: the symlinked-`HOME` proxy
+above is an allowed state on a non-Apple host and is not a claim that `macos-latest` passed. Only a
+GitHub `macos-latest` run or this container at 4 GB or more closes the leg.
 
 ## Local Windows VM
 

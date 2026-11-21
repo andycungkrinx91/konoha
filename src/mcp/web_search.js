@@ -12,6 +12,7 @@ const { detectActiveAgent } = require('./client_detection');
 const { logToolCall } = require('./skills');
 const { globalCircuitRegistry } = require('../circuit_breaker');
 const { getConfigValue } = require('../config_access');
+const { canonicalizeUrl } = require('../url_canonical');
 
 const searxngDir = path.join(KONOHA_DIR, 'searxng');
 const instancesCachePath = path.join(searxngDir, 'instances_cache.json');
@@ -437,11 +438,27 @@ async function _queryBlendedSearch(q, numResults, isBlended, requestedEngine) {
 
 function _appendUniqueResults(currentResults, seenUrls, allResults) {
   for (const r of currentResults) {
-    if (!seenUrls.has(r.url)) {
-      seenUrls.add(r.url);
+    const key = canonicalizeUrl(r.url) || r.url;
+    if (!seenUrls.has(key)) {
+      seenUrls.add(key);
       allResults.push(r);
     }
   }
+}
+
+/**
+ * Normalizes the caller's `exclude_urls` into canonical keys. Accepts raw URLs,
+ * bare hosts, and URLs already in canonical form; anything unparseable is
+ * dropped rather than throwing, because a bad exclusion must not fail a search.
+ */
+function _normalizeExclusions(excludeUrls) {
+  const set = new Set();
+  if (!Array.isArray(excludeUrls)) return set;
+  for (const entry of excludeUrls) {
+    const canonical = canonicalizeUrl(entry);
+    if (canonical) set.add(canonical);
+  }
+  return set;
 }
 
 async function runWebSearch(query, numResults = 5, searchDepth = 'standard', agentName = null, options = {}) {
@@ -460,6 +477,7 @@ async function runWebSearch(query, numResults = 5, searchDepth = 'standard', age
 
   const allResults = [];
   const seenUrls = new Set();
+  const excluded = _normalizeExclusions(options && options.excludeUrls);
   const requestedEngine = (options && options.engine) ? String(options.engine).toLowerCase() : 'all';
   const isBlended = options && options.blended !== undefined ? options.blended : (requestedEngine === 'all');
 
@@ -469,11 +487,16 @@ async function runWebSearch(query, numResults = 5, searchDepth = 'standard', age
       ? specific
       : await _queryBlendedSearch(q, numResults, isBlended, requestedEngine);
 
+    // Fetch a wider candidate set when exclusions are in play, so filtering out
+    // already-known URLs still leaves `numResults` net-new results.
     _appendUniqueResults(currentResults, seenUrls, allResults);
   }
 
   allResults.sort((a, b) => rankScore(b) - rankScore(a));
-  const formatted = allResults.slice(0, numResults).map((r, i) => ({
+  const fresh = excluded.size
+    ? allResults.filter((r) => !excluded.has(canonicalizeUrl(r.url) || r.url))
+    : allResults;
+  const formatted = fresh.slice(0, numResults).map((r, i) => ({
     citation_id: i + 1,
     title: r.title,
     url: r.url,
@@ -485,6 +508,7 @@ async function runWebSearch(query, numResults = 5, searchDepth = 'standard', age
     status: 'success',
     query,
     search_depth: searchDepth,
+    excluded_count: excluded.size,
     results_count: formatted.length,
     results: formatted
   });

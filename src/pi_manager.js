@@ -13,6 +13,7 @@ const { buildPiBlockerExtensionSource } = require('./pi_blocker_template');
  */
 
 const fs = require('fs');
+const { fileExists, readJsonSafe, ensureDirSafe } = require('./pi_fs_helpers');
 const path = require('path');
 const { AISLOP_PACKAGE } = require('./uvx_runtime');
 const os = require('os');
@@ -134,6 +135,43 @@ function buildPiManagedContract() {
  * Deploys the Konoha runtime contract + Pi workflow mandate into
  * ~/.pi/agent/AGENTS.md (Pi's global context file) using managed markers.
  */
+/**
+ * Writes one Pi agent profile per deployable agent.
+ *
+ * Pi used to receive the advisor profile only, so `subagent(agent="chunin")` had no
+ * definition to resolve and every delegation failed with UNSUPPORTED_NATIVE_SPAWN even
+ * with pi-subagents installed. Tools are written as a YAML sequence: pi-subagents reads
+ * `tools: read, grep, find, ls` as a single tool name and then rejects the launch.
+ *
+ * @returns {string[]} agent names written
+ */
+function deployPiAgentProfiles(piAgentsDir, options = {}) {
+  const silent = options.silent !== false;
+  const { getDeployableAgents } = require('./canonical_agents');
+  const { buildSubagentContract } = require('./agent_contract');
+  const { writeAgentFileSafe, AGENT_OWNERSHIP_MARKER, getRoleDescription } = require('./agent_file_safety');
+  const { buildPiSubagentToolGrants } = require('./mcp_clients/common');
+  const written = [];
+  for (const agent of getDeployableAgents()) {
+    const grants = buildPiSubagentToolGrants(agent);
+    const description = String(getRoleDescription(agent) || '').replace(/"/g, '\\"').replace(/\n/g, ' ');
+    const frontmatter = [
+      '---',
+      `name: ${agent.name}`,
+      `description: "${description}"`,
+      AGENT_OWNERSHIP_MARKER,
+      'tools:',
+      ...grants.map((t) => `  - ${t}`),
+      '---',
+      ''
+    ].join('\n');
+    const body = `${agent.instructions}\n\n${buildSubagentContract('pi')}\n`;
+    writeAgentFileSafe(path.join(piAgentsDir, `${agent.name}.md`), frontmatter + body, agent.name, { silent });
+    written.push(agent.name);
+  }
+  return written;
+}
+
 function deployPiContract(silent = true, targetFile = null, options = {}) {
   const opts = typeof targetFile === "object" && targetFile !== null ? targetFile : options;
   const explicitTarget = typeof targetFile === "string" ? targetFile : (opts && opts.targetFile);
@@ -323,14 +361,6 @@ function removePiBlockerExtension(silent = true) {
   }
 }
 
-function fileExists(p) {
-  try {
-    return fs.existsSync(p);
-  } catch (_) {
-    return false;
-  }
-}
-
 function isPiInstalled() {
   if (fileExists(path.join(HOME, '.pi', 'agent'))) return true;
   try {
@@ -340,14 +370,6 @@ function isPiInstalled() {
     return res.status === 0;
   } catch (_) {
     return false;
-  }
-}
-
-function readJsonSafe(filePath) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-  } catch (_) {
-    return null;
   }
 }
 
@@ -511,14 +533,9 @@ function ensurePiSetup(options = {}) {
   const rtk = deployPiRtkRule(silent);
   const contract = deployPiContract(silent, null, options);
   const blocker = deployPiBlockerExtension(silent, options);
-  const { getAdvisorAgentDefinition } = require('./canonical_agents');
-  const { buildSubagentContract } = require('./agent_contract');
-  const { writeAgentFileSafe, AGENT_OWNERSHIP_MARKER, getRoleDescription } = require('./agent_file_safety');
-  const adv = getAdvisorAgentDefinition();
   const piAgentsDir = path.join(agentDir, 'agents');
   ensureDirSafe(piAgentsDir);
-  const advMd = `---\nname: advisor\ndescription: "${getRoleDescription(adv)}"\ntools: read, grep, find, ls\n${AGENT_OWNERSHIP_MARKER}\n---\n\n${adv.instructions}\n\n${buildSubagentContract('pi')}\n`;
-  writeAgentFileSafe(path.join(piAgentsDir, 'advisor.md'), advMd, 'advisor', { silent });
+  const deployedAgents = deployPiAgentProfiles(piAgentsDir, { silent });
 
   const projectRoot = options.projectRoot || null;
   const projMcp = projectRoot ? path.join(projectRoot, '.pi', 'mcp.json') : null;
@@ -534,6 +551,7 @@ function ensurePiSetup(options = {}) {
   return {
     ok: true,
     changed: !!(adapter.changed || contract.changed || blocker.changed),
+    agentsDeployed: deployedAgents,
     rtkDeployed: !!rtk.ok,
     contractDeployed: !!contract.ok,
     blockerDeployed: !!blocker.ok
@@ -591,6 +609,22 @@ function _readPiAgentsContent() {
   }
 }
 
+/**
+ * Agent profile names present in a Pi agents directory, without the extension.
+ *
+ * @returns {string[]} sorted names, empty when the directory is absent
+ */
+function readPiAgentProfileNames(agentsDir) {
+  try {
+    return fs.readdirSync(agentsDir)
+      .filter((f) => f.endsWith('.md'))
+      .map((f) => f.slice(0, -3))
+      .sort();
+  } catch (_) { /* absent directory: no profiles deployed yet */
+    return [];
+  }
+}
+
 function getPiStatus(options = {}) {
   const installed = isPiInstalled();
   const { mcpKonoha, mcpAislop } = _readPiMcpServerFlags();
@@ -600,6 +634,11 @@ function getPiStatus(options = {}) {
   const agentsContent = _readPiAgentsContent();
   const rtkRuleDeployed = fileExists(PI_RTK_EXTENSION) || agentsContent.includes(RTK_BLOCK_START);
   const contractDeployed = agentsContent.includes('<!-- KONOHA-CONTRACT-START -->');
+  const agentDir = options.agentDir || (options.home ? path.join(options.home, '.pi', 'agent') : PI_AGENT_DIR);
+  const agentProfiles = readPiAgentProfileNames(path.join(agentDir, 'agents'));
+  const missingAgentProfiles = require('./canonical_agents')
+    .getDeployableAgentNames()
+    .filter((name) => !agentProfiles.includes(name));
 
   return {
     installed,
@@ -611,14 +650,13 @@ function getPiStatus(options = {}) {
     contractDeployed,
     blockerDeployed,
     subagentExtensionInstalled,
+    // A subagent extension alone cannot spawn anything: the harness also needs a
+    // profile per agent, which is what this field makes visible.
+    agentProfiles,
+    missingAgentProfiles,
+    agentRosterComplete: missingAgentProfiles.length === 0,
     configPath: PI_MCP_CONFIG
   };
-}
-
-function ensureDirSafe(dir) {
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
 module.exports = {
@@ -639,6 +677,8 @@ module.exports = {
   registerPiMcp,
   deployPiRtkRule,
   deployPiContract,
+  deployPiAgentProfiles,
+  readPiAgentProfileNames,
   stripStalePiMandates,
   deployPiBlockerExtension,
   removePiBlockerExtension,

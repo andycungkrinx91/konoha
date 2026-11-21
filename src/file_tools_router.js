@@ -156,9 +156,45 @@ function getWorkspaceRoot() {
   return ws ? platform.stripWinExtendedPrefix(ws) : ws;
 }
 
-function uriToPath(uri) {
-  return platform.uriToPath(uri);
+// Extra project roots an operator opted into, path.delimiter-separated in
+// KONOHA_ALLOWED_ROOTS (the same shape as KONOHA_ALLOWED_DB_ROOTS). Empty by
+// default, so the boundary only widens for a root that is named explicitly.
+function getAllowedRoots() {
+  const raw = process.env.KONOHA_ALLOWED_ROOTS;
+  if (!raw || typeof raw !== 'string') return [];
+  const roots = [];
+  for (const part of raw.split(path.delimiter)) {
+    const entry = part && part.trim();
+    if (!entry) continue;
+    let real;
+    try {
+      real = fs.realpathSync(path.resolve(platform.expandUser(entry)));
+    } catch {
+      continue; // An entry that does not exist authorizes nothing.
+    }
+    roots.push(platform.normPath(platform.stripWinExtendedPrefix(real)));
+  }
+  return roots;
 }
+
+// Resolve a path through symlinks, tolerating one that does not exist yet: fall
+// back to resolving its deepest existing ancestor and re-appending the rest, so a
+// path under a symlinked parent (macOS /var -> /private/var) still matches a root.
+function realpathOrSelf(target) {
+  const resolved = path.resolve(target);
+  try {
+    return fs.realpathSync(resolved);
+  } catch (_) {
+    try {
+      return path.join(fs.realpathSync(path.dirname(resolved)), path.basename(resolved));
+    } catch (_) {
+      return resolved;
+    }
+  }
+}
+
+function uriToPath(uri) {
+  return platform.uriToPath(uri);}
 
 function resolveInputPath(rawPath) {
   let p = rawPath;
@@ -256,13 +292,38 @@ function assertWithinAllowed(resolvedPath) {
   }
   wsReal = platform.stripWinExtendedPrefix(wsReal);
   const wsNorm = platform.normPath(wsReal);
-  const rel = path.relative(wsNorm, pathNorm);
-  if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
+
+  // macOS exposes /var as a symlink to /private/var, and every root above is
+  // realpath'd, so an input that still carries the unresolved form would never
+  // match its own root. Compare both forms; containment must hold for the real
+  // path, and a sibling of a named root still fails closed in both.
+  const candidates = [pathNorm];
+  const realNorm = platform.normPath(
+    platform.stripWinExtendedPrefix(realpathOrSelf(resolvedPath))
+  );
+  if (realNorm !== pathNorm) candidates.push(realNorm);
+
+  const containedIn = (root, candidate) => {
+    const rel = path.relative(root, candidate);
+    return !rel.startsWith('..') && !path.isAbsolute(rel);
+  };
+
+  if (candidates.some((candidate) => containedIn(wsNorm, candidate))) {
     return;
   }
 
-  // Path outside workspace boundary
-  throw new Error(`Path outside workspace: ${resolvedPath}`);
+  // Operator-allowlisted project roots, checked with the same containment rule
+  // as the workspace so a sibling of a named root still fails closed.
+  for (const allowed of getAllowedRoots()) {
+    if (candidates.some((candidate) => containedIn(allowed, candidate))) {
+      return;
+    }
+  }
+
+  // Name the boundary and the remedy: a bare path leaves nothing to act on.
+  throw new Error(
+    `Path outside workspace: ${resolvedPath}. Allowed: the workspace root (${wsNorm}) or any root in KONOHA_ALLOWED_ROOTS. Set WORKSPACE_ROOT to the project, or add it to KONOHA_ALLOWED_ROOTS (path-delimiter separated) and restart the MCP server.`
+  );
 }
 
 

@@ -1,12 +1,12 @@
 # Konoha — Operator's Manual
 
-**Version of record: 2.2.24**
+**Version of record: 2.2.25**
 
 | Field | Value |
 |---|---|
-| Manual version | 2.2.24 |
-| Code reference | `package.json` version `2.2.24` on `fix/socket-score`, tagged `v2.2.24` when the release is cut |
-| Distribution status | **2.2.24 unreleased** — npm `konoha-mcp` latest is `2.2.22`; `2.2.24` is not published |
+| Manual version | 2.2.25 |
+| Code reference | `package.json` version `2.2.25` on `fix/bug-sanin-lisence`, tagged `v2.2.25` when the release is cut |
+| Distribution status | **2.2.25 unreleased** — npm `konoha-mcp` latest is `2.2.24`; `2.2.25` is not published |
 | Verified on | Linux x86_64, Node.js 24.22.2, non-root user, isolated `HOME`; Windows via dockur/QEMU VM and the `windows-latest` CI leg |
 | Audience | developers installing and operating Konoha on their own machine |
 
@@ -19,7 +19,7 @@ bump. Whenever a statement rests on source
 inspection rather than live execution, or when a platform constraint prevented exercising a path directly, the text names
 the exact file, line, and substitute evidence.
 
-Because 2.2.24 is not on the registry, the install path in this manual is *from source*, not `npm install -g`.
+Because 2.2.25 is not on the registry, the install path in this manual is *from source*, not `npm install -g`.
 Section 2.6 gives the exact commands.
 
 ## Surfaces and their legend
@@ -233,7 +233,7 @@ physical Windows hardware and not on Docker Desktop for Windows, so confirm with
 report anything that differs.
 
 What does back those platforms is the CI matrix, not this manual alone: `.github/workflows/cross-platform.yml` runs the
-install, lint, sharded suite (`windows-latest`: 16 shards, `ubuntu-latest`: 8 shards, `macos-latest`: 4 shards), and fresh-install smoke step on `ubuntu-latest`, `windows-latest`, and `macos-latest` for every push and pull
+install, lint, sharded suite (`windows-latest`: 20 shards, `ubuntu-latest`: 10 shards, `macos-latest`: 5 shards), and fresh-install smoke step on `ubuntu-latest`, `windows-latest`, and `macos-latest` for every push and pull
 request, on manual dispatch, and nightly at 02:00 UTC. Locally, all three environments have a verification path: Linux (`pnpm test:sandbox` / `pnpm ci:act`), Windows (`docker/windows-vm/oem/run-ci.cmd` via `scripts/windows-ci.ps1`), and macOS (`KONOHA_SANDBOX_RUNTIME=container pnpm test:sandbox` for the clean-room container gate on Apple silicon, plus native replay on a Mac or the symlinked-`HOME` proxy on Linux; see `docs/CI.md`).
 
 ### 2.6 Installing 2.2.24 from source

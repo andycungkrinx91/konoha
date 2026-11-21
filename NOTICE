@@ -44,15 +44,19 @@ copyleft license and imposes no obligation beyond retaining its notice. The
 `@types/*` and `undici-types` entries are declaration-only packages: they carry
 type definitions, no runtime code.
 
-Four of these packages carry Konoha patches (`patches/`):
+Five of these packages carry Konoha patches (`patches/`):
 
-  cfb@1.2.2           removes a synthetic seed artifact
-  jszip@3.10.2        deletes the Browserify `dist/` build and the `browser` field
-  pptxgenjs@4.0.1     raises the `image-size` floor past CVE-2025-71330 /
-                      CVE-2025-71329, drops `https@1.0.0`, deletes the webpack
-                      browser bundle
+  cfb@1.2.2             removes a synthetic seed artifact
+  jszip@3.10.2          deletes the Browserify `dist/` build and `browser` field;
+                        aligns `readable-stream` and `setimmediate` specs with
+                        the bundled overrides
+  pptxgenjs@4.0.1       raises the `image-size` floor past CVE-2025-71330 /
+                        CVE-2025-71329, drops `https@1.0.0`, deletes the webpack
+                        browser bundle
+  string_decoder@1.3.0  aligns `safe-buffer` with the bundled
+                        `@socketregistry/safe-buffer@1.0.9` override
   xlsx-populate@1.21.0  replaces `lodash` with an in-package shim, deletes the
-                      prebuilt `browser/` bundle and `examples/`
+                        prebuilt `browser/` bundle and `examples/`
 
 Patched files are derivative works of the original packages and are distributed
 under the same license as the package they patch.
@@ -63,42 +67,6 @@ Runtime dependencies
 
 All other dependencies are installed by the package manager from their own
 published tarballs and are not redistributed here. Their license terms, and
-their own notices, apply as published.
-
---------------------------------------------------------------------------
-Copyleft in the install graph (not redistributed)
---------------------------------------------------------------------------
-
-Two dependency families in the resolved tree carry copyleft terms. Neither is
-bundled into the published tarball, and neither is modified by this project.
-
-  @img/sharp-<platform>  Apache-2.0 / Apache-2.0 AND LGPL-3.0-or-later
-    Reached through `sharp@0.35.5`, a hard dependency of
-    `@huggingface/transformers@4.3.2` (Konoha's ONNX embedding backend), which
-    requires `sharp` at module load (`dist/transformers.node.cjs`). Each package
-    carries a prebuilt libvips binary for one platform, which `sharp` loads for
-    image decoding; Konoha calls transformers for text embeddings and never
-    processes an image. The declared license is not uniform across the builds:
-    the Windows packages state `Apache-2.0 AND LGPL-3.0-or-later`, the Linux and
-    macOS packages state `Apache-2.0` for the same libvips payload. Treated here
-    as copyleft on every host, which is why the dependency gate allowlists the
-    whole `@img/sharp-` prefix rather than the expression it happens to see.
-    Each package is platform-specific and marked `optional: true` in
-    `pnpm-lock.yaml`, so exactly one is installed per host, from its own
-    published tarball, into the consumer's install tree.
-
-    Konoha does not redistribute this package: it is not in `bundleDependencies`
-    and not in the published tarball. It is also not a removable dependency —
-    `sharp` is required unconditionally by the transformers Node entry, so
-    dropping it (for example with `--omit=optional`) removes the embedding
-    backend entirely.
-
-  lightningcss, lightningcss-<platform>  MPL-2.0
-    Transitive build tooling of `vite` / `@tailwindcss/vite`, both devDependencies
-    of `apps/web`. Executed only while building the frontend. MPL-2.0 is
-    file-level copyleft: it covers changes to lightningcss's own files, of which
-    there are none here, and does not extend to the CSS or JS it compiles. The
-    built frontend `apps/web/build/` does ship in the tarball, but it contains
-    compiled assets with no lightningcss code — `grep -r lightningcss
-    apps/web/build` finds nothing.
+their own notices, apply as published. Install-graph license documentation
+for unbundled dependencies lives in `docs/SECURITY.md` in the source repository.
 

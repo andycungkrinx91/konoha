@@ -655,7 +655,8 @@ async function main() {
     assert.ok(fs.existsSync(path.join(advHome, '.commandcode', 'agents', 'advisor.md')));
     piManager.ensurePiSetup({ home: advHome, force: true, skipDetection: true, silent: true });
     const piAdvMd = fs.readFileSync(path.join(advHome, '.pi', 'agent', 'agents', 'advisor.md'), 'utf8');
-    assert.ok(piAdvMd.includes('tools: read, grep, find, ls'), 'Pi advisor profile must declare read-only tools');
+    const piGrants = piAdvMd.split('---')[1] || '';
+    assert.ok(['read', 'grep', 'find', 'ls'].every((t) => new RegExp(`^\\s+- ${t}$`, 'm').test(piGrants)) && !['write', 'edit', 'bash'].some((t) => new RegExp(`^\\s+- ${t}$`, 'm').test(piGrants)), 'Pi advisor profile must grant the read-only builtins and no writer (grants are a YAML sequence; pi-subagents misreads the comma form)');
     const cursorAdvProj = path.join(SANDBOX_HOME, 'cursor_adv_proj');
     fs.mkdirSync(cursorAdvProj, { recursive: true });
     cursorManager.deployProjectCursor(cursorAdvProj, [], true);

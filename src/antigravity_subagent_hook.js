@@ -39,22 +39,36 @@ const GLOBAL_IDE_AGENTS_DIR = path.join(HOME, '.gemini', 'antigravity-ide', 'age
 const GLOBAL_CONFIG_AGENTS_DIR = path.join(HOME, '.gemini', 'antigravity-cli', 'mcp');
 
 /**
- * Official ninja roster — the ONLY agent directory names allowed inside a
- * session's `.agents/agents/` directory. Anything else (e.g. a leaked
- * `define_subagent` artifact from a previous orchestrator run, or stale
- * `test-*` debug agents) is purged by `cleanStaleSessionAgents` so it cannot
- * shadow the real roster and break `Agent(name: ...)` invocations.
+ * Official ninja roster — the directory names Konoha itself deploys into a
+ * session's `.agents/agents/` directory. `cleanStaleSessionAgents` reports any
+ * other entry but never removes it: a custom or third-party agent is not
+ * Konoha's to delete, and the global roster dirs are the authority.
  */
 const _OFFICIAL_NINJAS = getCanonicalAgentNames();
 
 /**
- * Remove any directory under `base` whose name is NOT in the official ninja
- * whitelist. Defense-in-depth against leaked `define_subagent` artifacts and
- * stale test agents. Safe-by-default: silent on every error path.
+ * Report directories under `base` whose name is not in the official ninja
+ * roster. Leaked `define_subagent` artifacts and stale `test-*` debug agents
+ * can shadow the real roster and break `Agent(name: ...)` invocations, so they
+ * are surfaced to the caller.
+ *
+ * Ownership boundary invariant: this never deletes anything. Konoha does not
+ * own custom or third-party agent directories inside `agents/` or session
+ * `brain/` directories, so removal stays with the user.
+ *
+ * @returns {string[]} non-roster directory names found (empty on any error)
  */
-function cleanStaleSessionAgents(_base) {
-  // Ownership boundary invariant: Konoha NEVER deletes custom or third-party
-  // agent directories inside `agents/` or session `brain/` directories.
+function cleanStaleSessionAgents(base) {
+  const allowed = new Set(_OFFICIAL_NINJAS.map((n) => String(n).toLowerCase()));
+  const found = [];
+  try {
+    if (!base || !fs.existsSync(base)) return found;
+    for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      if (!allowed.has(entry.name.toLowerCase())) found.push(entry.name);
+    }
+  } catch (_) { /* intentional best-effort: reporting must never crash the runtime */ }
+  return found;
 }
 
 function loadAgentsFromGlobalDir() {
@@ -92,7 +106,11 @@ function loadAgents() {
 function deploySessionAgents(agents, brainDir) {
   if (!brainDir) return;
   const base = path.join(brainDir, '.agents', 'agents');
-  cleanStaleSessionAgents(base);
+  // Report, never delete: a non-roster directory may be the user's own agent.
+  const stale = cleanStaleSessionAgents(base);
+  if (stale.length > 0) {
+    process.stderr.write(`⚠ Antigravity session has non-roster agent dirs (not removed): ${stale.join(', ')}\n`);
+  }
   const antigravityManager = require('./antigravity_manager');
   for (const agent of agents) {
     try {

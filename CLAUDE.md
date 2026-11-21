@@ -18,7 +18,7 @@
 NEVER run destructive commands (`rm -rf`, `DROP`, `git reset`) or view secrets (`.env*`).
 
 <!-- KONOHA-CONTRACT-START -->
-## Konoha runtime contract (2.2.24)
+## Konoha runtime contract (2.2.25)
 main agent on Claude Code. Mandatory every turn.
 - **Konoha is mandatory**: `find_skill`/`get_skill`; no raw cat/grep.
 - **Code intelligence is mandatory**: `code_search`/`code_symbol`/`code_impact`, absolute root.

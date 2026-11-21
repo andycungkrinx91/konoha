@@ -62,16 +62,7 @@ const guardResult = assertMaintenanceSandbox(process.env, {
 });
 const GUARD_MODE = guardResult.mode;
 
-const SEED_SENTINELS = [
-  ['.konoha', 'konoha.db'],
-  ['.konoha', 'server.js'],
-  ['.konoha', '.autosetup-done'],
-  ['.agents', 'skills', 'konoha', 'SKILL.md']
-];
-
-function seedIsComplete(dir) {
-  return SEED_SENTINELS.every((parts) => fs.existsSync(path.join(dir, ...parts)));
-}
+const { seedIsComplete, describeMissingSentinels, describeSeedContents } = require('./helpers/seed_sentinels');
 
 function seedIsCurrent(dir) {
   if (!seedIsComplete(dir)) return false;
@@ -232,7 +223,14 @@ function getGoldenSeed() {
     });
     const seedElapsed = ((Date.now() - seedStart) / 1000).toFixed(1);
     if (!seedIsComplete(seedDir)) {
-      throw new Error(`[SEED] init did not produce a complete seed in ${seedElapsed}s (status ${res.status}). ${(res.stderr || '').trim().split('\n').slice(-5).join(' | ')}`);
+      const missing = describeMissingSentinels(seedDir);
+      const stderrTail = (res.stderr || '').trim().split('\n').slice(-8).join(' | ');
+      const stdoutTail = (res.stdout || '').trim().split('\n').slice(-15).join(' | ');
+      throw new Error(
+        `[SEED] init did not produce a complete seed in ${seedElapsed}s (status ${res.status}); `
+        + `missing: ${missing.join(', ')}. contents: ${describeSeedContents(seedDir)}. `
+        + `stdout: ${stdoutTail || '<empty>'} stderr: ${stderrTail || '<empty>'}`
+      );
     }
     stampSourceFingerprint(seedDir);
     console.log(`[SEED] Golden seed ready (${seedElapsed}s)`);
@@ -249,33 +247,7 @@ function getGoldenSeed() {
   }
 }
 
-function copySeedDir(seedDir, suiteHome) {
-  const src = `${seedDir}/.`;
-  const dest = `${suiteHome}/`;
-  const attempts = [
-    ['cp', '-a', '--reflink=auto', '--no-preserve=ownership', src, dest],
-    ['cp', '-a', '--no-preserve=ownership', src, dest],
-    ['cp', '-a', src, dest],
-    ['cp', '-r', '--no-preserve=ownership', src, dest],
-    ['cp', '-r', src, dest],
-  ];
-  for (const args of attempts) {
-    const res = spawnSync(args[0], args.slice(1), { encoding: 'utf-8' });
-    if (res.status === 0 && !res.error) {
-      ensureSeedNodeModules(suiteHome);
-      return;
-    }
-  }
-  const linkDir = path.join('.konoha', 'node_modules');
-  fs.cpSync(seedDir, suiteHome, {
-    recursive: true,
-    filter: (from) => {
-      const rel = path.relative(seedDir, from);
-      return rel !== linkDir && !rel.startsWith(`${linkDir}${path.sep}`);
-    }
-  });
-  ensureSeedNodeModules(suiteHome);
-}
+const { copySeedDir } = require('./helpers/seed_snapshot');
 
 function _armShardTimeoutIfNeeded() {
   if (shardWatchdog) return;
@@ -315,7 +287,7 @@ function createSuiteSnapshot(name) {
   const seed = getGoldenSeed();
   _armShardTimeoutIfNeeded();
   const suiteHome = fs.mkdtempSync(path.join(os.tmpdir(), 'konoha_suite_'));
-  copySeedDir(seed.dir, suiteHome);
+  copySeedDir(seed.dir, suiteHome, ensureSeedNodeModules);
   writeSuiteMeta(suiteHome, { runnerPid: process.pid, childPid: null, suite: name, createdAt: new Date().toISOString() });
 
   const konohaModules = path.join(suiteHome, '.konoha', 'node_modules');
