@@ -239,8 +239,16 @@ if (LINK_MODE) {
 // `./nodes/Plan` resolves against `nodes/plan.js` and disappears from the repo
 // side, so `installed <= repo` fails on Windows for a reason that is not a defect.
 const KNOWN_FALSE_POSITIVES = new Set(['./nodes/Plan', './yaml_utils']);
+// Copy mode cannot satisfy the src/ guarantee at all, so the shallow-copy escapes
+// validated above are expected there. In link mode any escape is a defect.
+const isDocumentedEscape = (item) => {
+  if (LINK_MODE) return false;
+  const target = path.resolve(path.dirname(item.file), item.specifier);
+  const rel = path.relative(KONOHA_HOME, target);
+  return rel.startsWith('..') || path.isAbsolute(rel);
+};
 for (const [label, list] of [['repo', repoUnresolved], ['installed', installedUnresolved]]) {
-  const unexpected = list.filter((item) => !KNOWN_FALSE_POSITIVES.has(item.specifier));
+  const unexpected = list.filter((item) => !KNOWN_FALSE_POSITIVES.has(item.specifier) && !isDocumentedEscape(item));
   assert.deepStrictEqual(
     unexpected.map((item) => `${label}: ${path.relative(KONOHA_HOME, item.file)} -> ${item.specifier}`),
     [],
