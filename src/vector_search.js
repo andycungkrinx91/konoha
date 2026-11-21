@@ -10,7 +10,6 @@ const { getConfigValue } = require('./config_access');
 /** Retrieval widths. Overridable so a large skill set can widen recall without a source edit. */
 const SKILL_TOP_K = getConfigValue('skill_top_k');
 const SKILL_CANDIDATE_K = getConfigValue('skill_candidate_k');
-const SEMANTIC_TOP_K = getConfigValue('semantic_top_k');
 
 const {
   VECTOR_DIMENSION,
@@ -492,7 +491,10 @@ function populateHybridSkillResults(conn, topCandidates) {
 }
 
 async function findSkillHybrid(conn, query, options = {}) {
-  const topK = options.topK || options.limit || SEMANTIC_TOP_K;
+  // A skill search is bounded by the skill width, not the semantic one: falling
+  // back to SEMANTIC_TOP_K (10) let the hybrid path return twice the top-5 the
+  // skill contract guarantees whenever a caller passed no topK.
+  const topK = options.topK || options.limit || Number(SKILL_TOP_K) || 5;
   const candidateK = options.candidateK || 30;
   if (!query || !query.trim()) return loadAllSkillsBrief(conn, topK);
 
