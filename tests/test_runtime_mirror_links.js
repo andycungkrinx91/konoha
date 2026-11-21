@@ -43,9 +43,33 @@ if (!fs.existsSync(KONOHA_HOME)) skip('~/.konoha is absent');
 if (!fs.existsSync(MIRROR_MCP)) skip('~/.konoha/src/mcp is absent');
 if (!fs.existsSync(MODEL_ROUTER)) skip('the installed mcp tree has no three_asset/model_router.js');
 
+// Linking is an optimisation the installer drops when the host refuses links (a
+// Windows runner without Developer Mode cannot create file symlinks). It then
+// keeps every src/ subdirectory as a real flat copy, so the guarantees differ by
+// mode: link mode resolves through src/, copy mode resolves inside the flat tree.
+// Assert the mode actually installed rather than the one this host prefers.
+const LINK_MODE = (() => {
+  try {
+    return fs.lstatSync(FLAT_MCP).isSymbolicLink();
+  } catch (_) {
+    return false;
+  }
+})();
+
 function testFlatNameIsLinked() {
   const stat = fs.lstatSync(FLAT_MCP);
-  assert.ok(stat.isSymbolicLink(), `${FLAT_MCP} is a real directory, not a link to ${MIRROR_MCP}`);
+  if (!LINK_MODE) {
+    assert.ok(
+      stat.isDirectory(),
+      `${FLAT_MCP} is neither a link to ${MIRROR_MCP} nor the copy-mode fallback directory`
+    );
+    assert.ok(
+      fs.existsSync(path.join(FLAT_MCP, 'three_asset', 'model_router.js')),
+      'copy-mode mcp/ must still contain the modules it is standing in for'
+    );
+    console.log('  ok   copy mode (host refuses links): mcp/ is a real directory with its modules');
+    return;
+  }
   const target = fs.readlinkSync(FLAT_MCP);
   assert.strictEqual(
     path.resolve(KONOHA_HOME, target),
@@ -89,12 +113,20 @@ function testManualSiblingLinkIsNotRequired() {
   try {
     mirrorRoot = fs.realpathSync(mirrorRoot);
   } catch (_) { /* keep the unresolved form if it cannot be resolved */ }
-  const goesThroughMirror = resolved.startsWith(mirrorRoot);
+  const goesThroughMirror = resolved.startsWith(mirrorRoot) || resolved.startsWith(path.resolve(KONOHA_HOME, 'src'));
   if (fs.existsSync(manual)) {
     console.log(`  ! note: a manual ${manual} link still exists; resolution no longer depends on it`);
   }
-  assert.ok(goesThroughMirror, `resolution does not pass through the mirrored src/ tree (${resolved})`);
-  console.log('  ✓ resolution is independent of a manual ~/.konoha/web link');
+  if (LINK_MODE) {
+    assert.ok(goesThroughMirror, `resolution does not pass through the mirrored src/ tree (${resolved})`);
+    console.log('  ✓ resolution is independent of a manual ~/.konoha/web link');
+    return;
+  }
+  assert.ok(
+    fs.existsSync(resolved),
+    `copy mode must still resolve the upward require, got ${resolved}`
+  );
+  console.log('  ok   copy mode: the upward require resolves inside the flat tree');
 }
 
 console.log('Running test_runtime_mirror_links: installed mirror resolution...');
