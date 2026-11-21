@@ -7,6 +7,7 @@ Single entry point for every live document. One topic, one source of truth. `doc
 | Topic key | Document | Answers |
 |---|---|---|
 | `architecture/system` | [ARCHITECTURE.md](ARCHITECTURE.md) | How the orchestrator, archetypes, routing, and tool surface fit together |
+| `release/v2.2.25` | [release/V2.2.25-RELEASE-PLAN.md](release/V2.2.25-RELEASE-PLAN.md) | Release scope for v2.2.25: every issue, its fix commit, its guarding test, and the gate state |
 | `architecture/canonical-api` | [architecture/CANONICAL-API.md](architecture/CANONICAL-API.md) | Authoritative exported API and MCP tool signatures |
 | `architecture/canonical-cli` | [architecture/CANONICAL-CLI.md](architecture/CANONICAL-CLI.md) | Authoritative CLI command tree and flags |
 | `architecture/canonical-naming` | [architecture/CANONICAL-NAMING.md](architecture/CANONICAL-NAMING.md) | Approved identifiers; blocks synonyms in code review |
