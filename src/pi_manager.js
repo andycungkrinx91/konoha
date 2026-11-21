@@ -13,6 +13,7 @@ const { buildPiBlockerExtensionSource } = require('./pi_blocker_template');
  */
 
 const fs = require('fs');
+const { fileExists, readJsonSafe, ensureDirSafe } = require('./pi_fs_helpers');
 const path = require('path');
 const { AISLOP_PACKAGE } = require('./uvx_runtime');
 const os = require('os');
@@ -360,14 +361,6 @@ function removePiBlockerExtension(silent = true) {
   }
 }
 
-function fileExists(p) {
-  try {
-    return fs.existsSync(p);
-  } catch (_) {
-    return false;
-  }
-}
-
 function isPiInstalled() {
   if (fileExists(path.join(HOME, '.pi', 'agent'))) return true;
   try {
@@ -377,14 +370,6 @@ function isPiInstalled() {
     return res.status === 0;
   } catch (_) {
     return false;
-  }
-}
-
-function readJsonSafe(filePath) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-  } catch (_) {
-    return null;
   }
 }
 
@@ -672,12 +657,6 @@ function getPiStatus(options = {}) {
     agentRosterComplete: missingAgentProfiles.length === 0,
     configPath: PI_MCP_CONFIG
   };
-}
-
-function ensureDirSafe(dir) {
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-  } catch (_) { /* intentional best-effort fallback: failure here must never crash the CLI/MCP runtime */ }
 }
 
 module.exports = {
