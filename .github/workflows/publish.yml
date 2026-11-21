@@ -23,10 +23,10 @@ jobs:
         with:
           run_install: false
 
-      - name: Set up Node.js 24
+      - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '24.x'
+          node-version-file: '.nvmrc'
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
 

@@ -86,11 +86,17 @@ check('the harness refuses a malformed shard instead of running everything', () 
 const TIMEOUT_RULE = 'the CI timeout is fixed at 3600000 ms (3600 s) by project policy - revert the timeout, do not edit this assertion';
 const mustMatch = (src, re, where) => assert.match(src, re, `${where} no longer carries the 3600 s timeout: ${TIMEOUT_RULE}`);
 
+// The sharded step itself lives in the shared composite action, so every OS
+// shard inherits the same timeout. Asserting it only in the workflow would pass
+// while the action that actually runs the suite carried something else.
+const shardAction = path.join(__dirname, '..', '.github', 'actions', 'konoha-test-shard', 'action.yml');
+const workflowPath = path.join(__dirname, '..', '.github', 'workflows', 'cross-platform.yml');
+
 check('the harness enforces a 3600s timeout for shard tests across workflow and runner', () => {
-  const wf = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'cross-platform.yml'), 'utf8');
-  mustMatch(wf, /KONOHA_TEST_TIMEOUT:\s*'3600000'/, 'workflow env KONOHA_TEST_TIMEOUT');
-  mustMatch(wf, /KONOHA_SHARD_TIMEOUT:\s*'3600000'/, 'workflow env KONOHA_SHARD_TIMEOUT');
-  mustMatch(wf, /timeout-minutes:\s*60\r?\n\s*run:\s*pnpm test/, 'workflow shard step ceiling');
+  const action = fs.readFileSync(shardAction, 'utf8');
+  mustMatch(action, /KONOHA_TEST_TIMEOUT:\s*'3600000'/, 'shard action env KONOHA_TEST_TIMEOUT');
+  mustMatch(action, /KONOHA_SHARD_TIMEOUT:\s*'3600000'/, 'shard action env KONOHA_SHARD_TIMEOUT');
+  mustMatch(action, /timeout-minutes:\s*60\r?\n\s*run:\s*pnpm test/, 'shard action step ceiling');
   const runnerSrc = fs.readFileSync(harness, 'utf8');
   mustMatch(runnerSrc, /KONOHA_SHARD_TIMEOUT[^\n]*3600000/, 'run_all.js KONOHA_SHARD_TIMEOUT');
   mustMatch(runnerSrc, /KONOHA_TEST_TIMEOUT[^\n]*3600000/, 'run_all.js KONOHA_TEST_TIMEOUT');
@@ -100,6 +106,99 @@ check('the harness enforces a 3600s timeout for shard tests across workflow and 
   const sandboxSrc = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'sandbox.js'), 'utf8');
   mustMatch(sandboxSrc, /KONOHA_TEST_TIMEOUT=.*3600000/, 'sandbox.js KONOHA_TEST_TIMEOUT');
   mustMatch(sandboxSrc, /KONOHA_SHARD_TIMEOUT=.*3600000/, 'sandbox.js KONOHA_SHARD_TIMEOUT');
+});
+
+// The suite is split into one job per OS so each OS owns its shard count and
+// its `needs`. The invariant that matters: the matrix length must equal the
+// shard_total the job passes down. A shorter matrix silently drops shards (the
+// dropped suites never run) and a longer one asks the harness for a shard index
+// above its count, which run_all.js rejects at runtime instead of here.
+check('cross-platform.yml runs one job per OS with matching shard counts', () => {
+  const wf = fs.readFileSync(workflowPath, 'utf8');
+  const action = fs.readFileSync(shardAction, 'utf8');
+  assert.match(action, /KONOHA_TEST_SHARD:\s*\$\{\{ inputs\.shard \}\}\/\$\{\{ inputs\.shard_total \}\}/, 'shard action must forward its inputs to KONOHA_TEST_SHARD');
+
+  const expected = { 'test-ubuntu': 10, 'test-macos': 5, 'test-windows': 20 };
+  // Split the workflow into job blocks by their 2-space `job-id:` header, so an
+  // assertion cannot read past the end of the job it names.
+  const blocks = {};
+  let current = null;
+  for (const line of wf.split('\n')) {
+    const header = /^ {2}([a-z][a-z0-9-]*):\s*$/.exec(line);
+    if (header) {
+      current = header[1];
+      blocks[current] = [];
+    }
+    if (current) blocks[current].push(line);
+  }
+  for (const [job, total] of Object.entries(expected)) {
+    assert.ok(blocks[job], `${job} job is missing from the workflow`);
+    const block = blocks[job].join('\n');
+    const matrix = /shard:\s*\[([^\]]+)\]/.exec(block);
+    assert.ok(matrix, `${job} has no shard matrix`);
+    const shards = matrix[1].split(',').filter((s) => s.trim());
+    assert.strictEqual(shards.length, total, `${job} matrix must list ${total} shards, found ${shards.length}`);
+    // The shard count must not be a second literal beside the matrix: derive it
+    // from the matrix length, so the two cannot drift apart.
+    assert.match(block, /shard_total: \$\{\{ strategy\.job-total \}\}/, `${job} must derive shard_total from strategy.job-total`);
+    assert.doesNotMatch(block, /shard_total: '[0-9]+'/, `${job} must not hardcode shard_total`);
+    assert.match(block, /uses: \.\/\.github\/actions\/konoha-test-shard/, `${job} must use the shared shard action`);
+    // Distinct shard indices 1..N, so the partition is complete and nothing repeats.
+    assert.deepStrictEqual(shards.map((s) => Number(s)), Array.from({ length: total }, (_, i) => i + 1), `${job} shard indices must be 1..${total}`);
+  }
+
+  // GitHub Free allows 5 concurrent macOS jobs; `checks` is the sixth macOS job,
+  // so the macOS shards must wait for it rather than compete with it.
+  assert.match(blocks['test-macos'].join('\n'), /needs:\s*\[seed, checks\]/, 'macOS shards must need [seed, checks] to stay inside the 5-runner cap');
+  assert.ok(expected['test-macos'] <= 5, 'macOS shard count must not exceed the 5 concurrent macOS runners');
+});
+
+// The owner's no-hardcoded-values rule: the Node version lives in one file and
+// every setup-node step points at it, so a runtime bump cannot land on three of
+// four workflows.
+check('the Node version is declared once and every workflow reads it from there', () => {
+  const nvmrc = path.join(__dirname, '..', '.nvmrc');
+  assert.ok(fs.existsSync(nvmrc), '.nvmrc must exist as the single runtime version source');
+  assert.match(fs.readFileSync(nvmrc, 'utf8').trim(), /^\d+(\.\d+)*$/, '.nvmrc must hold a version, not a range like 24.x');
+  const files = [
+    path.join(__dirname, '..', '.github', 'workflows', 'cross-platform.yml'),
+    path.join(__dirname, '..', '.github', 'workflows', 'publish.yml'),
+    path.join(__dirname, '..', '.github', 'workflows', 'release-assets.yml'),
+    shardAction,
+  ];
+  for (const file of files) {
+    const src = fs.readFileSync(file, 'utf8');
+    assert.doesNotMatch(src, /node-version:\s*'?\d/, `${path.basename(file)} hardcodes node-version; use node-version-file: .nvmrc`);
+  }
+  assert.match(fs.readFileSync(shardAction, 'utf8'), /node-version-file: \$\{\{ inputs\.node_version_file \}\}/, 'the shard action must take the version file as an input');
+});
+
+// The split renamed the shard job, so any act invocation still naming `test`
+// would fail with "job not found" instead of running the suite.
+check('package.json act scripts name jobs that exist in the workflow', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+  const wf = fs.readFileSync(workflowPath, 'utf8');
+  const jobNames = [...wf.matchAll(/^ {2}([a-z][a-z0-9-]*):\s*$/gm)].map((m) => m[1]);
+  for (const [name, cmd] of Object.entries(pkg.scripts)) {
+    const target = /-j\s+([a-z][a-z0-9-]*)/.exec(cmd);
+    if (!target) continue;
+    assert.ok(jobNames.includes(target[1]), `script "${name}" targets job "${target[1]}", which cross-platform.yml does not define (has: ${jobNames.join(', ')})`);
+  }
+});
+
+// A hyphenated job id cannot be read with dot syntax: `needs.test-ubuntu` parses
+// as `needs.test` minus `ubuntu` and the summary job silently loses its inputs.
+check('hyphenated job ids are read with bracket notation, not dot syntax', () => {
+  const wf = fs.readFileSync(workflowPath, 'utf8');
+  const hyphenated = [...wf.matchAll(/^ {2}([a-z][a-z0-9]*-[a-z0-9-]*):\s*$/gm)].map((m) => m[1]);
+  assert.ok(hyphenated.length > 0, 'expected at least one hyphenated job id (test-ubuntu, test-macos, test-windows)');
+  for (const job of hyphenated) {
+    const dotted = new RegExp(`needs\\.${job}\\b`);
+    assert.doesNotMatch(wf, dotted, `needs.${job} parses as subtraction; use needs['${job}'].result`);
+  }
+  for (const job of hyphenated) {
+    assert.match(wf, new RegExp(`needs\\['${job}'\\]`), `the summary job must read needs['${job}']`);
+  }
 });
 
 check('parsePositiveTimeoutMs rejects invalid, zero, and negative env values cleanly', () => {

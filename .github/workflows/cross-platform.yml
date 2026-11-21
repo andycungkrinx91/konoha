@@ -3,7 +3,7 @@ name: Cross-Platform
 # Runs the repo checks on all three supported OSes for every push to master and
 # every pull request. Tags are deliberately NOT a trigger: a tag is a release
 # event, and `publish.yml` / `release-assets.yml` own it. Tagging must not be
-# gated on — or stalled behind — a 30-minute, 35-job test matrix.
+# gated on — or stalled behind — a 40-minute, 42-job test matrix.
 # The README CI badge therefore reads the default branch
 # (`cross-platform.yml?branch=master`), which is the run that actually exists.
 # The publish and release-assets workflows stay tag-only on ubuntu-latest; this
@@ -17,13 +17,24 @@ name: Cross-Platform
 # Duration targets (docs/CI.md, "Duration budget"): ubuntu < 10 min,
 # macos < 20 min, windows < 30 min. The suite is the only term large enough to
 # matter, so it is split across shards on separate runners — one runner cannot
-# be made fast enough by tuning. Shard counts are tuned for GitHub Free limits
-# (256 matrix jobs/run max; 20 concurrent jobs total; 5 concurrent macOS jobs):
-#   - windows-latest: 16 shards (~18 suites/shard; avoids the 17 min 8-shard run)
-#   - ubuntu-latest:  8 shards  (~36 suites/shard; finishes quickly and frees slots)
-#   - macos-latest:   4 shards  (+ the macOS `checks` job = 5, the concurrent
-#                     macOS cap exactly; 5 shards made 6 and GitHub cancelled
-#                     the two jobs that never acquired a runner)
+# be made fast enough by tuning.
+#
+# One job per OS (`test-ubuntu`, `test-macos`, `test-windows`) rather than one
+# mixed matrix: each OS then owns its own shard count, `needs`, and timeout, and
+# the shared ~180 lines of setup live once in
+# `.github/actions/konoha-test-shard`. The three jobs differ only in runner,
+# shard count and `needs`.
+#
+# Shard counts are tuned for GitHub Free limits (256 matrix jobs/run max; 20
+# concurrent jobs total; 5 concurrent macOS jobs):
+#   - ubuntu-latest:  10 shards (~36 suites/shard; finishes quickly and frees slots)
+#   - windows-latest: 20 shards (~18 suites/shard; the slowest OS, so the most
+#                     shards — avoids the 17 min 8-shard run)
+#   - macos-latest:    5 shards (~72 suites/shard), `needs: [seed, checks]` so the
+#                     macOS `checks` job is finished before any macOS shard starts.
+#                     5 is the concurrent macOS cap exactly; a 6th macOS job in
+#                     flight made GitHub cancel the two that never acquired a
+#                     runner.
 #
 # The test step has no `continue-on-error`: a failing suite turns the workflow
 # red. Sharding cannot hide a failure, because each shard must run a non-empty
@@ -37,7 +48,7 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: 'checks = lint + fresh install on 3 OSes (3 jobs, ~5 min); full = the sharded suite matrix (31 jobs)'
+        description: 'checks = lint + fresh install on 3 OSes (4 jobs, ~5 min); full = checks + seed + 35 shard jobs (42 jobs)'
         type: choice
         options: [checks, full]
         default: checks
@@ -50,6 +61,13 @@ on:
 
 permissions:
   contents: read
+
+# Declared once. `SOURCE_DATE_EPOCH` is the reproducible-build timestamp baked
+# into the web build; every job reads it from here rather than repeating the
+# literal. The Node version is not here either: it lives in .nvmrc, which every
+# setup-node step points at with `node-version-file`, so a bump is one file.
+env:
+  SOURCE_DATE_EPOCH: '1760000000'
 
 concurrency:
   group: cross-platform-${{ github.ref }}
@@ -79,10 +97,10 @@ jobs:
         with:
           run_install: false
 
-      - name: Set up Node.js 24
+      - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '24.x'
+          node-version-file: '.nvmrc'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -132,10 +150,10 @@ jobs:
         with:
           run_install: false
 
-      - name: Set up Node.js 24
+      - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '24.x'
+          node-version-file: '.nvmrc'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -154,7 +172,7 @@ jobs:
 
       - name: Build web
         env:
-          SOURCE_DATE_EPOCH: '1760000000'
+          SOURCE_DATE_EPOCH: ${{ env.SOURCE_DATE_EPOCH }}
         run: pnpm --filter konoha-web build
 
       - name: Restore golden seed
@@ -181,300 +199,83 @@ jobs:
           path: ${{ runner.temp }}/konoha_golden_seed
           key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**','assets/**') }}
 
-  test:
-    name: ${{ matrix.os }} shard ${{ matrix.shard }}/${{ matrix.shard_total }}
+  # The three test jobs below are the same action with a different shard count
+  # and `needs`. Everything they share — pnpm/Node, the golden seed, Playwright,
+  # ffmpeg with libwebp_anim, model prefetch, Xvfb, the sharded run — lives in
+  # .github/actions/konoha-test-shard so a fix cannot land on one OS only.
+  test-ubuntu:
+    name: ubuntu-latest shard ${{ matrix.shard }}/${{ strategy.job-total }}
     needs: [seed]
     if: github.event_name != 'workflow_dispatch' || inputs.scope == 'full'
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
       # One shard failing must not cancel the others — the per-shard signal is
       # what says which suite broke.
       fail-fast: false
-      # Per-OS shard matrix (28 test jobs + 3 checks jobs = 31 jobs <= 256 limit),
-      # asymmetric to respect GitHub Free concurrency (20 total, 5 macOS max).
       matrix:
-        include:
-          - os: ubuntu-latest
-            shard: 1
-            shard_total: 8
-          - os: ubuntu-latest
-            shard: 2
-            shard_total: 8
-          - os: ubuntu-latest
-            shard: 3
-            shard_total: 8
-          - os: ubuntu-latest
-            shard: 4
-            shard_total: 8
-          - os: ubuntu-latest
-            shard: 5
-            shard_total: 8
-          - os: ubuntu-latest
-            shard: 6
-            shard_total: 8
-          - os: ubuntu-latest
-            shard: 7
-            shard_total: 8
-          - os: ubuntu-latest
-            shard: 8
-            shard_total: 8
-          - os: macos-latest
-            shard: 1
-            shard_total: 4
-          - os: macos-latest
-            shard: 2
-            shard_total: 4
-          - os: macos-latest
-            shard: 3
-            shard_total: 4
-          - os: macos-latest
-            shard: 4
-            shard_total: 4
-          - os: windows-latest
-            shard: 1
-            shard_total: 16
-          - os: windows-latest
-            shard: 2
-            shard_total: 16
-          - os: windows-latest
-            shard: 3
-            shard_total: 16
-          - os: windows-latest
-            shard: 4
-            shard_total: 16
-          - os: windows-latest
-            shard: 5
-            shard_total: 16
-          - os: windows-latest
-            shard: 6
-            shard_total: 16
-          - os: windows-latest
-            shard: 7
-            shard_total: 16
-          - os: windows-latest
-            shard: 8
-            shard_total: 16
-          - os: windows-latest
-            shard: 9
-            shard_total: 16
-          - os: windows-latest
-            shard: 10
-            shard_total: 16
-          - os: windows-latest
-            shard: 11
-            shard_total: 16
-          - os: windows-latest
-            shard: 12
-            shard_total: 16
-          - os: windows-latest
-            shard: 13
-            shard_total: 16
-          - os: windows-latest
-            shard: 14
-            shard_total: 16
-          - os: windows-latest
-            shard: 15
-            shard_total: 16
-          - os: windows-latest
-            shard: 16
-            shard_total: 16
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6.1.1
+      - name: Prepare and run shard
+        uses: ./.github/actions/konoha-test-shard
         with:
-          run_install: false
+          shard: ${{ matrix.shard }}
+          # strategy.job-total is the matrix length, so the shard count has one
+          # definition (the matrix list) instead of a second literal that can
+          # drift away from it.
+          shard_total: ${{ strategy.job-total }}
+          source_date_epoch: ${{ env.SOURCE_DATE_EPOCH }}
 
-      - name: Set up Node.js 24
-        uses: actions/setup-node@v5
+  test-macos:
+    name: macos-latest shard ${{ matrix.shard }}/${{ strategy.job-total }}
+    # `needs: [seed, checks]` keeps the macOS `checks` job ahead of the shards:
+    # checks + 5 shards would be 6 concurrent macOS jobs and GitHub cancels the
+    # ones that never acquire a runner. Sequencing them holds the peak at 5.
+    needs: [seed, checks]
+    if: github.event_name != 'workflow_dispatch' || inputs.scope == 'full'
+    runs-on: macos-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Prepare and run shard
+        uses: ./.github/actions/konoha-test-shard
         with:
-          node-version: '24.x'
-          cache: 'pnpm'
+          shard: ${{ matrix.shard }}
+          # strategy.job-total is the matrix length, so the shard count has one
+          # definition (the matrix list) instead of a second literal that can
+          # drift away from it.
+          shard_total: ${{ strategy.job-total }}
+          source_date_epoch: ${{ env.SOURCE_DATE_EPOCH }}
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # Fresh checkouts ignore apps/web/build (apps/web/.gitignore:3) but
-      # tests/test_manifest_invariants.js:72 requires apps/web/build/index.js.
-      # Built before the seed on purpose: `konoha init` builds the UI on demand
-      # when no build of the current version exists, and resolveWebBuildSource()
-      # prefers apps/web/build when there is one. Without this step first the seed
-      # build runs a second full SvelteKit build instead of copying this one.
-      - name: Restore Hugging Face model cache
-        uses: actions/cache@v4
+  test-windows:
+    name: windows-latest shard ${{ matrix.shard }}/${{ strategy.job-total }}
+    needs: [seed]
+    if: github.event_name != 'workflow_dispatch' || inputs.scope == 'full'
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Prepare and run shard
+        uses: ./.github/actions/konoha-test-shard
         with:
-          path: |
-            node_modules/@huggingface/transformers/.cache
-            ~/.cache/huggingface
-            ~/.konoha/models
-          key: konoha-hf-models-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/vector_pipeline.js') }}
-          restore-keys: |
-            konoha-hf-models-${{ runner.os }}-
-
-      - name: Build web
-        env:
-          SOURCE_DATE_EPOCH: '1760000000'
-        run: pnpm --filter konoha-web build
-
-      # The golden seed is a full `konoha init` HOME (~400 MB) that every suite
-      # is copied from. It is content-addressed by the same tree hash the
-      # harness validates (tests/run_all.js sourceFingerprint over src, bin and
-      # scripts), so a hit is provably the seed this commit needs and a miss
-      # rebuilds it. Building it costs ~4 minutes on every OS and used to land
-      # inside whichever suite started first, blocking all workers.
-      - name: Restore golden seed
-        id: seed-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/konoha_golden_seed
-          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**','assets/**') }}
-
-      - name: Build golden seed
-        if: steps.seed-cache.outputs.cache-hit != 'true'
-        timeout-minutes: 30
-        env:
-          KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
-        run: node tests/run_all.js --seed-only
-
-      # Saved explicitly rather than through the action's post-step: the post
-      # step skips on a red job, and a suite failure would otherwise re-pay the
-      # seed build on every subsequent run. continue-on-error because the key is
-      # content-addressed: several shards can miss together and build the same
-      # seed, and the losers' saves are refused as already-present. That is a
-      # cache optimisation failing, not a check failing.
-      - name: Save golden seed
-        if: steps.seed-cache.outputs.cache-hit != 'true'
-        continue-on-error: true
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/konoha_golden_seed
-          key: konoha-seed-${{ runner.os }}-${{ hashFiles('package.json','pnpm-lock.yaml','src/**','bin/**','scripts/**','assets/**') }}
-
-      # Bare runners have no browser cache. The harness forwards
-      # PLAYWRIGHT_BROWSERS_PATH (tests/run_all.js), defaulting to
-      # ~/.cache/ms-playwright — so install to the shared runner.temp path
-      # and export the same path for the test step. The cache keeps the
-      # ~120 MB chromium download off every run; the install step still runs
-      # because Linux also needs the apt-side system libraries.
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Install Playwright browsers (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Install Playwright browsers (Windows/macOS)
-        if: matrix.os != 'ubuntu-latest'
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
-        run: pnpm exec playwright install chromium
-
-      # tests/test_document_animation_webp.js asserts the animated WebP export,
-      # which needs an ffmpeg build with the `libwebp_anim` encoder. The macOS
-      # image ships no ffmpeg at all and the Windows image's build may lack the
-      # encoder; the module falls back to a static PNG without it, so provision
-      # one explicitly and keep the runner's ffmpeg when it already qualifies.
-      - name: Ensure ffmpeg with libwebp (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          if ! ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libwebp_anim; then
-            sudo apt-get update
-            sudo apt-get install -y ffmpeg
-          fi
-
-      # homebrew-core `ffmpeg` is built without --enable-libwebp, so installing
-      # it yields a binary with no `libwebp_anim` encoder. `ffmpeg-full` is the
-      # variant that enables libwebp, and it is keg_only (:versioned_formula), so
-      # its bin dir has to be appended to PATH explicitly.
-      - name: Ensure ffmpeg with libwebp (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libwebp_anim; then
-            exit 0
-          fi
-          brew install ffmpeg-full
-          echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
-
-      # The Windows image's ffmpeg may lack the encoder, and
-      # community.chocolatey.org answers 504 under load — which cost shard 16/16
-      # of run 43868450771 a whole job before a single test ran. `choco install`
-      # also exits 0 when the feed times out ("Unable to find package"), so the
-      # exit code proves nothing and the encoder probe is the only real signal.
-      # Retry here and fail this step, rather than leaving the verify step to
-      # discover it after the install already reported success.
-      - name: Ensure ffmpeg with libwebp (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          function Test-LibwebpAnim {
-            # Prepend the shim dir so the freshly installed ffmpeg wins over
-            # whichever binary the runner shipped with, without dropping the
-            # entries earlier steps appended via $GITHUB_PATH.
-            $env:Path = "C:\ProgramData\chocolatey\bin;$env:Path"
-            try { $encoders = (& ffmpeg -hide_banner -encoders 2>$null) -join "`n" } catch { return $false }
-            return $encoders -match 'libwebp_anim'
-          }
-          if (Test-LibwebpAnim) { Write-Host 'runner ffmpeg already exposes libwebp_anim'; exit 0 }
-          for ($attempt = 1; $attempt -le 3; $attempt++) {
-            Write-Host "choco install ffmpeg (attempt $attempt/3)"
-            # --force: a choco package that already reports installed would
-            # otherwise no-op, and the probe would keep failing on the same
-            # binary for all three attempts.
-            choco install ffmpeg -y --no-progress --force
-            if (Test-LibwebpAnim) { exit 0 }
-            Start-Sleep -Seconds (15 * $attempt)
-          }
-          Write-Host '::error::could not provision an ffmpeg exposing libwebp_anim in 3 attempts'
-          exit 1
-
-      # One probe for all three OSes, so a failure must say which binary it
-      # rejected: the three provisioning legs differ and the runner's ffmpeg is
-      # a plausible suspect every time.
-      - name: Verify ffmpeg webp encoder
-        run: |
-          node -e 'const{spawnSync}=require("child_process");const enc=spawnSync("ffmpeg",["-hide_banner","-encoders"],{encoding:"utf8"});if(enc.stdout&&enc.stdout.includes("libwebp_anim")){console.log("ffmpeg exposes libwebp_anim");process.exit(0);}const ver=spawnSync("ffmpeg",["-hide_banner","-version"],{encoding:"utf8"});const which=(ver.stdout||"").split("\n")[0]||(ver.error?"ffmpeg not on PATH ("+ver.error.code+")":"ffmpeg not on PATH");console.error("ffmpeg build lacks the libwebp_anim encoder");console.error("resolved:",which);process.exit(1);'
-
-      # test_code_intel_search.js asserts the semantic tier reports `available`,
-      # which needs the Granite and MiniLM artifacts on disk. Warming them here
-      # keeps an HF download hiccup from surfacing as an unrelated failing
-      # suite, and names the network when that is what broke.
-      - name: Prefetch semantic models
-        timeout-minutes: 20
-        # Every shard runs this, so a Hub outage must not redden the whole matrix:
-        # the one shard that owns test_code_intel_search.js fails with the reason.
-        continue-on-error: true
-        run: node scripts/prefetch_semantic_models.js
-
-      # tests/test_qa_headed_smoke.js fails closed in CI without a display; the
-      # test starts its own Xvfb on Linux when the binary is present.
-      - name: Install Xvfb (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y xvfb
-
-      # Full suite via tests/run_all.js, split into the shard this job owns.
-      # Parallel mode is the harness's own feature (KONOHA_TEST_PARALLEL=1,
-      # concurrency 4, with a sequential pool for suites that must run alone).
-      # KONOHA_TEST_SHARD is I/N; the harness refuses an empty shard rather than
-      # reporting it green.
-      # No continue-on-error: a failing suite must turn the workflow red.
-      - name: Test (shard)
-        env:
-          KONOHA_TEST_PARALLEL: '1'
-          KONOHA_TEST_SHARD: ${{ matrix.shard }}/${{ matrix.shard_total }}
-          KONOHA_TEST_TIMEOUT: '3600000'
-          KONOHA_SHARD_TIMEOUT: '3600000'
-          KONOHA_SEED_DIR: ${{ runner.temp }}/konoha_golden_seed
-          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
-        timeout-minutes: 60
-        run: pnpm test
+          shard: ${{ matrix.shard }}
+          # strategy.job-total is the matrix length, so the shard count has one
+          # definition (the matrix list) instead of a second literal that can
+          # drift away from it.
+          shard_total: ${{ strategy.job-total }}
+          source_date_epoch: ${{ env.SOURCE_DATE_EPOCH }}
 
   # One place that states what actually ran. A skipped job is reported as
   # SKIPPED, never folded into a pass: on a `scope: checks` dispatch the sharded
@@ -482,14 +283,16 @@ jobs:
   summary:
     name: Result summary
     if: always()
-    needs: [checks, seed, test]
+    needs: [checks, seed, test-ubuntu, test-macos, test-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Report per-job result
         env:
           CHECKS: ${{ needs.checks.result }}
           SEED: ${{ needs.seed.result }}
-          TEST: ${{ needs.test.result }}
+          TEST_UBUNTU: ${{ needs['test-ubuntu'].result }}
+          TEST_MACOS: ${{ needs['test-macos'].result }}
+          TEST_WINDOWS: ${{ needs['test-windows'].result }}
           SCOPE: ${{ inputs.scope || 'n/a' }}
           EVENT: ${{ github.event_name }}
         run: |
@@ -498,7 +301,9 @@ jobs:
             const rows = [
               ["checks (lint + fresh install, 3 OSes)", process.env.CHECKS],
               ["seed (golden seed, 3 OSes)", process.env.SEED],
-              ["test (sharded suite, 28 jobs)", process.env.TEST],
+              ["test-ubuntu (sharded suite)", process.env.TEST_UBUNTU],
+              ["test-macos (sharded suite)", process.env.TEST_MACOS],
+              ["test-windows (sharded suite)", process.env.TEST_WINDOWS],
             ];
             const label = (r) => {
               if (r === "success") return "PASS";
