@@ -94,6 +94,45 @@ function testFallbackCopySurvivesLinks() {
   console.log('  ok   a linked directory resolves inside the snapshot');
 }
 
+function testAbsoluteSeedLinksAreRepaired() {
+  // Windows left the snapshot's links pointing at the seed, so a snapshot copy
+  // must never keep a link that resolves outside itself. An absolute seed link is
+  // the portable way to reproduce that.
+  const absSeed = path.join(sandbox, 'abs-seed');
+  fs.mkdirSync(path.join(absSeed, '.konoha', 'src', 'mcp'), { recursive: true });
+  fs.writeFileSync(path.join(absSeed, '.konoha', 'src', 'agent_contract.js'), 'module.exports = "contract";\n');
+  fs.writeFileSync(path.join(absSeed, '.konoha', 'src', 'mcp', 'tool_dispatch.js'), '// dispatch\n');
+  fs.symlinkSync(
+    path.join(absSeed, '.konoha', 'src', 'agent_contract.js'),
+    path.join(absSeed, '.konoha', 'agent_contract.js')
+  );
+
+  const dest = path.join(sandbox, 'abs-suite');
+  fs.mkdirSync(dest, { recursive: true });
+  copySeedDir(absSeed, dest, null);
+
+  const flat = path.join(dest, '.konoha', 'agent_contract.js');
+  assert.ok(fs.existsSync(flat), 'the repaired snapshot must still resolve the flat entry');
+  let resolved = null;
+  try {
+    resolved = fs.realpathSync(flat);
+  } catch (_) {
+    resolved = null;
+  }
+  assert.ok(resolved, 'the flat entry must resolve after repair');
+  const rel = path.relative(dest, resolved);
+  assert.ok(
+    !rel.startsWith('..') && !path.isAbsolute(rel),
+    `a snapshot link must not resolve outside the snapshot, got ${resolved}`
+  );
+  assert.strictEqual(
+    fs.readFileSync(flat, 'utf8'),
+    'module.exports = "contract";\n',
+    'the repaired entry must carry the mirrored content'
+  );
+  console.log('  ok   an absolute seed link is repaired to resolve inside the snapshot');
+}
+
 function testNoLeftoverLinkArtifacts() {
   const dest = path.join(sandbox, 'suite');
   const stray = [];
@@ -119,6 +158,7 @@ try {
   buildSeed();
   testCpSyncCollisionIsPlatformDependent();
   testFallbackCopySurvivesLinks();
+  testAbsoluteSeedLinksAreRepaired();
   testNoLeftoverLinkArtifacts();
 } finally {
   fs.rmSync(sandbox, { recursive: true, force: true });
