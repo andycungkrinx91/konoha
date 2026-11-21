@@ -84,6 +84,20 @@ function run() {
   assertRefused('unconfigured project file (router)', guards().router);
   assertRefused('unconfigured project file (common)', guards().common);
 
+  // A refusal must be actionable: the reader needs to know which boundary was hit
+  // and which variable moves it, or the only report they can file is the raw path.
+  for (const [label, fn] of [['router', guards().router], ['common', guards().common]]) {
+    let message = '';
+    try {
+      fn();
+    } catch (err) {
+      message = err.message;
+    }
+    assert.ok(message.includes('KONOHA_ALLOWED_ROOTS'), `${label}: refusal must name KONOHA_ALLOWED_ROOTS, got: ${message}`);
+    assert.ok(message.includes('WORKSPACE_ROOT'), `${label}: refusal must name WORKSPACE_ROOT, got: ${message}`);
+  }
+  console.log('  ok   a refusal names the boundary and both remedies');
+
   setEnv(projectRoot);
   assertAllowed('named root (router)', guards().router);
   assertAllowed('named root (common)', guards().common);

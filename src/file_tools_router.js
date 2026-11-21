@@ -320,8 +320,10 @@ function assertWithinAllowed(resolvedPath) {
     }
   }
 
-  // Path outside workspace boundary
-  throw new Error(`Path outside workspace: ${resolvedPath}`);
+  // Name the boundary and the remedy: a bare path leaves nothing to act on.
+  throw new Error(
+    `Path outside workspace: ${resolvedPath}. Allowed: the workspace root (${wsNorm}) or any root in KONOHA_ALLOWED_ROOTS. Set WORKSPACE_ROOT to the project, or add it to KONOHA_ALLOWED_ROOTS (path-delimiter separated) and restart the MCP server.`
+  );
 }
 
 

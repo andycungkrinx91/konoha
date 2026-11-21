@@ -268,7 +268,14 @@ function assertWithinAllowed(resolvedPath, baseDir = null, devRoot = null) {
     }
   }
 
-  throw new Error(`Path outside workspace: ${resolvedPath}`);
+  // Name the boundary and the remedy: a bare path leaves the reader with nothing
+  // to act on, and this refusal is the most common report against the file tools.
+  throw new Error(
+    `Path outside workspace: ${resolvedPath}. `
+    + `Allowed: the workspace root (${wsNorm}), any root named in KONOHA_ALLOWED_ROOTS, `
+    + 'or a Konoha scratch directory. Set WORKSPACE_ROOT to the project, or add it to '
+    + 'KONOHA_ALLOWED_ROOTS (path-delimiter separated) and restart the MCP server.'
+  );
 }
 
 function resolvePath(rawPath, baseDir = null, devRoot = null) {
